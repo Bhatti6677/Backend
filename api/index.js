@@ -65488,6 +65488,24 @@ router.post("/register", async (req, res, next) => {
 });
 router.post("/login", async (req, res, next) => {
   try {
+    const rawPhone = String(req.body?.phone || req.body?.username || "").trim();
+    if (rawPhone && !rawPhone.match(/^[0-9+]{10,15}$/)) {
+      const adminMatch = await prisma.adminUser.findFirst({
+        where: {
+          OR: [
+            { username: { equals: rawPhone, mode: "insensitive" } },
+            { email: { equals: rawPhone, mode: "insensitive" } }
+          ]
+        }
+      });
+      if (adminMatch) {
+        return res.status(400).json({
+          error: "Administrator credentials detected. Please log in at the Administrator Portal: /adminpanal",
+          isAdmin: true,
+          redirectUrl: "/adminpanal"
+        });
+      }
+    }
     const validated = loginSchema.parse(req.body);
     const normalizedPhone = normalizePhone(validated.phone);
     const user = await prisma.user.findUnique({
@@ -80369,7 +80387,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"')) {
+        if (content.includes('id="root"') && content.includes("index-DmWpBnIF.js")) {
           return content;
         }
       } catch (err) {
@@ -80387,8 +80405,13 @@ function getAdminSpaHtml() {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FFD45A'><path d='M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z'/></svg>" />
-    <script type="module" crossorigin src="/assets/index-CbLHUUmO.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-C_zKc3OY.css">
+    <script>
+      if (window.location.pathname === '/' || window.location.pathname === '/login') {
+        window.location.replace('/adminpanal');
+      }
+    </script>
+    <script type="module" crossorigin src="/assets/index-DmWpBnIF.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D11m1lQb.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -80537,11 +80560,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("main-DdTqJtDZ.js")) {
-        return res.redirect(302, "/assets/main-DdTqJtDZ.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-DmWpBnIF.js")) {
+        return res.redirect(302, "/assets/index-DmWpBnIF.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("main-BGm-DLJ3.css")) {
-        return res.redirect(302, "/assets/main-BGm-DLJ3.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-D11m1lQb.css")) {
+        return res.redirect(302, "/assets/index-D11m1lQb.css");
       }
       return res.status(404).end();
     }
@@ -80549,6 +80572,9 @@ function createApp() {
   });
   app2.use((req, res, next) => {
     if ((req.method === "GET" || req.method === "HEAD") && !req.path.startsWith("/api") && !req.path.startsWith("/assets")) {
+      if (req.path === "/" || req.path === "/login") {
+        return res.redirect(302, "/adminpanal");
+      }
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       if (req.method === "HEAD") {
         return res.status(200).end();

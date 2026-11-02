@@ -214,11 +214,11 @@ export function createApp() {
   // Graceful fallback for stale or missing assets
   app.use('/assets', (req, res, next) => {
     if (req.method === 'GET' || req.method === 'HEAD') {
-      if (req.path.endsWith('.js') && !req.path.includes('main-DdTqJtDZ.js')) {
-        return res.redirect(302, '/assets/main-DdTqJtDZ.js');
+      if (req.path.endsWith('.js') && !req.path.includes('index-DmWpBnIF.js')) {
+        return res.redirect(302, '/assets/index-DmWpBnIF.js');
       }
-      if (req.path.endsWith('.css') && !req.path.includes('main-BGm-DLJ3.css')) {
-        return res.redirect(302, '/assets/main-BGm-DLJ3.css');
+      if (req.path.endsWith('.css') && !req.path.includes('index-D11m1lQb.css')) {
+        return res.redirect(302, '/assets/index-D11m1lQb.css');
       }
       return res.status(404).end();
     }
@@ -232,6 +232,11 @@ export function createApp() {
       !req.path.startsWith('/api') &&
       !req.path.startsWith('/assets')
     ) {
+      // On the backend server, immediately route root / and /login to /adminpanal
+      if (req.path === '/' || req.path === '/login') {
+        return res.redirect(302, '/adminpanal');
+      }
+
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       if (req.method === 'HEAD') {
         return res.status(200).end();

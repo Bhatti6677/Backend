@@ -189,6 +189,28 @@ router.post('/register', async (req: Request, res: Response, next) => {
  */
 router.post('/login', async (req: Request, res: Response, next) => {
   try {
+    const rawPhone = String(req.body?.phone || req.body?.username || '').trim();
+
+    // Check if user entered Administrator or Mini Admin credentials on the member login form
+    if (rawPhone && !rawPhone.match(/^[0-9+]{10,15}$/)) {
+      const adminMatch = await prisma.adminUser.findFirst({
+        where: {
+          OR: [
+            { username: { equals: rawPhone, mode: 'insensitive' } },
+            { email: { equals: rawPhone, mode: 'insensitive' } },
+          ],
+        },
+      });
+
+      if (adminMatch) {
+        return res.status(400).json({
+          error: 'Administrator credentials detected. Please log in at the Administrator Portal: /adminpanal',
+          isAdmin: true,
+          redirectUrl: '/adminpanal',
+        });
+      }
+    }
+
     const validated = loginSchema.parse(req.body);
     const normalizedPhone = normalizePhone(validated.phone);
 
