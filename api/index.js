@@ -66126,10 +66126,7 @@ var taskProgressionService = {
     const l4Completed = l3Completed && (levelStatsByNumber.get(4)?.isCompleted || false);
     const isLevel4Unlocked = l3Completed;
     const isLevel4Reached = Boolean(
-      l3Completed || (levelStatsByNumber.get(4)?.approvedCount || 0) > 0 || l4Completed || userLevelProgressList.some((lp) => {
-        const lvl = allLevels.find((l) => l.id === lp.levelId);
-        return lvl && lvl.levelNumber >= 4;
-      })
+      l3Completed || (levelStatsByNumber.get(4)?.approvedCount || 0) > 0 || l4Completed
     );
     const hasWithdrawnLevel1 = userWithdrawalsList.length > 0;
     let isLevelUnlocked = false;
@@ -80509,7 +80506,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-BinfCNT5.js")) {
+        if (content.includes('id="root"') && content.includes("index-CJ4vP-T9.js")) {
           return content;
         }
       } catch (err) {
@@ -80532,7 +80529,7 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-BinfCNT5.js"></script>
+    <script type="module" crossorigin src="/assets/index-CJ4vP-T9.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-D6CwZ1Xa.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
@@ -80682,8 +80679,8 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-BinfCNT5.js")) {
-        return res.redirect(302, "/assets/index-BinfCNT5.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-CJ4vP-T9.js")) {
+        return res.redirect(302, "/assets/index-CJ4vP-T9.js");
       }
       if (req.path.endsWith(".css") && !req.path.includes("index-D6CwZ1Xa.css")) {
         return res.redirect(302, "/assets/index-D6CwZ1Xa.css");

@@ -214,8 +214,8 @@ export function createApp() {
   // Graceful fallback for stale or missing assets
   app.use('/assets', (req, res, next) => {
     if (req.method === 'GET' || req.method === 'HEAD') {
-      if (req.path.endsWith('.js') && !req.path.includes('index-BinfCNT5.js')) {
-        return res.redirect(302, '/assets/index-BinfCNT5.js');
+      if (req.path.endsWith('.js') && !req.path.includes('index-CJ4vP-T9.js')) {
+        return res.redirect(302, '/assets/index-CJ4vP-T9.js');
       }
       if (req.path.endsWith('.css') && !req.path.includes('index-D6CwZ1Xa.css')) {
         return res.redirect(302, '/assets/index-D6CwZ1Xa.css');

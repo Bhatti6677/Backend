@@ -145,11 +145,7 @@ export const taskProgressionService = {
     const isLevel4Reached = Boolean(
       l3Completed ||
       (levelStatsByNumber.get(4)?.approvedCount || 0) > 0 ||
-      l4Completed ||
-      userLevelProgressList.some((lp) => {
-        const lvl = allLevels.find((l) => l.id === lp.levelId);
-        return lvl && lvl.levelNumber >= 4;
-      })
+      l4Completed
     );
 
     const hasWithdrawnLevel1 = userWithdrawalsList.length > 0;
