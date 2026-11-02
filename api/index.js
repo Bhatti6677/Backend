@@ -77648,84 +77648,100 @@ router11.get(["/notifications/counts", "/pending-counts"], requireAdmin, async (
     next(error62);
   }
 });
-router11.get("/dashboard", requireAdmin, requireSuperAdmin, async (req, res, next) => {
+router11.get("/dashboard", requireAdmin, async (req, res, next) => {
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     if (isMiniAdmin) {
-      const [
-        totalUsers2,
-        activeUsers2,
-        totalTasks2,
-        pendingSubmissions2,
-        approvedLevel1Rewards,
-        recentActivity2
-      ] = await Promise.all([
-        prisma.user.count({
-          where: {
-            taskProgress: {
-              none: {
-                status: "APPROVED",
-                task: { level: { levelNumber: { gt: 1 } } }
-              }
-            }
+      try {
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "telegramChatId" TEXT;
+        `);
+      } catch (e) {
+      }
+      const miniAdminRecord = await prisma.adminUser.findUnique({
+        where: { id: req.admin.id },
+        select: { id: true, username: true, email: true, telegramChatId: true }
+      });
+      const chatId = miniAdminRecord?.telegramChatId?.trim() || null;
+      let telegramAccount = null;
+      let invitedRows = [];
+      if (chatId) {
+        try {
+          const tgRows = await prisma.$queryRawUnsafe(`
+            SELECT "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota"
+            FROM "TelegramUser"
+            WHERE "chatId" = $1
+            LIMIT 1
+          `, chatId);
+          if (tgRows.length > 0) {
+            telegramAccount = tgRows[0];
+          } else {
+            telegramAccount = {
+              chatId,
+              username: null,
+              firstName: "Telegram User",
+              totalQuota: 0,
+              codesGenerated: 0,
+              remainingQuota: 0
+            };
           }
-        }),
-        prisma.user.count({
-          where: {
-            accountStatus: "ACTIVE",
-            taskProgress: {
-              none: {
-                status: "APPROVED",
-                task: { level: { levelNumber: { gt: 1 } } }
-              }
-            }
+          invitedRows = await prisma.$queryRawUnsafe(`
+            SELECT "usedByName", "usedAt", "code"
+            FROM "AdminReferralCode"
+            WHERE "status" = 'USED'
+              AND ("notes" LIKE $1 OR "notes" = $2)
+            ORDER BY "usedAt" DESC NULLS LAST
+          `, `%TG:${chatId}%`, `TG:${chatId}`);
+        } catch (err) {
+          console.error("Error fetching mini admin telegram performance:", err);
+        }
+      }
+      const pendingSubmissions2 = await prisma.taskSubmission.count({
+        where: {
+          status: "PENDING",
+          task: { level: { levelNumber: 1 } }
+        }
+      });
+      const now = /* @__PURE__ */ new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(startOfToday);
+      startOfWeek.setDate(startOfWeek.getDate() - 7);
+      let invitedToday = 0;
+      let invitedThisWeek = 0;
+      const dateMap = /* @__PURE__ */ new Map();
+      for (const row of invitedRows) {
+        const d = row.usedAt ? new Date(row.usedAt) : null;
+        if (d) {
+          if (d >= startOfToday) invitedToday += 1;
+          if (d >= startOfWeek) invitedThisWeek += 1;
+          const dateStr = d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+          if (!dateMap.has(dateStr)) {
+            dateMap.set(dateStr, { date: dateStr, count: 0, names: [] });
           }
-        }),
-        prisma.task.count({ where: { level: { levelNumber: 1 } } }),
-        prisma.taskSubmission.count({
-          where: {
-            status: "PENDING",
-            task: { level: { levelNumber: 1 } }
+          const entry = dateMap.get(dateStr);
+          entry.count += 1;
+          if (row.usedByName && !entry.names.includes(row.usedByName)) {
+            entry.names.push(row.usedByName);
           }
-        }),
-        prisma.walletTransaction.aggregate({
-          where: {
-            transactionType: "TASK_REWARD",
-            status: "COMPLETED",
-            user: {
-              levelProgress: {
-                some: { level: { levelNumber: 1 } }
-              }
-            }
-          },
-          _sum: { amount: true }
-        }),
-        prisma.adminAuditLog.findMany({
-          where: {
-            OR: [
-              { adminId: req.admin.id },
-              { action: { in: ["TASK_SUBMISSION_APPROVE", "TASK_SUBMISSION_REJECT"] } }
-            ]
-          },
-          orderBy: { createdAt: "desc" },
-          take: 8
-        })
-      ]);
+        }
+      }
+      const dateBreakdown = Array.from(dateMap.values());
       return res.json({
-        metrics: {
-          totalUsers: totalUsers2,
-          activeUsers: activeUsers2,
-          totalTasks: totalTasks2,
+        isMiniAdmin: true,
+        performance: {
+          telegramAccount,
+          totalInvited: invitedRows.length,
+          invitedToday,
+          invitedThisWeek,
           pendingSubmissions: pendingSubmissions2,
-          pendingDeposits: 0,
-          pendingWithdrawals: 0,
-          totalDepositsAmount: 0,
-          totalPaidWithdrawalsAmount: 0,
-          totalApprovedRewardsAmount: approvedLevel1Rewards._sum.amount || 0,
-          totalReferrals: 0
-        },
-        recentActivity: recentActivity2,
-        recentTransactions: []
+          dateBreakdown,
+          invitedUsers: invitedRows.map((r) => ({
+            name: r.usedByName || "Anonymous User",
+            // ONLY NAME! NO USER DETAILS!
+            date: r.usedAt,
+            code: r.code
+          }))
+        }
       });
     }
     const [
@@ -78856,14 +78872,18 @@ router11.put("/levels/:levelId", requireAdmin, requireSuperAdmin, async (req, re
 router11.get("/submissions", requireAdmin, async (req, res, next) => {
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
-    const status = (req.query.status || "").trim();
+    const status = isMiniAdmin ? "PENDING" : (req.query.status || "").trim();
     const search = (req.query.search || "").trim();
     const levelNumber = isMiniAdmin ? 1 : req.query.level ? parseInt(req.query.level, 10) : void 0;
     const page = parseInt(req.query.page || "1", 10);
     const limit = parseInt(req.query.limit || "20", 10);
     const skip = (page - 1) * limit;
     const where = {};
-    if (status) where.status = status;
+    if (isMiniAdmin) {
+      where.status = "PENDING";
+    } else if (status) {
+      where.status = status;
+    }
     if (levelNumber) where.task = { level: { levelNumber } };
     if (search) {
       where.AND = [
@@ -78871,7 +78891,7 @@ router11.get("/submissions", requireAdmin, async (req, res, next) => {
         {
           OR: [
             { user: { name: { contains: search, mode: "insensitive" } } },
-            { user: { phone: { contains: search } } },
+            ...isMiniAdmin ? [] : [{ user: { phone: { contains: search } } }],
             { user: { referralCode: { contains: search, mode: "insensitive" } } },
             { user: { id: { contains: search } } },
             { id: { contains: search } }
@@ -78883,7 +78903,7 @@ router11.get("/submissions", requireAdmin, async (req, res, next) => {
       prisma.taskSubmission.findMany({
         where,
         include: {
-          user: { select: { id: true, name: true, phone: true } },
+          user: { select: { id: true, name: true, phone: !isMiniAdmin } },
           task: { include: { level: true } }
         },
         orderBy: { createdAt: "desc" },
@@ -80191,10 +80211,17 @@ router11.post("/telegram-users/:chatId/grant", requireAdmin, requireSuperAdmin, 
 var createMiniAdminSchema = external_exports.object({
   email: external_exports.string().email("A valid Gmail or email address is required"),
   password: external_exports.string().min(6, "Password must be at least 6 characters"),
-  username: external_exports.string().optional()
+  username: external_exports.string().optional(),
+  telegramChatId: external_exports.string().optional().nullable()
 });
 router11.get("/mini-admins", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
+    try {
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "telegramChatId" TEXT;
+      `);
+    } catch (e) {
+    }
     const miniAdmins = await prisma.adminUser.findMany({
       where: { role: "MINI_ADMIN" },
       select: {
@@ -80204,28 +80231,62 @@ router11.get("/mini-admins", requireAdmin, requireSuperAdmin, async (req, res, n
         role: true,
         status: true,
         otpSecret: true,
+        telegramChatId: true,
         createdAt: true,
         updatedAt: true
       },
       orderBy: { createdAt: "desc" }
     });
-    const result = miniAdmins.map((admin) => {
-      let otpData = { otp: "------", secondsRemaining: 0, currentWindowIndex: 0 };
-      if (admin.otpSecret) {
-        otpData = getMiniAdminOtp(admin.otpSecret);
+    let tgMap = /* @__PURE__ */ new Map();
+    try {
+      const tgUsers = await getAllTelegramUsers();
+      for (const t of tgUsers) {
+        tgMap.set(t.chatId, t);
       }
-      return {
-        id: admin.id,
-        username: admin.username,
-        email: admin.email,
-        role: admin.role,
-        status: admin.status,
-        currentOtp: otpData.otp,
-        otpSecondsRemaining: otpData.secondsRemaining,
-        createdAt: admin.createdAt,
-        updatedAt: admin.updatedAt
-      };
-    });
+    } catch (e) {
+    }
+    const result = await Promise.all(
+      miniAdmins.map(async (admin) => {
+        let otpData = { otp: "------", secondsRemaining: 0, currentWindowIndex: 0 };
+        if (admin.otpSecret) {
+          otpData = getMiniAdminOtp(admin.otpSecret);
+        }
+        let invitedUsersCount = 0;
+        if (admin.telegramChatId) {
+          try {
+            const countRows = await prisma.$queryRawUnsafe(`
+              SELECT COUNT(*)::int AS count
+              FROM "AdminReferralCode"
+              WHERE "status" = 'USED'
+                AND ("notes" LIKE $1 OR "notes" = $2)
+            `, `%TG:${admin.telegramChatId}%`, `TG:${admin.telegramChatId}`);
+            invitedUsersCount = Number(countRows[0]?.count || 0);
+          } catch (e) {
+          }
+        }
+        const tgInfo = admin.telegramChatId ? tgMap.get(admin.telegramChatId) || null : null;
+        return {
+          id: admin.id,
+          username: admin.username,
+          email: admin.email,
+          role: admin.role,
+          status: admin.status,
+          currentOtp: otpData.otp,
+          otpSecondsRemaining: otpData.secondsRemaining,
+          telegramChatId: admin.telegramChatId || null,
+          telegramUser: tgInfo ? {
+            chatId: tgInfo.chatId,
+            username: tgInfo.username,
+            firstName: tgInfo.firstName,
+            remainingQuota: tgInfo.remainingQuota,
+            totalQuota: tgInfo.totalQuota
+          } : null,
+          invitedUsersCount,
+          createdAt: admin.createdAt,
+          updatedAt: admin.updatedAt
+        };
+      })
+    );
     res.json({ miniAdmins: result });
   } catch (err) {
     next(err);
@@ -80233,9 +80294,10 @@ router11.get("/mini-admins", requireAdmin, requireSuperAdmin, async (req, res, n
 });
 router11.post("/mini-admins", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
-    const { email: email3, password, username } = createMiniAdminSchema.parse(req.body);
+    const { email: email3, password, username, telegramChatId } = createMiniAdminSchema.parse(req.body);
     const cleanEmail = email3.trim().toLowerCase();
     const finalUsername = username && username.trim() ? username.trim() : cleanEmail;
+    const cleanChatId = telegramChatId && telegramChatId.trim() ? telegramChatId.trim() : null;
     const existing = await prisma.adminUser.findFirst({
       where: {
         OR: [
@@ -80257,7 +80319,8 @@ router11.post("/mini-admins", requireAdmin, requireSuperAdmin, async (req, res, 
         passwordHash,
         role: "MINI_ADMIN",
         status: "ACTIVE",
-        otpSecret
+        otpSecret,
+        telegramChatId: cleanChatId
       }
     });
     const otpData = getMiniAdminOtp(otpSecret);
@@ -80267,7 +80330,7 @@ router11.post("/mini-admins", requireAdmin, requireSuperAdmin, async (req, res, 
       action: "CREATE_MINI_ADMIN",
       entityType: "AdminUser",
       entityId: newAdmin.id,
-      details: { email: cleanEmail, username: finalUsername },
+      details: { email: cleanEmail, username: finalUsername, telegramChatId: cleanChatId },
       reason: `Master Admin created Mini Admin account ${cleanEmail}`,
       ipAddress: req.ip
     });
@@ -80279,10 +80342,54 @@ router11.post("/mini-admins", requireAdmin, requireSuperAdmin, async (req, res, 
         username: newAdmin.username,
         role: newAdmin.role,
         status: newAdmin.status,
+        telegramChatId: newAdmin.telegramChatId,
         currentOtp: otpData.otp,
         otpSecondsRemaining: otpData.secondsRemaining,
         createdAt: newAdmin.createdAt
       }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.put("/mini-admins/:id/telegram", requireAdmin, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const { telegramChatId } = external_exports.object({
+      telegramChatId: external_exports.string().nullable().optional()
+    }).parse(req.body);
+    const miniAdmin = await prisma.adminUser.findUnique({
+      where: { id }
+    });
+    if (!miniAdmin || miniAdmin.role !== "MINI_ADMIN") {
+      return res.status(404).json({ error: "Mini Admin account not found" });
+    }
+    const cleanChatId = telegramChatId && telegramChatId.trim() ? telegramChatId.trim() : null;
+    const updated = await prisma.adminUser.update({
+      where: { id },
+      data: { telegramChatId: cleanChatId },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        role: true,
+        status: true,
+        telegramChatId: true
+      }
+    });
+    await logAdminAction({
+      adminId: req.admin.id,
+      adminUsername: req.admin.username,
+      action: "UPDATE_MINI_ADMIN_TELEGRAM",
+      entityType: "AdminUser",
+      entityId: id,
+      details: { telegramChatId: cleanChatId },
+      reason: `Master Admin assigned Telegram invite account ${cleanChatId || "None"} to Mini Admin ${miniAdmin.email || miniAdmin.username}`,
+      ipAddress: req.ip
+    });
+    res.json({
+      message: "Mini Admin assigned Telegram account updated successfully",
+      miniAdmin: updated
     });
   } catch (err) {
     next(err);
@@ -80506,7 +80613,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-DEYhqP46.js")) {
+        if (content.includes('id="root"') && content.includes("index-BLIRZbd8.js")) {
           return content;
         }
       } catch (err) {
@@ -80529,8 +80636,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-DEYhqP46.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-B5V26Iwi.css">
+    <script type="module" crossorigin src="/assets/index-BLIRZbd8.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DAPbTyGq.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -80679,11 +80786,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-DEYhqP46.js")) {
-        return res.redirect(302, "/assets/index-DEYhqP46.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-BLIRZbd8.js")) {
+        return res.redirect(302, "/assets/index-BLIRZbd8.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-B5V26Iwi.css")) {
-        return res.redirect(302, "/assets/index-B5V26Iwi.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-DAPbTyGq.css")) {
+        return res.redirect(302, "/assets/index-DAPbTyGq.css");
       }
       return res.status(404).end();
     }

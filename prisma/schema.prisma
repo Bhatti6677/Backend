@@ -55,15 +55,16 @@ model Session {
 }
 
 model AdminUser {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  email        String?
-  passwordHash String
-  role         String   @default("SUPER_ADMIN") // SUPER_ADMIN, ADMIN, MINI_ADMIN
-  status       String   @default("ACTIVE")
-  otpSecret    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(cuid())
+  username       String   @unique
+  email          String?
+  passwordHash   String
+  role           String   @default("SUPER_ADMIN") // SUPER_ADMIN, ADMIN, MINI_ADMIN
+  status         String   @default("ACTIVE")
+  otpSecret      String?
+  telegramChatId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Level {
