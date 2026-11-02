@@ -77866,9 +77866,9 @@ router11.get("/users", requireAdmin, requireSuperAdmin, async (req, res, next) =
     }
     if (search) {
       where.OR = [
-        { name: { contains: search } },
+        { name: { contains: search, mode: "insensitive" } },
         { phone: { contains: search } },
-        { referralCode: { contains: search } },
+        { referralCode: { contains: search, mode: "insensitive" } },
         { id: { contains: search } }
       ];
     }
@@ -78860,6 +78860,7 @@ router11.get("/submissions", requireAdmin, async (req, res, next) => {
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     const status = (req.query.status || "").trim();
+    const search = (req.query.search || "").trim();
     const levelNumber = isMiniAdmin ? 1 : req.query.level ? parseInt(req.query.level, 10) : void 0;
     const page = parseInt(req.query.page || "1", 10);
     const limit = parseInt(req.query.limit || "20", 10);
@@ -78867,6 +78868,20 @@ router11.get("/submissions", requireAdmin, async (req, res, next) => {
     const where = {};
     if (status) where.status = status;
     if (levelNumber) where.task = { level: { levelNumber } };
+    if (search) {
+      where.AND = [
+        ...where.AND || [],
+        {
+          OR: [
+            { user: { name: { contains: search, mode: "insensitive" } } },
+            { user: { phone: { contains: search } } },
+            { user: { referralCode: { contains: search, mode: "insensitive" } } },
+            { user: { id: { contains: search } } },
+            { id: { contains: search } }
+          ]
+        }
+      ];
+    }
     const [submissions, total] = await Promise.all([
       prisma.taskSubmission.findMany({
         where,
@@ -79194,11 +79209,27 @@ router11.post("/submissions/batch-review", requireAdmin, async (req, res, next) 
 router11.get("/deposits", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const status = (req.query.status || "").trim();
+    const search = (req.query.search || "").trim();
     const page = parseInt(req.query.page || "1", 10);
     const limit = parseInt(req.query.limit || "20", 10);
     const skip = (page - 1) * limit;
     const where = {};
     if (status) where.status = status;
+    if (search) {
+      where.AND = [
+        ...where.AND || [],
+        {
+          OR: [
+            { user: { name: { contains: search, mode: "insensitive" } } },
+            { user: { phone: { contains: search } } },
+            { user: { referralCode: { contains: search, mode: "insensitive" } } },
+            { user: { id: { contains: search } } },
+            { transactionId: { contains: search, mode: "insensitive" } },
+            { senderAccount: { contains: search } }
+          ]
+        }
+      ];
+    }
     const [deposits, total] = await Promise.all([
       prisma.depositRequest.findMany({
         where,
@@ -79347,12 +79378,28 @@ router11.get("/withdrawals", requireAdmin, requireSuperAdmin, async (req, res, n
   try {
     const approvalStatus = (req.query.approvalStatus || "").trim();
     const paymentStatus = (req.query.paymentStatus || "").trim();
+    const search = (req.query.search || "").trim();
     const page = parseInt(req.query.page || "1", 10);
     const limit = parseInt(req.query.limit || "20", 10);
     const skip = (page - 1) * limit;
     const where = {};
     if (approvalStatus) where.approvalStatus = approvalStatus;
     if (paymentStatus) where.paymentStatus = paymentStatus;
+    if (search) {
+      where.AND = [
+        ...where.AND || [],
+        {
+          OR: [
+            { user: { name: { contains: search, mode: "insensitive" } } },
+            { user: { phone: { contains: search } } },
+            { user: { referralCode: { contains: search, mode: "insensitive" } } },
+            { user: { id: { contains: search } } },
+            { accountNumber: { contains: search } },
+            { accountTitle: { contains: search, mode: "insensitive" } }
+          ]
+        }
+      ];
+    }
     const [withdrawals, total] = await Promise.all([
       prisma.withdrawalRequest.findMany({
         where,
@@ -79790,7 +79837,31 @@ router11.post("/spin/prizes", requireAdmin, requireSuperAdmin, async (req, res, 
 });
 router11.get("/referrals", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
+    const search = (req.query.search || "").trim();
+    let where = {};
+    if (search) {
+      const matchingUsers = await prisma.user.findMany({
+        where: {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { phone: { contains: search } },
+            { referralCode: { contains: search, mode: "insensitive" } },
+            { id: { contains: search } }
+          ]
+        },
+        select: { id: true },
+        take: 100
+      });
+      const matchedIds = matchingUsers.map((u) => u.id);
+      where = {
+        OR: [
+          { referrerId: { in: matchedIds } },
+          { referredId: { in: matchedIds } }
+        ]
+      };
+    }
     const referrals = await prisma.referral.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       take: 50
     });
@@ -79817,11 +79888,27 @@ router11.get("/referrals", requireAdmin, requireSuperAdmin, async (req, res, nex
 router11.get("/transactions", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const transactionType = (req.query.type || "").trim();
+    const search = (req.query.search || "").trim();
     const page = parseInt(req.query.page || "1", 10);
     const limit = parseInt(req.query.limit || "20", 10);
     const skip = (page - 1) * limit;
     const where = {};
     if (transactionType) where.transactionType = transactionType;
+    if (search) {
+      where.AND = [
+        ...where.AND || [],
+        {
+          OR: [
+            { user: { name: { contains: search, mode: "insensitive" } } },
+            { user: { phone: { contains: search } } },
+            { user: { referralCode: { contains: search, mode: "insensitive" } } },
+            { user: { id: { contains: search } } },
+            { description: { contains: search, mode: "insensitive" } },
+            { referenceId: { contains: search } }
+          ]
+        }
+      ];
+    }
     const [transactions, total] = await Promise.all([
       prisma.walletTransaction.findMany({
         where,
@@ -80419,7 +80506,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-aHYT8SzU.js")) {
+        if (content.includes('id="root"') && content.includes("index-BinfCNT5.js")) {
           return content;
         }
       } catch (err) {
@@ -80442,8 +80529,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-aHYT8SzU.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-D11m1lQb.css">
+    <script type="module" crossorigin src="/assets/index-BinfCNT5.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D6CwZ1Xa.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -80592,11 +80679,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-aHYT8SzU.js")) {
-        return res.redirect(302, "/assets/index-aHYT8SzU.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-BinfCNT5.js")) {
+        return res.redirect(302, "/assets/index-BinfCNT5.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-D11m1lQb.css")) {
-        return res.redirect(302, "/assets/index-D11m1lQb.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-D6CwZ1Xa.css")) {
+        return res.redirect(302, "/assets/index-D6CwZ1Xa.css");
       }
       return res.status(404).end();
     }

@@ -425,9 +425,9 @@ router.get('/users', requireAdmin, requireSuperAdmin, async (req: AdminAuthReque
     }
     if (search) {
       where.OR = [
-        { name: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } },
-        { referralCode: { contains: search } },
+        { referralCode: { contains: search, mode: 'insensitive' } },
         { id: { contains: search } },
       ];
     }
@@ -1568,6 +1568,7 @@ router.get('/submissions', requireAdmin, async (req: AdminAuthRequest, res: Resp
   try {
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     const status = (req.query.status as string || '').trim();
+    const search = (req.query.search as string || '').trim();
     const levelNumber = isMiniAdmin ? 1 : (req.query.level ? parseInt(req.query.level as string, 10) : undefined);
     const page = parseInt(req.query.page as string || '1', 10);
     const limit = parseInt(req.query.limit as string || '20', 10);
@@ -1576,6 +1577,20 @@ router.get('/submissions', requireAdmin, async (req: AdminAuthRequest, res: Resp
     const where: any = {};
     if (status) where.status = status;
     if (levelNumber) where.task = { level: { levelNumber } };
+    if (search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { user: { name: { contains: search, mode: 'insensitive' } } },
+            { user: { phone: { contains: search } } },
+            { user: { referralCode: { contains: search, mode: 'insensitive' } } },
+            { user: { id: { contains: search } } },
+            { id: { contains: search } },
+          ],
+        },
+      ];
+    }
 
     const [submissions, total] = await Promise.all([
       prisma.taskSubmission.findMany({
@@ -1965,12 +1980,28 @@ router.post('/submissions/batch-review', requireAdmin, async (req: AdminAuthRequ
 router.get('/deposits', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const status = (req.query.status as string || '').trim();
+    const search = (req.query.search as string || '').trim();
     const page = parseInt(req.query.page as string || '1', 10);
     const limit = parseInt(req.query.limit as string || '20', 10);
     const skip = (page - 1) * limit;
 
     const where: any = {};
     if (status) where.status = status;
+    if (search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { user: { name: { contains: search, mode: 'insensitive' } } },
+            { user: { phone: { contains: search } } },
+            { user: { referralCode: { contains: search, mode: 'insensitive' } } },
+            { user: { id: { contains: search } } },
+            { transactionId: { contains: search, mode: 'insensitive' } },
+            { senderAccount: { contains: search } },
+          ],
+        },
+      ];
+    }
 
     const [deposits, total] = await Promise.all([
       prisma.depositRequest.findMany({
@@ -2145,6 +2176,7 @@ router.get('/withdrawals', requireAdmin, requireSuperAdmin, async (req: AdminAut
   try {
     const approvalStatus = (req.query.approvalStatus as string || '').trim();
     const paymentStatus = (req.query.paymentStatus as string || '').trim();
+    const search = (req.query.search as string || '').trim();
     const page = parseInt(req.query.page as string || '1', 10);
     const limit = parseInt(req.query.limit as string || '20', 10);
     const skip = (page - 1) * limit;
@@ -2152,6 +2184,21 @@ router.get('/withdrawals', requireAdmin, requireSuperAdmin, async (req: AdminAut
     const where: any = {};
     if (approvalStatus) where.approvalStatus = approvalStatus;
     if (paymentStatus) where.paymentStatus = paymentStatus;
+    if (search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { user: { name: { contains: search, mode: 'insensitive' } } },
+            { user: { phone: { contains: search } } },
+            { user: { referralCode: { contains: search, mode: 'insensitive' } } },
+            { user: { id: { contains: search } } },
+            { accountNumber: { contains: search } },
+            { accountTitle: { contains: search, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
 
     const [withdrawals, total] = await Promise.all([
       prisma.withdrawalRequest.findMany({
@@ -2652,7 +2699,32 @@ router.post('/spin/prizes', requireAdmin, requireSuperAdmin, async (req: AdminAu
 
 router.get('/referrals', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
+    const search = (req.query.search as string || '').trim();
+    let where: any = {};
+    if (search) {
+      const matchingUsers = await prisma.user.findMany({
+        where: {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search } },
+            { referralCode: { contains: search, mode: 'insensitive' } },
+            { id: { contains: search } },
+          ],
+        },
+        select: { id: true },
+        take: 100,
+      });
+      const matchedIds = matchingUsers.map((u) => u.id);
+      where = {
+        OR: [
+          { referrerId: { in: matchedIds } },
+          { referredId: { in: matchedIds } },
+        ],
+      };
+    }
+
     const referrals = await prisma.referral.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
@@ -2684,12 +2756,28 @@ router.get('/referrals', requireAdmin, requireSuperAdmin, async (req: AdminAuthR
 router.get('/transactions', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const transactionType = (req.query.type as string || '').trim();
+    const search = (req.query.search as string || '').trim();
     const page = parseInt(req.query.page as string || '1', 10);
     const limit = parseInt(req.query.limit as string || '20', 10);
     const skip = (page - 1) * limit;
 
     const where: any = {};
     if (transactionType) where.transactionType = transactionType;
+    if (search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { user: { name: { contains: search, mode: 'insensitive' } } },
+            { user: { phone: { contains: search } } },
+            { user: { referralCode: { contains: search, mode: 'insensitive' } } },
+            { user: { id: { contains: search } } },
+            { description: { contains: search, mode: 'insensitive' } },
+            { referenceId: { contains: search } },
+          ],
+        },
+      ];
+    }
 
     const [transactions, total] = await Promise.all([
       prisma.walletTransaction.findMany({
