@@ -10,11 +10,7 @@
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key",
-        "Access-Control-Max-Age": "86400",
-        "X-Frame-Options": "DENY",
-        "X-Content-Type-Options": "nosniff",
-        "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-        "Referrer-Policy": "strict-origin-when-cross-origin"
+        "Access-Control-Max-Age": "86400"
       }
     },
     {
@@ -22,46 +18,33 @@
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key",
-        "X-Frame-Options": "DENY",
-        "X-Content-Type-Options": "nosniff",
-        "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-        "Referrer-Policy": "strict-origin-when-cross-origin"
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key"
       },
       "continue": true
     },
     {
       "src": "/assets/(.*)",
       "headers": {
-        "cache-control": "public, max-age=31536000, immutable",
-        "X-Content-Type-Options": "nosniff"
+        "cache-control": "public, max-age=31536000, immutable"
       },
       "dest": "/assets/$1"
     },
     {
       "src": "/images/(.*)",
       "headers": {
-        "cache-control": "public, max-age=86400",
-        "X-Content-Type-Options": "nosniff"
+        "cache-control": "public, max-age=86400"
       },
       "dest": "/images/$1"
     },
     {
       "src": "/favicon.ico",
       "headers": {
-        "cache-control": "public, max-age=86400",
-        "X-Content-Type-Options": "nosniff"
+        "cache-control": "public, max-age=86400"
       },
       "dest": "/favicon.ico"
     },
     {
       "src": "/(.*)",
-      "headers": {
-        "X-Frame-Options": "DENY",
-        "X-Content-Type-Options": "nosniff",
-        "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-        "Referrer-Policy": "strict-origin-when-cross-origin"
-      },
       "dest": "/api/index"
     }
   ]

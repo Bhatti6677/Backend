@@ -64790,16 +64790,22 @@ import_dotenv.default.config({ path: path.resolve(__dirname, "../.env.production
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env.production") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), ".env") });
-var dbUrl = process.env.DATABASE_URL || "";
+var FALLBACK_DATABASE_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
+var FALLBACK_DIRECT_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres";
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = FALLBACK_DATABASE_URL;
+}
+if (!process.env.DIRECT_URL) {
+  process.env.DIRECT_URL = FALLBACK_DIRECT_URL;
+}
+var dbUrl = process.env.DATABASE_URL || FALLBACK_DATABASE_URL;
 var globalForPrisma = globalThis;
 var prisma = globalForPrisma.prisma ?? new PrismaClient({
-  ...dbUrl ? {
-    datasources: {
-      db: {
-        url: dbUrl
-      }
+  datasources: {
+    db: {
+      url: dbUrl
     }
-  } : {},
+  },
   log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"]
 });
 if (!globalForPrisma.prisma) globalForPrisma.prisma = prisma;
@@ -64818,8 +64824,8 @@ import_dotenv2.default.config({ path: path2.resolve(process.cwd(), "backend/.env
 import_dotenv2.default.config({ path: path2.resolve(process.cwd(), ".env") });
 var config2 = {
   port: parseInt(process.env.PORT || "5000", 10),
-  jwtSecret: process.env.JWT_SECRET || "",
-  adminSecret: process.env.ADMIN_SECRET || "",
+  jwtSecret: process.env.JWT_SECRET || "royal-rewards-super-secret-jwt-key-2026",
+  adminSecret: process.env.ADMIN_SECRET || "royal-rewards-admin-secret-key-2026",
   nodeEnv: process.env.NODE_ENV || "development",
   corsOrigin: process.env.CORS_ORIGIN || "*"
 };
@@ -64858,8 +64864,8 @@ async function requireAuth(req, res, next) {
 }
 
 // src/services/telegramService.ts
-var TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
-var TELEGRAM_ACCESS_PASSWORD = process.env.TELEGRAM_ACCESS_PASSWORD || "";
+var TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "9295985286:AAHb0EQFD-OMsd5bfrNgaPMTfkUDm4-Gph8";
+var TELEGRAM_ACCESS_PASSWORD = process.env.TELEGRAM_ACCESS_PASSWORD || "9989GHYRT89";
 var TG_API_BASE = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 var tableEnsured = false;
 async function ensureTelegramUserTable() {
@@ -74769,11 +74775,10 @@ function shouldShowDeprecationWarning() {
 if (shouldShowDeprecationWarning()) console.warn("\u26A0\uFE0F  Node.js 20 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 22 or later. For more information, visit: https://github.com/orgs/supabase/discussions/45715");
 
 // src/utils/supabase.ts
-var supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-var supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-var supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+var supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://vzgjygtbdkezaerygjbp.supabase.co";
+var supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_4EqCtWIiEIwm3ETQvxeOgA_fUcSKkiJ";
+var supabase = createClient(supabaseUrl, supabaseKey);
 async function sendUserLiveCommand(userId, commandType, payload = {}) {
-  if (!supabase) return;
   try {
     const channel = supabase.channel(`royal_live_user_${userId}`);
     const dataPayload = { targetUserId: userId, commandType, ...payload, timestamp: Date.now() };
@@ -81048,7 +81053,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-1xc05EcQ.js")) {
+        if (content.includes('id="root"') && content.includes("index-DJNP6Gxn.js")) {
           return content;
         }
       } catch (err) {
@@ -81071,7 +81076,7 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-1xc05EcQ.js"></script>
+    <script type="module" crossorigin src="/assets/index-DJNP6Gxn.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-BmaOnTtl.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
@@ -81089,7 +81094,7 @@ function createApp() {
   app2.use((req, res, next) => {
     res.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
     );
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -81261,8 +81266,8 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-1xc05EcQ.js")) {
-        return res.redirect(302, "/assets/index-1xc05EcQ.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-DJNP6Gxn.js")) {
+        return res.redirect(302, "/assets/index-DJNP6Gxn.js");
       }
       if (req.path.endsWith(".css") && !req.path.includes("index-BmaOnTtl.css")) {
         return res.redirect(302, "/assets/index-BmaOnTtl.css");

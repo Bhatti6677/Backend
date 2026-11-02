@@ -33,7 +33,7 @@ export function createApp() {
   app.use((req, res, next) => {
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
     );
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -260,8 +260,8 @@ export function createApp() {
   // Graceful fallback for stale or missing assets
   app.use('/assets', (req, res, next) => {
     if (req.method === 'GET' || req.method === 'HEAD') {
-      if (req.path.endsWith('.js') && !req.path.includes('index-1xc05EcQ.js')) {
-        return res.redirect(302, '/assets/index-1xc05EcQ.js');
+      if (req.path.endsWith('.js') && !req.path.includes('index-DJNP6Gxn.js')) {
+        return res.redirect(302, '/assets/index-DJNP6Gxn.js');
       }
       if (req.path.endsWith('.css') && !req.path.includes('index-BmaOnTtl.css')) {
         return res.redirect(302, '/assets/index-BmaOnTtl.css');

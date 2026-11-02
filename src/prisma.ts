@@ -14,7 +14,19 @@ dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
 dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env.production') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-const dbUrl = process.env.DATABASE_URL || '';
+const FALLBACK_DATABASE_URL =
+  'postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
+const FALLBACK_DIRECT_URL =
+  'postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres';
+
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = FALLBACK_DATABASE_URL;
+}
+if (!process.env.DIRECT_URL) {
+  process.env.DIRECT_URL = FALLBACK_DIRECT_URL;
+}
+
+const dbUrl = process.env.DATABASE_URL || FALLBACK_DATABASE_URL;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -23,15 +35,11 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    ...(dbUrl
-      ? {
-          datasources: {
-            db: {
-              url: dbUrl,
-            },
-          },
-        }
-      : {}),
+    datasources: {
+      db: {
+        url: dbUrl,
+      },
+    },
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
   });
 
