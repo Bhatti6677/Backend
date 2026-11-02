@@ -77743,7 +77743,7 @@ router11.get(["/notifications/counts", "/pending-counts"], requireAdmin, async (
             where: {
               status: "PENDING",
               userId: { in: invitedUserIds },
-              task: { level: { levelNumber: 1 } }
+              task: { level: { levelNumber: { in: [1, 2] } } }
             }
           });
         }
@@ -77860,7 +77860,7 @@ router11.get("/dashboard", requireAdmin, async (req, res, next) => {
             where: {
               status: "PENDING",
               userId: { in: invitedUserIds },
-              task: { level: { levelNumber: 1 } }
+              task: { level: { levelNumber: { in: [1, 2] } } }
             }
           });
         }
@@ -77983,7 +77983,7 @@ router11.get("/tasks/grid", requireAdmin, requireSuperAdmin, async (req, res, ne
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     const levels = await prisma.level.findMany({
-      where: isMiniAdmin ? { levelNumber: 1 } : void 0,
+      where: isMiniAdmin ? { levelNumber: { in: [1, 2] } } : void 0,
       orderBy: { levelNumber: "asc" },
       include: {
         tasks: {
@@ -78061,14 +78061,14 @@ router11.get("/users", requireAdmin, requireSuperAdmin, async (req, res, next) =
           taskProgress: {
             none: {
               status: "APPROVED",
-              task: { level: { levelNumber: { gt: 1 } } }
+              task: { level: { levelNumber: { gt: 2 } } }
             }
           }
         },
         {
           levelProgress: {
             none: {
-              level: { levelNumber: { gt: 1 } },
+              level: { levelNumber: { gt: 2 } },
               approvedTaskCount: { gt: 0 }
             }
           }
@@ -78137,7 +78137,7 @@ router11.get("/users", requireAdmin, requireSuperAdmin, async (req, res, next) =
       referralsCount: isMiniAdmin ? 0 : u._count.referrals
     }));
     if (isMiniAdmin) {
-      formattedUsers = formattedUsers.filter((u) => (u.approvedTasksCount ?? 0) < 10);
+      formattedUsers = formattedUsers.filter((u) => (u.approvedTasksCount ?? 0) < 20);
     }
     res.json({
       users: formattedUsers,
@@ -78454,11 +78454,11 @@ router11.get("/users/:userId", requireAdmin, requireSuperAdmin, async (req, res,
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     if (isMiniAdmin) {
       const hasHigherLevelApproved = user.taskProgress?.some(
-        (tp) => tp.status === "APPROVED" && (tp.task?.level?.levelNumber ?? 1) > 1
+        (tp) => tp.status === "APPROVED" && (tp.task?.level?.levelNumber ?? 1) > 2
       );
       const approvedCount = user.taskProgress?.filter((tp) => tp.status === "APPROVED").length || 0;
-      if (hasHigherLevelApproved || approvedCount >= 10) {
-        return res.status(403).json({ error: "Access Denied: Mini Admins can only view and manage Level 1 users" });
+      if (hasHigherLevelApproved || approvedCount >= 20) {
+        return res.status(403).json({ error: "Access Denied: Mini Admins can only view and manage Level 1 and Level 2 users" });
       }
       user.depositRequests = [];
       user.withdrawalRequests = [];
@@ -78491,10 +78491,10 @@ router11.put("/users/:userId/status", requireAdmin, requireSuperAdmin, async (re
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     if (isMiniAdmin) {
       const hasHigherLevelApproved = user.taskProgress?.some(
-        (tp) => (tp.task?.level?.levelNumber ?? 1) > 1
+        (tp) => (tp.task?.level?.levelNumber ?? 1) > 2
       );
-      if (hasHigherLevelApproved || (user.taskProgress?.length || 0) >= 10) {
-        return res.status(403).json({ error: "Access Denied: Mini Admins can only manage Level 1 users" });
+      if (hasHigherLevelApproved || (user.taskProgress?.length || 0) >= 20) {
+        return res.status(403).json({ error: "Access Denied: Mini Admins can only manage Level 1 and Level 2 users" });
       }
     }
     const updated = await prisma.user.update({
@@ -78907,11 +78907,13 @@ router11.post("/users/:userId/adjust-credit-points", requireAdmin, requireSuperA
 router11.get("/tasks", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
-    const levelNumber = isMiniAdmin ? 1 : req.query.level ? parseInt(req.query.level, 10) : void 0;
+    const levelNumber = isMiniAdmin ? req.query.level && [1, 2].includes(parseInt(req.query.level, 10)) ? parseInt(req.query.level, 10) : void 0 : req.query.level ? parseInt(req.query.level, 10) : void 0;
     const search = (req.query.search || "").trim();
     const where = {};
     if (levelNumber) {
       where.level = { levelNumber };
+    } else if (isMiniAdmin) {
+      where.level = { levelNumber: { in: [1, 2] } };
     }
     if (search) {
       where.OR = [
@@ -78987,7 +78989,7 @@ router11.get("/levels", requireAdmin, requireSuperAdmin, async (req, res, next) 
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     const levels = await prisma.level.findMany({
-      where: isMiniAdmin ? { levelNumber: 1 } : void 0,
+      where: isMiniAdmin ? { levelNumber: { in: [1, 2] } } : void 0,
       orderBy: { levelNumber: "asc" },
       include: {
         tasks: { orderBy: { taskNumber: "asc" } },
@@ -79049,7 +79051,7 @@ router11.get("/submissions", requireAdmin, async (req, res, next) => {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     const status = isMiniAdmin ? "PENDING" : (req.query.status || "").trim();
     const search = (req.query.search || "").trim();
-    const levelNumber = isMiniAdmin ? 1 : req.query.level ? parseInt(req.query.level, 10) : void 0;
+    const levelNumber = isMiniAdmin ? req.query.level && [1, 2].includes(parseInt(req.query.level, 10)) ? parseInt(req.query.level, 10) : void 0 : req.query.level ? parseInt(req.query.level, 10) : void 0;
     const page = parseInt(req.query.page || "1", 10);
     const limit = parseInt(req.query.limit || "20", 10);
     const skip = (page - 1) * limit;
@@ -79084,7 +79086,11 @@ router11.get("/submissions", requireAdmin, async (req, res, next) => {
     const where = {};
     if (isMiniAdmin) {
       where.status = "PENDING";
-      where.task = { level: { levelNumber: 1 } };
+      if (levelNumber) {
+        where.task = { level: { levelNumber } };
+      } else {
+        where.task = { level: { levelNumber: { in: [1, 2] } } };
+      }
       where.userId = { in: miniAdminInvitedUserIds };
     } else {
       if (status) where.status = status;
@@ -79367,8 +79373,8 @@ router11.put("/submissions/:submissionId/review", requireAdmin, async (req, res,
           task: { select: { level: { select: { levelNumber: true } } } }
         }
       });
-      if (!targetSub || targetSub.task?.level?.levelNumber !== 1) {
-        return res.status(403).json({ error: "Access Denied: Mini Admins can only review Level 1 task submissions." });
+      if (!targetSub || ![1, 2].includes(targetSub.task?.level?.levelNumber ?? 0)) {
+        return res.status(403).json({ error: "Access Denied: Mini Admins can only review Level 1 and Level 2 task submissions." });
       }
       const invitedCheck = await prisma.$queryRawUnsafe(`
         SELECT 1 FROM "AdminReferralCode"
@@ -79418,14 +79424,14 @@ router11.post("/submissions/batch-review", requireAdmin, async (req, res, next) 
       if (!chatId) {
         return res.status(403).json({ error: "Access Denied: You do not have a linked Telegram account." });
       }
-      const nonLevel1Count = await prisma.taskSubmission.count({
+      const nonAllowedCount = await prisma.taskSubmission.count({
         where: {
           id: { in: submissionIds },
-          task: { level: { levelNumber: { not: 1 } } }
+          task: { level: { levelNumber: { notIn: [1, 2] } } }
         }
       });
-      if (nonLevel1Count > 0) {
-        return res.status(403).json({ error: "Access Denied: Mini Admins can only review Level 1 task submissions." });
+      if (nonAllowedCount > 0) {
+        return res.status(403).json({ error: "Access Denied: Mini Admins can only review Level 1 and Level 2 task submissions." });
       }
       const targetSubs = await prisma.taskSubmission.findMany({
         where: { id: { in: submissionIds } },
@@ -81053,7 +81059,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-DJNP6Gxn.js")) {
+        if (content.includes('id="root"') && content.includes("index-CwTg-ji-.js")) {
           return content;
         }
       } catch (err) {
@@ -81076,7 +81082,7 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-DJNP6Gxn.js"></script>
+    <script type="module" crossorigin src="/assets/index-CwTg-ji-.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-BmaOnTtl.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
@@ -81266,8 +81272,8 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-DJNP6Gxn.js")) {
-        return res.redirect(302, "/assets/index-DJNP6Gxn.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-CwTg-ji-.js")) {
+        return res.redirect(302, "/assets/index-CwTg-ji-.js");
       }
       if (req.path.endsWith(".css") && !req.path.includes("index-BmaOnTtl.css")) {
         return res.redirect(302, "/assets/index-BmaOnTtl.css");

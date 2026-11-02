@@ -157,7 +157,7 @@ router.get(['/notifications/counts', '/pending-counts'], requireAdmin, async (re
             where: {
               status: 'PENDING',
               userId: { in: invitedUserIds },
-              task: { level: { levelNumber: 1 } },
+              task: { level: { levelNumber: { in: [1, 2] } } },
             },
           });
         }
@@ -292,7 +292,7 @@ router.get('/dashboard', requireAdmin, async (req: AdminAuthRequest, res: Respon
             where: {
               status: 'PENDING',
               userId: { in: invitedUserIds },
-              task: { level: { levelNumber: 1 } },
+              task: { level: { levelNumber: { in: [1, 2] } } },
             },
           });
         }
@@ -429,7 +429,7 @@ router.get('/tasks/grid', requireAdmin, requireSuperAdmin, async (req: AdminAuth
   try {
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     const levels = await prisma.level.findMany({
-      where: isMiniAdmin ? { levelNumber: 1 } : undefined,
+      where: isMiniAdmin ? { levelNumber: { in: [1, 2] } } : undefined,
       orderBy: { levelNumber: 'asc' },
       include: {
         tasks: {
@@ -510,7 +510,7 @@ router.get('/users', requireAdmin, requireSuperAdmin, async (req: AdminAuthReque
       ];
     }
 
-    // Role-specific scope: Mini Admins can ONLY view Level 1 users
+    // Role-specific scope: Mini Admins can ONLY view Level 1 and Level 2 users
     if (isMiniAdmin) {
       where.AND = [
         ...(where.AND || []),
@@ -518,14 +518,14 @@ router.get('/users', requireAdmin, requireSuperAdmin, async (req: AdminAuthReque
           taskProgress: {
             none: {
               status: 'APPROVED',
-              task: { level: { levelNumber: { gt: 1 } } },
+              task: { level: { levelNumber: { gt: 2 } } },
             },
           },
         },
         {
           levelProgress: {
             none: {
-              level: { levelNumber: { gt: 1 } },
+              level: { levelNumber: { gt: 2 } },
               approvedTaskCount: { gt: 0 },
             },
           },
@@ -597,8 +597,8 @@ router.get('/users', requireAdmin, requireSuperAdmin, async (req: AdminAuthReque
     }));
 
     if (isMiniAdmin) {
-      // Exclude users who graduated Level 1 (>= 10 tasks approved)
-      formattedUsers = formattedUsers.filter((u) => (u.approvedTasksCount ?? 0) < 10);
+      // Exclude users who graduated Level 2 (>= 20 tasks approved)
+      formattedUsers = formattedUsers.filter((u) => (u.approvedTasksCount ?? 0) < 20);
     }
 
     res.json({
@@ -949,11 +949,11 @@ router.get('/users/:userId', requireAdmin, requireSuperAdmin, async (req: AdminA
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     if (isMiniAdmin) {
       const hasHigherLevelApproved = user.taskProgress?.some(
-        (tp: any) => tp.status === 'APPROVED' && (tp.task?.level?.levelNumber ?? 1) > 1
+        (tp: any) => tp.status === 'APPROVED' && (tp.task?.level?.levelNumber ?? 1) > 2
       );
       const approvedCount = user.taskProgress?.filter((tp: any) => tp.status === 'APPROVED').length || 0;
-      if (hasHigherLevelApproved || approvedCount >= 10) {
-        return res.status(403).json({ error: 'Access Denied: Mini Admins can only view and manage Level 1 users' });
+      if (hasHigherLevelApproved || approvedCount >= 20) {
+        return res.status(403).json({ error: 'Access Denied: Mini Admins can only view and manage Level 1 and Level 2 users' });
       }
 
       // Sanitize financial records for Mini Admin
@@ -992,10 +992,10 @@ router.put('/users/:userId/status', requireAdmin, requireSuperAdmin, async (req:
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     if (isMiniAdmin) {
       const hasHigherLevelApproved = user.taskProgress?.some(
-        (tp: any) => (tp.task?.level?.levelNumber ?? 1) > 1
+        (tp: any) => (tp.task?.level?.levelNumber ?? 1) > 2
       );
-      if (hasHigherLevelApproved || (user.taskProgress?.length || 0) >= 10) {
-        return res.status(403).json({ error: 'Access Denied: Mini Admins can only manage Level 1 users' });
+      if (hasHigherLevelApproved || (user.taskProgress?.length || 0) >= 20) {
+        return res.status(403).json({ error: 'Access Denied: Mini Admins can only manage Level 1 and Level 2 users' });
       }
     }
 
@@ -1484,12 +1484,16 @@ router.post('/users/:userId/adjust-credit-points', requireAdmin, requireSuperAdm
 router.get('/tasks', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
-    const levelNumber = isMiniAdmin ? 1 : (req.query.level ? parseInt(req.query.level as string, 10) : undefined);
+    const levelNumber = isMiniAdmin
+      ? (req.query.level && [1, 2].includes(parseInt(req.query.level as string, 10)) ? parseInt(req.query.level as string, 10) : undefined)
+      : (req.query.level ? parseInt(req.query.level as string, 10) : undefined);
     const search = (req.query.search as string || '').trim();
 
     const where: any = {};
     if (levelNumber) {
       where.level = { levelNumber };
+    } else if (isMiniAdmin) {
+      where.level = { levelNumber: { in: [1, 2] } };
     }
     if (search) {
       where.OR = [
@@ -1578,7 +1582,7 @@ router.get('/levels', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequ
   try {
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     const levels = await prisma.level.findMany({
-      where: isMiniAdmin ? { levelNumber: 1 } : undefined,
+      where: isMiniAdmin ? { levelNumber: { in: [1, 2] } } : undefined,
       orderBy: { levelNumber: 'asc' },
       include: {
         tasks: { orderBy: { taskNumber: 'asc' } },
@@ -1658,7 +1662,9 @@ router.get('/submissions', requireAdmin, async (req: AdminAuthRequest, res: Resp
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     const status = isMiniAdmin ? 'PENDING' : (req.query.status as string || '').trim();
     const search = (req.query.search as string || '').trim();
-    const levelNumber = isMiniAdmin ? 1 : (req.query.level ? parseInt(req.query.level as string, 10) : undefined);
+    const levelNumber = isMiniAdmin
+      ? (req.query.level && [1, 2].includes(parseInt(req.query.level as string, 10)) ? parseInt(req.query.level as string, 10) : undefined)
+      : (req.query.level ? parseInt(req.query.level as string, 10) : undefined);
     const page = parseInt(req.query.page as string || '1', 10);
     const limit = parseInt(req.query.limit as string || '20', 10);
     const skip = (page - 1) * limit;
@@ -1699,7 +1705,11 @@ router.get('/submissions', requireAdmin, async (req: AdminAuthRequest, res: Resp
     const where: any = {};
     if (isMiniAdmin) {
       where.status = 'PENDING';
-      where.task = { level: { levelNumber: 1 } };
+      if (levelNumber) {
+        where.task = { level: { levelNumber } };
+      } else {
+        where.task = { level: { levelNumber: { in: [1, 2] } } };
+      }
       where.userId = { in: miniAdminInvitedUserIds! };
     } else {
       if (status) where.status = status;
@@ -2032,8 +2042,8 @@ router.put('/submissions/:submissionId/review', requireAdmin, async (req: AdminA
           task: { select: { level: { select: { levelNumber: true } } } },
         },
       });
-      if (!targetSub || targetSub.task?.level?.levelNumber !== 1) {
-        return res.status(403).json({ error: 'Access Denied: Mini Admins can only review Level 1 task submissions.' });
+      if (!targetSub || ![1, 2].includes(targetSub.task?.level?.levelNumber ?? 0)) {
+        return res.status(403).json({ error: 'Access Denied: Mini Admins can only review Level 1 and Level 2 task submissions.' });
       }
 
       const invitedCheck = await prisma.$queryRawUnsafe<any[]>(`
@@ -2090,14 +2100,14 @@ router.post('/submissions/batch-review', requireAdmin, async (req: AdminAuthRequ
         return res.status(403).json({ error: 'Access Denied: You do not have a linked Telegram account.' });
       }
 
-      const nonLevel1Count = await prisma.taskSubmission.count({
+      const nonAllowedCount = await prisma.taskSubmission.count({
         where: {
           id: { in: submissionIds },
-          task: { level: { levelNumber: { not: 1 } } },
+          task: { level: { levelNumber: { notIn: [1, 2] } } },
         },
       });
-      if (nonLevel1Count > 0) {
-        return res.status(403).json({ error: 'Access Denied: Mini Admins can only review Level 1 task submissions.' });
+      if (nonAllowedCount > 0) {
+        return res.status(403).json({ error: 'Access Denied: Mini Admins can only review Level 1 and Level 2 task submissions.' });
       }
 
       const targetSubs = await prisma.taskSubmission.findMany({
