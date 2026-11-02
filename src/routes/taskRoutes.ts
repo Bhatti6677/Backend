@@ -92,28 +92,40 @@ router.get('/levels', requireAuth, async (req: AuthRequest, res: Response, next)
       if (lvl.levelNumber === 1) {
         isUnlocked = true;
       } else if (lvl.levelNumber === 2) {
-        isUnlocked = level1Completed && hasWithdrawnLevel1;
-        if (!isUnlocked && level1Completed && !hasWithdrawnLevel1) {
-          lockReason = 'You must withdraw your total account balance from Level 1 before Level 2 tasks unlock.';
+        // Level 2 unlocks automatically when Level 1 is completed
+        isUnlocked = level1Completed;
+        if (!isUnlocked) {
+          lockReason = 'Complete all tasks in Level 1 first to unlock Level 2.';
         }
       } else if (lvl.levelNumber === 3) {
+        // Level 3 unlocks automatically when Level 2 is completed
         isUnlocked = level2Completed;
-      } else if (lvl.levelNumber === 4) {
-        isUnlocked = level3Completed;
         if (!isUnlocked) {
-          lockReason = 'Complete all tasks in Level 3 first to unlock Level 4.';
+          lockReason = 'Complete all tasks in Level 2 first to unlock Level 3.';
+        }
+      } else if (lvl.levelNumber === 4) {
+        // Level 4 requires Level 3 completed AND manual admin approval
+        isUnlocked = level3Completed && approvedLevelNumbers.has(4);
+        if (!isUnlocked) {
+          lockReason = level3Completed
+            ? 'Level 4 requires administrator approval to unlock.'
+            : 'Complete all tasks in Level 3 first to unlock Level 4.';
         }
       } else if (lvl.levelNumber === 5) {
-        // Level 5 requires level 4 completed AND admin approval
+        // Level 5 requires Level 4 completed AND manual admin approval
         isUnlocked = level4Completed && approvedLevelNumbers.has(5);
         if (!isUnlocked) {
-          lockReason = 'Complete any one task in Level 4 to unlock Level 5.';
+          lockReason = level4Completed
+            ? 'Level 5 requires administrator approval to unlock.'
+            : 'Complete any one task in Level 4 to unlock Level 5.';
         }
       } else {
         const prevLevelCompleted = levelStats.get(lvl.levelNumber - 1)?.isCompleted || false;
         isUnlocked = prevLevelCompleted && approvedLevelNumbers.has(lvl.levelNumber);
         if (!isUnlocked) {
-          lockReason = `Complete all tasks in Level ${lvl.levelNumber - 1} first to unlock Level ${lvl.levelNumber}.`;
+          lockReason = prevLevelCompleted
+            ? `Level ${lvl.levelNumber} requires administrator approval to unlock.`
+            : `Complete all tasks in Level ${lvl.levelNumber - 1} first to unlock Level ${lvl.levelNumber}.`;
         }
       }
 
@@ -134,7 +146,7 @@ router.get('/levels', requireAuth, async (req: AuthRequest, res: Response, next)
     });
 
     const isLevel4Reached = Boolean(
-      level3Completed ||
+      (level3Completed && approvedLevelNumbers.has(4)) ||
       (levelStats.get(4)?.approvedCount || 0) > 0 ||
       level4Completed
     );

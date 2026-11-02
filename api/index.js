@@ -64790,22 +64790,16 @@ import_dotenv.default.config({ path: path.resolve(__dirname, "../.env.production
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env.production") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), ".env") });
-var FALLBACK_DATABASE_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
-var FALLBACK_DIRECT_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres";
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = FALLBACK_DATABASE_URL;
-}
-if (!process.env.DIRECT_URL) {
-  process.env.DIRECT_URL = FALLBACK_DIRECT_URL;
-}
-var dbUrl = process.env.DATABASE_URL || FALLBACK_DATABASE_URL;
+var dbUrl = process.env.DATABASE_URL || "";
 var globalForPrisma = globalThis;
 var prisma = globalForPrisma.prisma ?? new PrismaClient({
-  datasources: {
-    db: {
-      url: dbUrl
+  ...dbUrl ? {
+    datasources: {
+      db: {
+        url: dbUrl
+      }
     }
-  },
+  } : {},
   log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"]
 });
 if (!globalForPrisma.prisma) globalForPrisma.prisma = prisma;
@@ -64824,8 +64818,8 @@ import_dotenv2.default.config({ path: path2.resolve(process.cwd(), "backend/.env
 import_dotenv2.default.config({ path: path2.resolve(process.cwd(), ".env") });
 var config2 = {
   port: parseInt(process.env.PORT || "5000", 10),
-  jwtSecret: process.env.JWT_SECRET || "royal-rewards-super-secret-jwt-key-2026",
-  adminSecret: process.env.ADMIN_SECRET || "royal-rewards-admin-secret-key-2026",
+  jwtSecret: process.env.JWT_SECRET || "",
+  adminSecret: process.env.ADMIN_SECRET || "",
   nodeEnv: process.env.NODE_ENV || "development",
   corsOrigin: process.env.CORS_ORIGIN || "*"
 };
@@ -64864,8 +64858,8 @@ async function requireAuth(req, res, next) {
 }
 
 // src/services/telegramService.ts
-var TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "9295985286:AAHb0EQFD-OMsd5bfrNgaPMTfkUDm4-Gph8";
-var TELEGRAM_ACCESS_PASSWORD = process.env.TELEGRAM_ACCESS_PASSWORD || "9989GHYRT89";
+var TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+var TELEGRAM_ACCESS_PASSWORD = process.env.TELEGRAM_ACCESS_PASSWORD || "";
 var TG_API_BASE = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 var tableEnsured = false;
 async function ensureTelegramUserTable() {
@@ -65690,7 +65684,8 @@ router2.get("/dashboard", requireAuth, async (req, res, next) => {
       entitlement,
       unreadNotificationsCount,
       recentTransactions,
-      recentSubmissions
+      recentSubmissions,
+      userLevelUnlocks
     ] = await Promise.all([
       prisma.level.findMany({ orderBy: { levelNumber: "asc" } }),
       prisma.userTaskProgress.findMany({
@@ -65739,8 +65734,13 @@ router2.get("/dashboard", requireAuth, async (req, res, next) => {
         include: { task: { select: { title: true, taskNumber: true, rewardAmount: true } } },
         orderBy: { createdAt: "desc" },
         take: 5
+      }),
+      prisma.userLevelUnlock.findMany({
+        where: { userId, isApproved: true },
+        select: { levelNumber: true }
       })
     ]);
+    const approvedLevelNumbers = new Set(userLevelUnlocks.map((u) => u.levelNumber));
     const approvedTasksByLevel = /* @__PURE__ */ new Map();
     for (const p of allApprovedProgress) {
       if (p.task?.levelId && p.task?.id) {
@@ -65766,11 +65766,16 @@ router2.get("/dashboard", requireAuth, async (req, res, next) => {
     for (const lvl of levels) {
       const approvedCount = approvedTasksByLevel.get(lvl.id)?.size || 0;
       const isLvlCompleted = lvl.levelNumber === 4 ? approvedCount >= 1 : approvedCount >= (lvl.requiredTaskCount || 10);
-      if (isLvlCompleted) {
+      const isLvlUnlocked = lvl.levelNumber <= 3 ? true : approvedLevelNumbers.has(lvl.levelNumber);
+      if (isLvlCompleted && isLvlUnlocked) {
         completedLevelsCount++;
-      } else if (!foundActiveLevel) {
         currentLevelNumber = lvl.levelNumber;
         currentLevelApprovedTasks = approvedCount;
+      } else if (!foundActiveLevel) {
+        if (isLvlUnlocked) {
+          currentLevelNumber = lvl.levelNumber;
+          currentLevelApprovedTasks = approvedCount;
+        }
         foundActiveLevel = true;
       }
     }
@@ -65858,7 +65863,8 @@ router2.get("/profile", requireAuth, async (req, res, next) => {
       }
     });
     if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({ user });
+    const { passwordHash: _removedPasswordHash, ...sanitizedUser } = user;
+    res.json({ user: sanitizedUser });
   } catch (err) {
     next(err);
   }
@@ -66222,20 +66228,20 @@ var taskProgressionService = {
     const l2Completed = l1Completed && (levelStatsByNumber.get(2)?.isCompleted || false);
     const l3Completed = l2Completed && (levelStatsByNumber.get(3)?.isCompleted || false);
     const l4Completed = l3Completed && (levelStatsByNumber.get(4)?.isCompleted || false);
-    const isLevel4Unlocked = l3Completed;
+    const isLevel4Unlocked = l3Completed && approvedLevelNumbers.has(4);
     const isLevel4Reached = Boolean(
-      l3Completed || (levelStatsByNumber.get(4)?.approvedCount || 0) > 0 || l4Completed
+      isLevel4Unlocked || (levelStatsByNumber.get(4)?.approvedCount || 0) > 0 || l4Completed
     );
     const hasWithdrawnLevel1 = userWithdrawalsList.length > 0;
     let isLevelUnlocked = false;
     if (levelNumber === 1) {
       isLevelUnlocked = true;
     } else if (levelNumber === 2) {
-      isLevelUnlocked = l1Completed && hasWithdrawnLevel1;
+      isLevelUnlocked = l1Completed;
     } else if (levelNumber === 3) {
       isLevelUnlocked = l2Completed;
     } else if (levelNumber === 4) {
-      isLevelUnlocked = l3Completed;
+      isLevelUnlocked = l3Completed && approvedLevelNumbers.has(4);
     } else if (levelNumber === 5) {
       isLevelUnlocked = l4Completed && approvedLevelNumbers.has(5);
     } else {
@@ -66246,23 +66252,21 @@ var taskProgressionService = {
     let task1LockMessage = "";
     if (!isLevelUnlocked) {
       isTask1Eligible = false;
-      if (levelNumber === 2 && l1Completed && !hasWithdrawnLevel1) {
-        task1LockMessage = "Level 2 is locked. You must withdraw your total account balance from Level 1 before you can start Level 2 tasks.";
+      if (levelNumber === 4 && l3Completed && !approvedLevelNumbers.has(4)) {
+        task1LockMessage = "Level 4 is locked. Please await administrator approval to unlock Level 4.";
       } else if (levelNumber === 5 && !l4Completed) {
         task1LockMessage = "Complete any one task in Level 4 to unlock Level 5 tasks.";
+      } else if (levelNumber >= 5 && (levelStatsByNumber.get(levelNumber - 1)?.isCompleted || false) && !approvedLevelNumbers.has(levelNumber)) {
+        task1LockMessage = `Level ${levelNumber} is locked. Please await administrator approval to unlock Level ${levelNumber}.`;
       } else {
         task1LockMessage = `Level ${levelNumber} is locked. Complete all tasks in Level ${levelNumber - 1} first.`;
       }
     } else if (levelNumber === 1) {
       isTask1Eligible = true;
     } else if (levelNumber === 2) {
-      isTask1Eligible = l1Completed && hasWithdrawnLevel1;
+      isTask1Eligible = l1Completed;
       if (!isTask1Eligible) {
-        if (!l1Completed) {
-          task1LockMessage = "Complete all tasks in Level 1 first to unlock Level 2 tasks.";
-        } else {
-          task1LockMessage = "You must withdraw your total account balance from Level 1 before you can start Level 2 tasks.";
-        }
+        task1LockMessage = "Complete all tasks in Level 1 first to unlock Level 2 tasks.";
       }
     } else if (levelNumber === 3) {
       isTask1Eligible = l2Completed;
@@ -66270,24 +66274,25 @@ var taskProgressionService = {
         task1LockMessage = "Complete all tasks in Level 2 first to unlock Level 3 tasks.";
       }
     } else if (levelNumber === 4) {
-      isTask1Eligible = l3Completed;
+      isTask1Eligible = l3Completed && approvedLevelNumbers.has(4);
       if (!isTask1Eligible) {
-        task1LockMessage = "Complete all tasks in Level 3 first to unlock Level 4 tasks.";
+        task1LockMessage = l3Completed ? "Level 4 requires administrator approval to unlock." : "Complete all tasks in Level 3 first to unlock Level 4 tasks.";
       }
     } else if (levelNumber === 5) {
       isTask1Eligible = l4Completed && approvedLevelNumbers.has(5);
       if (!isTask1Eligible) {
-        task1LockMessage = "Complete at least one Level 4 prepaid task to unlock Level 5 task participation.";
+        task1LockMessage = l4Completed ? "Level 5 requires administrator approval to unlock." : "Complete at least one Level 4 prepaid task to unlock Level 5 task participation.";
       }
     } else {
       const prevStats = levelStatsByNumber.get(levelNumber - 1);
       isTask1Eligible = (prevStats?.isCompleted || false) && approvedLevelNumbers.has(levelNumber);
       if (!isTask1Eligible) {
-        task1LockMessage = `Complete all tasks in Level ${levelNumber - 1} first to start Level ${levelNumber} tasks.`;
+        task1LockMessage = prevStats?.isCompleted || false ? `Level ${levelNumber} requires administrator approval to unlock.` : `Complete all tasks in Level ${levelNumber - 1} first to start Level ${levelNumber} tasks.`;
       }
     }
     if (!isLevelUnlocked) {
       const hideDetails = levelNumber <= 3 ? !isLevelUnlocked : !isLevel4Reached;
+      const prevLvlDone = levelStatsByNumber.get(level.levelNumber - 1)?.isCompleted || false;
       const lockedTasks = level.tasks.map((task) => {
         const isPrepaidTask = Boolean(
           task.isPaid || task.unlockFee && task.unlockFee > 0 || task.taskType?.toLowerCase().includes("prepaid")
@@ -66297,7 +66302,7 @@ var taskProgressionService = {
           levelId: task.levelId,
           taskNumber: task.taskNumber,
           title: hideDetails ? `Locked Task #${task.taskNumber}` : task.title,
-          description: hideDetails ? level.levelNumber === 2 && l1Completed && !hasWithdrawnLevel1 ? "Withdraw your total account balance from Level 1 first to unlock Level 2 tasks." : `Complete Level ${level.levelNumber - 1} to unlock this level and view task details.` : task.description,
+          description: hideDetails ? level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber) ? `Level ${level.levelNumber} requires administrator approval to unlock and view task details.` : `Complete Level ${level.levelNumber - 1} to unlock this level and view task details.` : task.description,
           taskType: hideDetails ? "Locked" : task.taskType || (isPrepaidTask ? "Prepaid Task" : "Task"),
           rewardAmount: hideDetails ? 0 : task.rewardAmount,
           creditPoints: 0,
@@ -66307,7 +66312,7 @@ var taskProgressionService = {
           status: task.status,
           userStatus: "LOCKED",
           isPaidUnlocked: false,
-          lockMessage: level.levelNumber === 2 && l1Completed && !hasWithdrawnLevel1 ? "Level 2 is locked. You must withdraw your total account balance from Level 1 before you can start Level 2 tasks." : `Level ${level.levelNumber} is locked. Complete all tasks in Level ${level.levelNumber - 1} first to submit this task.`,
+          lockMessage: level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber) ? `Level ${level.levelNumber} is locked. Please await administrator approval to unlock Level ${level.levelNumber}.` : `Level ${level.levelNumber} is locked. Complete all tasks in Level ${level.levelNumber - 1} first to submit this task.`,
           instructions: hideDetails ? null : task.instructions,
           protectedUrl: null,
           submissionInstructions: hideDetails ? null : task.submissionInstructions,
@@ -74764,10 +74769,11 @@ function shouldShowDeprecationWarning() {
 if (shouldShowDeprecationWarning()) console.warn("\u26A0\uFE0F  Node.js 20 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 22 or later. For more information, visit: https://github.com/orgs/supabase/discussions/45715");
 
 // src/utils/supabase.ts
-var supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://vzgjygtbdkezaerygjbp.supabase.co";
-var supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_4EqCtWIiEIwm3ETQvxeOgA_fUcSKkiJ";
-var supabase = createClient(supabaseUrl, supabaseKey);
+var supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+var supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+var supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 async function sendUserLiveCommand(userId, commandType, payload = {}) {
+  if (!supabase) return;
   try {
     const channel = supabase.channel(`royal_live_user_${userId}`);
     const dataPayload = { targetUserId: userId, commandType, ...payload, timestamp: Date.now() };
@@ -75936,27 +75942,30 @@ router3.get("/levels", requireAuth, async (req, res, next) => {
       if (lvl.levelNumber === 1) {
         isUnlocked = true;
       } else if (lvl.levelNumber === 2) {
-        isUnlocked = level1Completed && hasWithdrawnLevel1;
-        if (!isUnlocked && level1Completed && !hasWithdrawnLevel1) {
-          lockReason = "You must withdraw your total account balance from Level 1 before Level 2 tasks unlock.";
+        isUnlocked = level1Completed;
+        if (!isUnlocked) {
+          lockReason = "Complete all tasks in Level 1 first to unlock Level 2.";
         }
       } else if (lvl.levelNumber === 3) {
         isUnlocked = level2Completed;
-      } else if (lvl.levelNumber === 4) {
-        isUnlocked = level3Completed;
         if (!isUnlocked) {
-          lockReason = "Complete all tasks in Level 3 first to unlock Level 4.";
+          lockReason = "Complete all tasks in Level 2 first to unlock Level 3.";
+        }
+      } else if (lvl.levelNumber === 4) {
+        isUnlocked = level3Completed && approvedLevelNumbers.has(4);
+        if (!isUnlocked) {
+          lockReason = level3Completed ? "Level 4 requires administrator approval to unlock." : "Complete all tasks in Level 3 first to unlock Level 4.";
         }
       } else if (lvl.levelNumber === 5) {
         isUnlocked = level4Completed && approvedLevelNumbers.has(5);
         if (!isUnlocked) {
-          lockReason = "Complete any one task in Level 4 to unlock Level 5.";
+          lockReason = level4Completed ? "Level 5 requires administrator approval to unlock." : "Complete any one task in Level 4 to unlock Level 5.";
         }
       } else {
         const prevLevelCompleted = levelStats.get(lvl.levelNumber - 1)?.isCompleted || false;
         isUnlocked = prevLevelCompleted && approvedLevelNumbers.has(lvl.levelNumber);
         if (!isUnlocked) {
-          lockReason = `Complete all tasks in Level ${lvl.levelNumber - 1} first to unlock Level ${lvl.levelNumber}.`;
+          lockReason = prevLevelCompleted ? `Level ${lvl.levelNumber} requires administrator approval to unlock.` : `Complete all tasks in Level ${lvl.levelNumber - 1} first to unlock Level ${lvl.levelNumber}.`;
         }
       }
       return {
@@ -75975,7 +75984,7 @@ router3.get("/levels", requireAuth, async (req, res, next) => {
       };
     });
     const isLevel4Reached = Boolean(
-      level3Completed || (levelStats.get(4)?.approvedCount || 0) > 0 || level4Completed
+      level3Completed && approvedLevelNumbers.has(4) || (levelStats.get(4)?.approvedCount || 0) > 0 || level4Completed
     );
     res.json({ levels: levelsWithProgress, isLevel4Reached });
   } catch (err) {
@@ -76568,6 +76577,24 @@ async function ensureUserWithdrawalColumns(prisma2) {
         `);
         await prisma2.$executeRawUnsafe(`
           CREATE INDEX IF NOT EXISTS "UserLevelUnlock_userId_idx" ON "UserLevelUnlock"("userId");
+        `);
+        await prisma2.$executeRawUnsafe(`
+          DO $$
+          DECLARE
+            t text;
+          BEGIN
+            FOR t IN
+              SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+            LOOP
+              EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
+              IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+                EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon;', t);
+              END IF;
+              IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+                EXECUTE format('REVOKE ALL ON TABLE public.%I FROM authenticated;', t);
+              END IF;
+            END LOOP;
+          END $$;
         `);
         schemaEnsured = true;
       } catch (err) {
@@ -78206,6 +78233,7 @@ router11.get("/level-approvals", requireAdmin, requireSuperAdmin, async (req, re
       }
       const lpMap = new Map(u.levelProgress.map((lp) => [lp.levelId, lp]));
       let completedLevels = 0;
+      let level3Completed = false;
       let level4Completed = false;
       for (const lvl of allLevels) {
         const set2 = approvedByLevel.get(lvl.id);
@@ -78214,15 +78242,17 @@ router11.get("/level-approvals", requireAdmin, requireSuperAdmin, async (req, re
         const isCompleted = lvl.levelNumber === 4 ? approvedCount >= 1 : approvedCount >= (lvl.requiredTaskCount || 10) || lp?.completionStatus === "COMPLETED";
         if (isCompleted) {
           completedLevels = Math.max(completedLevels, lvl.levelNumber);
+          if (lvl.levelNumber === 3) level3Completed = true;
           if (lvl.levelNumber === 4) level4Completed = true;
         }
       }
       const approvalsMap = {};
-      for (let i = 5; i <= 10; i++) {
+      for (let i = 4; i <= 10; i++) {
         const found = u.levelUnlocks.find((ul) => ul.levelNumber === i);
         approvalsMap[i] = Boolean(found?.isApproved);
       }
-      const currentLevel = Math.min(10, completedLevels + 1);
+      const nextLevel = Math.min(10, completedLevels + 1);
+      const currentLevel = nextLevel >= 4 && !approvalsMap[nextLevel] ? Math.max(1, completedLevels) : nextLevel;
       return {
         id: u.id,
         name: u.name,
@@ -78233,6 +78263,7 @@ router11.get("/level-approvals", requireAdmin, requireSuperAdmin, async (req, re
         walletBalance: u.wallet?.availableBalance || 0,
         creditPoints: u.wallet?.creditPoints ?? 100,
         currentLevel,
+        level3Completed,
         level4Completed,
         approvals: approvalsMap
       };
@@ -78254,8 +78285,8 @@ router11.post("/level-approvals/toggle", requireAdmin, requireSuperAdmin, async 
   try {
     const { userId, levelNumber, isApproved } = req.body;
     const lvlNum = parseInt(levelNumber, 10);
-    if (!userId || isNaN(lvlNum) || lvlNum < 5 || lvlNum > 10) {
-      return res.status(400).json({ error: "Valid userId and levelNumber between 5 and 10 are required." });
+    if (!userId || isNaN(lvlNum) || lvlNum < 4 || lvlNum > 10) {
+      return res.status(400).json({ error: "Valid userId and levelNumber between 4 and 10 are required." });
     }
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -78294,6 +78325,7 @@ router11.post("/level-approvals/toggle", requireAdmin, requireSuperAdmin, async 
     } catch (auditErr) {
       console.warn("Audit log write error:", auditErr);
     }
+    sendUserLiveCommand(userId, "refresh", { type: "LEVEL_UNLOCKED", levelNumber: lvlNum, isApproved: Boolean(isApproved) });
     res.json({
       success: true,
       unlock,
@@ -78309,9 +78341,9 @@ router11.post("/level-approvals/batch", requireAdmin, requireSuperAdmin, async (
     if (!userId || !Array.isArray(levelNumbers) || levelNumbers.length === 0) {
       return res.status(400).json({ error: "Valid userId and levelNumbers array required." });
     }
-    const validLevels = levelNumbers.map((n) => parseInt(n, 10)).filter((n) => n >= 5 && n <= 10);
+    const validLevels = levelNumbers.map((n) => parseInt(n, 10)).filter((n) => n >= 4 && n <= 10);
     if (validLevels.length === 0) {
-      return res.status(400).json({ error: "At least one level between 5 and 10 must be specified." });
+      return res.status(400).json({ error: "At least one level between 4 and 10 must be specified." });
     }
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -78354,6 +78386,7 @@ router11.post("/level-approvals/batch", requireAdmin, requireSuperAdmin, async (
     } catch (auditErr) {
       console.warn("Audit log write error:", auditErr);
     }
+    sendUserLiveCommand(userId, "refresh", { type: "LEVELS_BATCH_UNLOCKED", levels: validLevels, isApproved: Boolean(isApproved) });
     res.json({
       success: true,
       message: `Levels [${validLevels.join(", ")}] ${isApproved ? "unlocked" : "locked"} successfully for ${user.name}.`
@@ -80951,32 +80984,31 @@ router12.post("/webhook", async (req, res) => {
     return res.status(200).json({ ok: false });
   }
 });
-router12.get("/setup", async (req, res) => {
+router12.get("/setup", requireAdmin, requireSuperAdmin, async (req, res) => {
   try {
-    const host = req.get("host") || "streetearn-backend.vercel.app";
+    const host = req.get("host") || "localhost:5050";
     const protocol = req.protocol === "http" && !host.includes("vercel.app") ? "http" : "https";
     const webhookUrl = `${protocol}://${host}/api/telegram/webhook`;
     const result = await setTelegramWebhook(webhookUrl);
     res.json({
-      success: result.ok,
-      webhookUrl,
-      telegramResponse: result,
+      success: Boolean(result?.ok),
       info: "Telegram Bot webhook is active and configured."
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Failed to configure Telegram webhook" });
   }
 });
-router12.get("/info", async (req, res) => {
+router12.get("/info", requireAdmin, requireSuperAdmin, async (_req, res) => {
   try {
     const webhookInfo = await getTelegramWebhookInfo();
     res.json({
       botTokenConfigured: Boolean(TELEGRAM_BOT_TOKEN),
       passwordConfigured: Boolean(TELEGRAM_ACCESS_PASSWORD),
-      webhookInfo
+      webhookActive: Boolean(webhookInfo?.result?.url),
+      pendingUpdateCount: webhookInfo?.result?.pending_update_count ?? 0
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Failed to retrieve Telegram webhook info" });
   }
 });
 var telegramRoutes_default = router12;
@@ -81016,7 +81048,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-BdQIZ_Ti.js")) {
+        if (content.includes('id="root"') && content.includes("index-1xc05EcQ.js")) {
           return content;
         }
       } catch (err) {
@@ -81039,8 +81071,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-BdQIZ_Ti.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BB60NfXx.css">
+    <script type="module" crossorigin src="/assets/index-1xc05EcQ.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BmaOnTtl.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -81053,6 +81085,48 @@ var __filename3 = fileURLToPath3(import.meta.url);
 var __dirname3 = path4.dirname(__filename3);
 function createApp() {
   const app2 = (0, import_express13.default)();
+  app2.disable("x-powered-by");
+  app2.use((req, res, next) => {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+    );
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    next();
+  });
+  const SENSITIVE_KEYS = /* @__PURE__ */ new Set([
+    "passwordHash",
+    "otpSecret",
+    "serviceRoleKey",
+    "telegramBotToken",
+    "accessPassword",
+    "jwtSecret",
+    "adminSecret"
+  ]);
+  function sanitizePayload(value) {
+    if (!value || typeof value !== "object") return value;
+    if (value instanceof Date) return value;
+    if (Array.isArray(value)) return value.map(sanitizePayload);
+    if (Object.prototype.toString.call(value) === "[object Object]") {
+      const cleaned = {};
+      for (const [k, v] of Object.entries(value)) {
+        if (SENSITIVE_KEYS.has(k)) continue;
+        cleaned[k] = sanitizePayload(v);
+      }
+      return cleaned;
+    }
+    return value;
+  }
+  app2.use((req, res, next) => {
+    const originalJson = res.json.bind(res);
+    res.json = (body) => originalJson(sanitizePayload(body));
+    next();
+  });
   app2.use((req, res, next) => {
     const origin = req.headers.origin || "*";
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -81163,9 +81237,7 @@ function createApp() {
       message: "Backend API server is running.",
       endpoints: {
         health: "/api/health",
-        publicSettings: "/api/settings/public",
-        telegramInfo: "/api/telegram/info",
-        telegramSetup: "/api/telegram/setup"
+        publicSettings: "/api/settings/public"
       }
     });
   });
@@ -81189,11 +81261,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-BdQIZ_Ti.js")) {
-        return res.redirect(302, "/assets/index-BdQIZ_Ti.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-1xc05EcQ.js")) {
+        return res.redirect(302, "/assets/index-1xc05EcQ.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-BB60NfXx.css")) {
-        return res.redirect(302, "/assets/index-BB60NfXx.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-BmaOnTtl.css")) {
+        return res.redirect(302, "/assets/index-BmaOnTtl.css");
       }
       return res.status(404).end();
     }

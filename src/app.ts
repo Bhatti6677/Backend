@@ -27,6 +27,54 @@ import { getAdminSpaHtml } from './views/adminHtml';
 
 export function createApp() {
   const app = express();
+  app.disable('x-powered-by');
+
+  // 0. Strict HTTP Security Headers Middleware
+  app.use((req, res, next) => {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+    );
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+  });
+
+  // Global Response Sanitizer: guarantee zero private hashes or secrets leak in JSON payloads
+  const SENSITIVE_KEYS = new Set([
+    'passwordHash',
+    'otpSecret',
+    'serviceRoleKey',
+    'telegramBotToken',
+    'accessPassword',
+    'jwtSecret',
+    'adminSecret',
+  ]);
+
+  function sanitizePayload(value: any): any {
+    if (!value || typeof value !== 'object') return value;
+    if (value instanceof Date) return value;
+    if (Array.isArray(value)) return value.map(sanitizePayload);
+    if (Object.prototype.toString.call(value) === '[object Object]') {
+      const cleaned: Record<string, any> = {};
+      for (const [k, v] of Object.entries(value)) {
+        if (SENSITIVE_KEYS.has(k)) continue;
+        cleaned[k] = sanitizePayload(v);
+      }
+      return cleaned;
+    }
+    return value;
+  }
+
+  app.use((req, res, next) => {
+    const originalJson = res.json.bind(res);
+    res.json = (body?: any) => originalJson(sanitizePayload(body));
+    next();
+  });
 
   // 1. Universal CORS middleware: Attach headers and handle preflight OPTIONS immediately
   app.use((req, res, next) => {
@@ -183,8 +231,6 @@ export function createApp() {
       endpoints: {
         health: '/api/health',
         publicSettings: '/api/settings/public',
-        telegramInfo: '/api/telegram/info',
-        telegramSetup: '/api/telegram/setup',
       },
     });
   });
@@ -214,11 +260,11 @@ export function createApp() {
   // Graceful fallback for stale or missing assets
   app.use('/assets', (req, res, next) => {
     if (req.method === 'GET' || req.method === 'HEAD') {
-      if (req.path.endsWith('.js') && !req.path.includes('index-BdQIZ_Ti.js')) {
-        return res.redirect(302, '/assets/index-BdQIZ_Ti.js');
+      if (req.path.endsWith('.js') && !req.path.includes('index-1xc05EcQ.js')) {
+        return res.redirect(302, '/assets/index-1xc05EcQ.js');
       }
-      if (req.path.endsWith('.css') && !req.path.includes('index-BB60NfXx.css')) {
-        return res.redirect(302, '/assets/index-BB60NfXx.css');
+      if (req.path.endsWith('.css') && !req.path.includes('index-BmaOnTtl.css')) {
+        return res.redirect(302, '/assets/index-BmaOnTtl.css');
       }
       return res.status(404).end();
     }

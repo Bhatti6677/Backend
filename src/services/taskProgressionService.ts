@@ -140,10 +140,10 @@ export const taskProgressionService = {
     const l2Completed = l1Completed && (levelStatsByNumber.get(2)?.isCompleted || false);
     const l3Completed = l2Completed && (levelStatsByNumber.get(3)?.isCompleted || false);
     const l4Completed = l3Completed && (levelStatsByNumber.get(4)?.isCompleted || false);
-    const isLevel4Unlocked = l3Completed;
+    const isLevel4Unlocked = l3Completed && approvedLevelNumbers.has(4);
 
     const isLevel4Reached = Boolean(
-      l3Completed ||
+      isLevel4Unlocked ||
       (levelStatsByNumber.get(4)?.approvedCount || 0) > 0 ||
       l4Completed
     );
@@ -151,16 +151,17 @@ export const taskProgressionService = {
     const hasWithdrawnLevel1 = userWithdrawalsList.length > 0;
 
     // Check if current level is unlocked
+    // Levels 1-3: automatic progression (L1 -> L2 -> L3)
+    // Levels 4-10: require previous level completed AND manual admin approval
     let isLevelUnlocked = false;
     if (levelNumber === 1) {
       isLevelUnlocked = true;
     } else if (levelNumber === 2) {
-      // Level 2 requires Level 1 completed AND user must withdraw total account balance from Level 1
-      isLevelUnlocked = l1Completed && hasWithdrawnLevel1;
+      isLevelUnlocked = l1Completed;
     } else if (levelNumber === 3) {
       isLevelUnlocked = l2Completed;
     } else if (levelNumber === 4) {
-      isLevelUnlocked = l3Completed;
+      isLevelUnlocked = l3Completed && approvedLevelNumbers.has(4);
     } else if (levelNumber === 5) {
       // Level 5 requires only one task completed in Level 4 AND admin approval
       isLevelUnlocked = l4Completed && approvedLevelNumbers.has(5);
@@ -175,23 +176,21 @@ export const taskProgressionService = {
 
     if (!isLevelUnlocked) {
       isTask1Eligible = false;
-      if (levelNumber === 2 && l1Completed && !hasWithdrawnLevel1) {
-        task1LockMessage = 'Level 2 is locked. You must withdraw your total account balance from Level 1 before you can start Level 2 tasks.';
+      if (levelNumber === 4 && l3Completed && !approvedLevelNumbers.has(4)) {
+        task1LockMessage = 'Level 4 is locked. Please await administrator approval to unlock Level 4.';
       } else if (levelNumber === 5 && !l4Completed) {
         task1LockMessage = 'Complete any one task in Level 4 to unlock Level 5 tasks.';
+      } else if (levelNumber >= 5 && (levelStatsByNumber.get(levelNumber - 1)?.isCompleted || false) && !approvedLevelNumbers.has(levelNumber)) {
+        task1LockMessage = `Level ${levelNumber} is locked. Please await administrator approval to unlock Level ${levelNumber}.`;
       } else {
         task1LockMessage = `Level ${levelNumber} is locked. Complete all tasks in Level ${levelNumber - 1} first.`;
       }
     } else if (levelNumber === 1) {
       isTask1Eligible = true;
     } else if (levelNumber === 2) {
-      isTask1Eligible = l1Completed && hasWithdrawnLevel1;
+      isTask1Eligible = l1Completed;
       if (!isTask1Eligible) {
-        if (!l1Completed) {
-          task1LockMessage = 'Complete all tasks in Level 1 first to unlock Level 2 tasks.';
-        } else {
-          task1LockMessage = 'You must withdraw your total account balance from Level 1 before you can start Level 2 tasks.';
-        }
+        task1LockMessage = 'Complete all tasks in Level 1 first to unlock Level 2 tasks.';
       }
     } else if (levelNumber === 3) {
       isTask1Eligible = l2Completed;
@@ -199,22 +198,28 @@ export const taskProgressionService = {
         task1LockMessage = 'Complete all tasks in Level 2 first to unlock Level 3 tasks.';
       }
     } else if (levelNumber === 4) {
-      isTask1Eligible = l3Completed;
+      isTask1Eligible = l3Completed && approvedLevelNumbers.has(4);
       if (!isTask1Eligible) {
-        task1LockMessage = 'Complete all tasks in Level 3 first to unlock Level 4 tasks.';
+        task1LockMessage = l3Completed
+          ? 'Level 4 requires administrator approval to unlock.'
+          : 'Complete all tasks in Level 3 first to unlock Level 4 tasks.';
       }
     } else if (levelNumber === 5) {
       // In Level 4, client needs 1 task completed AND admin approval to unlock Level 5 task participation!
       isTask1Eligible = l4Completed && approvedLevelNumbers.has(5);
       if (!isTask1Eligible) {
-        task1LockMessage = 'Complete at least one Level 4 prepaid task to unlock Level 5 task participation.';
+        task1LockMessage = l4Completed
+          ? 'Level 5 requires administrator approval to unlock.'
+          : 'Complete at least one Level 4 prepaid task to unlock Level 5 task participation.';
       }
     } else {
       // For Levels 6 to 10: requires previous level completed AND admin approval
       const prevStats = levelStatsByNumber.get(levelNumber - 1);
       isTask1Eligible = (prevStats?.isCompleted || false) && approvedLevelNumbers.has(levelNumber);
       if (!isTask1Eligible) {
-        task1LockMessage = `Complete all tasks in Level ${levelNumber - 1} first to start Level ${levelNumber} tasks.`;
+        task1LockMessage = (prevStats?.isCompleted || false)
+          ? `Level ${levelNumber} requires administrator approval to unlock.`
+          : `Complete all tasks in Level ${levelNumber - 1} first to start Level ${levelNumber} tasks.`;
       }
     }
 
@@ -223,6 +228,7 @@ export const taskProgressionService = {
     // Only mask details for Levels 1 to 3 if not yet reached.
     if (!isLevelUnlocked) {
       const hideDetails = levelNumber <= 3 ? !isLevelUnlocked : !isLevel4Reached;
+      const prevLvlDone = levelStatsByNumber.get(level.levelNumber - 1)?.isCompleted || false;
       const lockedTasks: EvaluatedTask[] = level.tasks.map((task) => {
         const isPrepaidTask = Boolean(
           task.isPaid ||
@@ -235,8 +241,8 @@ export const taskProgressionService = {
           taskNumber: task.taskNumber,
           title: hideDetails ? `Locked Task #${task.taskNumber}` : task.title,
           description: hideDetails
-            ? (level.levelNumber === 2 && l1Completed && !hasWithdrawnLevel1
-                ? 'Withdraw your total account balance from Level 1 first to unlock Level 2 tasks.'
+            ? (level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber)
+                ? `Level ${level.levelNumber} requires administrator approval to unlock and view task details.`
                 : `Complete Level ${level.levelNumber - 1} to unlock this level and view task details.`)
             : task.description,
           taskType: hideDetails ? 'Locked' : (task.taskType || (isPrepaidTask ? 'Prepaid Task' : 'Task')),
@@ -249,8 +255,8 @@ export const taskProgressionService = {
           userStatus: 'LOCKED',
           isPaidUnlocked: false,
           lockMessage:
-            level.levelNumber === 2 && l1Completed && !hasWithdrawnLevel1
-              ? 'Level 2 is locked. You must withdraw your total account balance from Level 1 before you can start Level 2 tasks.'
+            level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber)
+              ? `Level ${level.levelNumber} is locked. Please await administrator approval to unlock Level ${level.levelNumber}.`
               : `Level ${level.levelNumber} is locked. Complete all tasks in Level ${level.levelNumber - 1} first to submit this task.`,
           instructions: hideDetails ? null : task.instructions,
           protectedUrl: null,

@@ -705,6 +705,7 @@ router.get('/level-approvals', requireAdmin, requireSuperAdmin, async (req: Admi
 
       const lpMap = new Map(u.levelProgress.map((lp) => [lp.levelId, lp]));
       let completedLevels = 0;
+      let level3Completed = false;
       let level4Completed = false;
 
       for (const lvl of allLevels) {
@@ -718,17 +719,22 @@ router.get('/level-approvals', requireAdmin, requireSuperAdmin, async (req: Admi
 
         if (isCompleted) {
           completedLevels = Math.max(completedLevels, lvl.levelNumber);
+          if (lvl.levelNumber === 3) level3Completed = true;
           if (lvl.levelNumber === 4) level4Completed = true;
         }
       }
 
       const approvalsMap: Record<number, boolean> = {};
-      for (let i = 5; i <= 10; i++) {
+      for (let i = 4; i <= 10; i++) {
         const found = u.levelUnlocks.find((ul) => ul.levelNumber === i);
         approvalsMap[i] = Boolean(found?.isApproved);
       }
 
-      const currentLevel = Math.min(10, completedLevels + 1);
+      const nextLevel = Math.min(10, completedLevels + 1);
+      const currentLevel =
+        nextLevel >= 4 && !approvalsMap[nextLevel]
+          ? Math.max(1, completedLevels)
+          : nextLevel;
 
       return {
         id: u.id,
@@ -740,6 +746,7 @@ router.get('/level-approvals', requireAdmin, requireSuperAdmin, async (req: Admi
         walletBalance: u.wallet?.availableBalance || 0,
         creditPoints: u.wallet?.creditPoints ?? 100,
         currentLevel,
+        level3Completed,
         level4Completed,
         approvals: approvalsMap,
       };
@@ -763,8 +770,8 @@ router.post('/level-approvals/toggle', requireAdmin, requireSuperAdmin, async (r
   try {
     const { userId, levelNumber, isApproved } = req.body;
     const lvlNum = parseInt(levelNumber, 10);
-    if (!userId || isNaN(lvlNum) || lvlNum < 5 || lvlNum > 10) {
-      return res.status(400).json({ error: 'Valid userId and levelNumber between 5 and 10 are required.' });
+    if (!userId || isNaN(lvlNum) || lvlNum < 4 || lvlNum > 10) {
+      return res.status(400).json({ error: 'Valid userId and levelNumber between 4 and 10 are required.' });
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -807,6 +814,8 @@ router.post('/level-approvals/toggle', requireAdmin, requireSuperAdmin, async (r
       console.warn('Audit log write error:', auditErr);
     }
 
+    sendUserLiveCommand(userId, 'refresh', { type: 'LEVEL_UNLOCKED', levelNumber: lvlNum, isApproved: Boolean(isApproved) });
+
     res.json({
       success: true,
       unlock,
@@ -824,9 +833,9 @@ router.post('/level-approvals/batch', requireAdmin, requireSuperAdmin, async (re
       return res.status(400).json({ error: 'Valid userId and levelNumbers array required.' });
     }
 
-    const validLevels = levelNumbers.map((n: any) => parseInt(n, 10)).filter((n) => n >= 5 && n <= 10);
+    const validLevels = levelNumbers.map((n: any) => parseInt(n, 10)).filter((n) => n >= 4 && n <= 10);
     if (validLevels.length === 0) {
-      return res.status(400).json({ error: 'At least one level between 5 and 10 must be specified.' });
+      return res.status(400).json({ error: 'At least one level between 4 and 10 must be specified.' });
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -872,6 +881,8 @@ router.post('/level-approvals/batch', requireAdmin, requireSuperAdmin, async (re
     } catch (auditErr) {
       console.warn('Audit log write error:', auditErr);
     }
+
+    sendUserLiveCommand(userId, 'refresh', { type: 'LEVELS_BATCH_UNLOCKED', levels: validLevels, isApproved: Boolean(isApproved) });
 
     res.json({
       success: true,

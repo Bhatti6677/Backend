@@ -37,6 +37,7 @@ router.get('/dashboard', requireAuth, async (req: AuthRequest, res: Response, ne
       unreadNotificationsCount,
       recentTransactions,
       recentSubmissions,
+      userLevelUnlocks,
     ] = await Promise.all([
       prisma.level.findMany({ orderBy: { levelNumber: 'asc' } }),
       prisma.userTaskProgress.findMany({
@@ -86,7 +87,13 @@ router.get('/dashboard', requireAuth, async (req: AuthRequest, res: Response, ne
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
+      prisma.userLevelUnlock.findMany({
+        where: { userId, isApproved: true },
+        select: { levelNumber: true },
+      }),
     ]);
+
+    const approvedLevelNumbers = new Set(userLevelUnlocks.map((u) => u.levelNumber));
 
     // Aggregate unique approved tasks per level
     const approvedTasksByLevel = new Map<string, Set<string>>();
@@ -119,11 +126,20 @@ router.get('/dashboard', requireAuth, async (req: AuthRequest, res: Response, ne
         lvl.levelNumber === 4
           ? approvedCount >= 1
           : approvedCount >= (lvl.requiredTaskCount || 10);
-      if (isLvlCompleted) {
+      const isLvlUnlocked =
+        lvl.levelNumber <= 3
+          ? true
+          : approvedLevelNumbers.has(lvl.levelNumber);
+
+      if (isLvlCompleted && isLvlUnlocked) {
         completedLevelsCount++;
-      } else if (!foundActiveLevel) {
         currentLevelNumber = lvl.levelNumber;
         currentLevelApprovedTasks = approvedCount;
+      } else if (!foundActiveLevel) {
+        if (isLvlUnlocked) {
+          currentLevelNumber = lvl.levelNumber;
+          currentLevelApprovedTasks = approvedCount;
+        }
         foundActiveLevel = true;
       }
     }
@@ -226,7 +242,8 @@ router.get('/profile', requireAuth, async (req: AuthRequest, res: Response, next
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    res.json({ user });
+    const { passwordHash: _removedPasswordHash, ...sanitizedUser } = user;
+    res.json({ user: sanitizedUser });
   } catch (err) {
     next(err);
   }

@@ -6,6 +6,7 @@ import {
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_ACCESS_PASSWORD,
 } from '../services/telegramService';
+import { requireAdmin, requireSuperAdmin } from '../middleware/adminAuth';
 
 const router = Router();
 
@@ -35,40 +36,39 @@ router.post('/webhook', async (req: Request, res: Response) => {
 
 /**
  * GET /api/telegram/setup
- * Configures the webhook URL on Telegram Bot API.
+ * Configures the webhook URL on Telegram Bot API (Super Admin Only).
  */
-router.get('/setup', async (req: Request, res: Response) => {
+router.get('/setup', requireAdmin, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
-    const host = req.get('host') || 'streetearn-backend.vercel.app';
+    const host = req.get('host') || 'localhost:5050';
     const protocol = req.protocol === 'http' && !host.includes('vercel.app') ? 'http' : 'https';
     const webhookUrl = `${protocol}://${host}/api/telegram/webhook`;
 
     const result = await setTelegramWebhook(webhookUrl);
     res.json({
-      success: result.ok,
-      webhookUrl,
-      telegramResponse: result,
+      success: Boolean(result?.ok),
       info: 'Telegram Bot webhook is active and configured.',
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to configure Telegram webhook' });
   }
 });
 
 /**
  * GET /api/telegram/info
- * Retrieves the current webhook status and bot parameters.
+ * Retrieves sanitized webhook status (Super Admin Only).
  */
-router.get('/info', async (req: Request, res: Response) => {
+router.get('/info', requireAdmin, requireSuperAdmin, async (_req: Request, res: Response) => {
   try {
     const webhookInfo = await getTelegramWebhookInfo();
     res.json({
       botTokenConfigured: Boolean(TELEGRAM_BOT_TOKEN),
       passwordConfigured: Boolean(TELEGRAM_ACCESS_PASSWORD),
-      webhookInfo,
+      webhookActive: Boolean(webhookInfo?.result?.url),
+      pendingUpdateCount: webhookInfo?.result?.pending_update_count ?? 0,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to retrieve Telegram webhook info' });
   }
 });
 

@@ -1,10 +1,8 @@
 import { prisma } from '../prisma';
 import { generateAdditionalCodes } from './adminReferralService';
 
-export const TELEGRAM_BOT_TOKEN =
-  process.env.TELEGRAM_BOT_TOKEN || '9295985286:AAHb0EQFD-OMsd5bfrNgaPMTfkUDm4-Gph8';
-export const TELEGRAM_ACCESS_PASSWORD =
-  process.env.TELEGRAM_ACCESS_PASSWORD || '9989GHYRT89';
+export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+export const TELEGRAM_ACCESS_PASSWORD = process.env.TELEGRAM_ACCESS_PASSWORD || '';
 
 const TG_API_BASE = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 

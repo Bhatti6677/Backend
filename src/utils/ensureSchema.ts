@@ -46,6 +46,24 @@ export async function ensureUserWithdrawalColumns(prisma: PrismaClient): Promise
         await prisma.$executeRawUnsafe(`
           CREATE INDEX IF NOT EXISTS "UserLevelUnlock_userId_idx" ON "UserLevelUnlock"("userId");
         `);
+        await prisma.$executeRawUnsafe(`
+          DO $$
+          DECLARE
+            t text;
+          BEGIN
+            FOR t IN
+              SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+            LOOP
+              EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
+              IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+                EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon;', t);
+              END IF;
+              IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+                EXECUTE format('REVOKE ALL ON TABLE public.%I FROM authenticated;', t);
+              END IF;
+            END LOOP;
+          END $$;
+        `);
         schemaEnsured = true;
       } catch (err) {
         console.warn('[Auto-Migration] Notice ensuring User withdrawal columns:', err);
