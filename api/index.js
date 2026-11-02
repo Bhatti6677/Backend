@@ -79224,8 +79224,8 @@ router11.get("/deposits", requireAdmin, requireSuperAdmin, async (req, res, next
             { user: { phone: { contains: search } } },
             { user: { referralCode: { contains: search, mode: "insensitive" } } },
             { user: { id: { contains: search } } },
-            { transactionId: { contains: search, mode: "insensitive" } },
-            { senderAccount: { contains: search } }
+            { transactionReference: { contains: search, mode: "insensitive" } },
+            { id: { contains: search } }
           ]
         }
       ];
@@ -79394,8 +79394,10 @@ router11.get("/withdrawals", requireAdmin, requireSuperAdmin, async (req, res, n
             { user: { phone: { contains: search } } },
             { user: { referralCode: { contains: search, mode: "insensitive" } } },
             { user: { id: { contains: search } } },
-            { accountNumber: { contains: search } },
-            { accountTitle: { contains: search, mode: "insensitive" } }
+            { recipientAccount: { contains: search } },
+            { recipientName: { contains: search, mode: "insensitive" } },
+            { payoutReference: { contains: search, mode: "insensitive" } },
+            { id: { contains: search } }
           ]
         }
       ];
@@ -79903,8 +79905,9 @@ router11.get("/transactions", requireAdmin, requireSuperAdmin, async (req, res, 
             { user: { phone: { contains: search } } },
             { user: { referralCode: { contains: search, mode: "insensitive" } } },
             { user: { id: { contains: search } } },
-            { description: { contains: search, mode: "insensitive" } },
-            { referenceId: { contains: search } }
+            { reason: { contains: search, mode: "insensitive" } },
+            { notes: { contains: search, mode: "insensitive" } },
+            { id: { contains: search } }
           ]
         }
       ];
