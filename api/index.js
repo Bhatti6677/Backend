@@ -77633,7 +77633,7 @@ router11.get(["/notifications/counts", "/pending-counts"], requireAdmin, async (
     next(error62);
   }
 });
-router11.get("/dashboard", requireAdmin, async (req, res, next) => {
+router11.get("/dashboard", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     if (isMiniAdmin) {
@@ -77779,7 +77779,7 @@ router11.get("/dashboard", requireAdmin, async (req, res, next) => {
     next(err);
   }
 });
-router11.get("/tasks/grid", requireAdmin, async (req, res, next) => {
+router11.get("/tasks/grid", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     const levels = await prisma.level.findMany({
@@ -77834,7 +77834,7 @@ router11.get("/tasks/grid", requireAdmin, async (req, res, next) => {
     next(err);
   }
 });
-router11.get("/users", requireAdmin, async (req, res, next) => {
+router11.get("/users", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     const search = (req.query.search || "").trim();
@@ -78194,7 +78194,7 @@ router11.post("/level-approvals/batch", requireAdmin, requireSuperAdmin, async (
     next(err);
   }
 });
-router11.get("/users/:userId", requireAdmin, async (req, res, next) => {
+router11.get("/users/:userId", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const userId = req.params.userId;
     let user;
@@ -78265,7 +78265,7 @@ router11.get("/users/:userId", requireAdmin, async (req, res, next) => {
     next(err);
   }
 });
-router11.put("/users/:userId/status", requireAdmin, async (req, res, next) => {
+router11.put("/users/:userId/status", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const userId = req.params.userId;
     const { status, reason } = external_exports.object({
@@ -78454,7 +78454,7 @@ router11.patch("/users/:userId", requireAdmin, requireSuperAdmin, async (req, re
     next(err);
   }
 });
-router11.get("/users/:userId/summary", requireAdmin, async (req, res, next) => {
+router11.get("/users/:userId/summary", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const userId = req.params.userId;
     const u = await prisma.user.findUnique({
@@ -78698,7 +78698,7 @@ router11.post("/users/:userId/adjust-credit-points", requireAdmin, requireSuperA
     next(err);
   }
 });
-router11.get("/tasks", requireAdmin, async (req, res, next) => {
+router11.get("/tasks", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     const levelNumber = isMiniAdmin ? 1 : req.query.level ? parseInt(req.query.level, 10) : void 0;
@@ -78777,7 +78777,7 @@ router11.put("/tasks/:taskId", requireAdmin, requireSuperAdmin, async (req, res,
     next(err);
   }
 });
-router11.get("/levels", requireAdmin, async (req, res, next) => {
+router11.get("/levels", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     const levels = await prisma.level.findMany({
@@ -80401,7 +80401,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-DmWpBnIF.js")) {
+        if (content.includes('id="root"') && content.includes("index-aHYT8SzU.js")) {
           return content;
         }
       } catch (err) {
@@ -80424,7 +80424,7 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-DmWpBnIF.js"></script>
+    <script type="module" crossorigin src="/assets/index-aHYT8SzU.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-D11m1lQb.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
@@ -80574,8 +80574,8 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-DmWpBnIF.js")) {
-        return res.redirect(302, "/assets/index-DmWpBnIF.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-aHYT8SzU.js")) {
+        return res.redirect(302, "/assets/index-aHYT8SzU.js");
       }
       if (req.path.endsWith(".css") && !req.path.includes("index-D11m1lQb.css")) {
         return res.redirect(302, "/assets/index-D11m1lQb.css");

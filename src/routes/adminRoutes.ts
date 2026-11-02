@@ -192,7 +192,7 @@ router.get(['/notifications/counts', '/pending-counts'], requireAdmin, async (re
 // 2. ADMIN DASHBOARD & SUMMARY
 // ==========================================
 
-router.get('/dashboard', requireAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+router.get('/dashboard', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
 
@@ -347,7 +347,7 @@ router.get('/dashboard', requireAdmin, async (req: AdminAuthRequest, res: Respon
 // 3. 10x10 TASK STATUS OVERVIEW GRID
 // ==========================================
 
-router.get('/tasks/grid', requireAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+router.get('/tasks/grid', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     const levels = await prisma.level.findMany({
@@ -410,7 +410,7 @@ router.get('/tasks/grid', requireAdmin, async (req: AdminAuthRequest, res: Respo
 // 4. USER MANAGEMENT
 // ==========================================
 
-router.get('/users', requireAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+router.get('/users', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     const search = (req.query.search as string || '').trim();
@@ -804,7 +804,7 @@ router.post('/level-approvals/batch', requireAdmin, requireSuperAdmin, async (re
   }
 });
 
-router.get('/users/:userId', requireAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+router.get('/users/:userId', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const userId = req.params.userId as string;
     let user: any;
@@ -881,7 +881,7 @@ router.get('/users/:userId', requireAdmin, async (req: AdminAuthRequest, res: Re
   }
 });
 
-router.put('/users/:userId/status', requireAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+router.put('/users/:userId/status', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const userId = req.params.userId as string;
     const { status, reason } = z.object({
@@ -1103,7 +1103,7 @@ router.patch('/users/:userId', requireAdmin, requireSuperAdmin, async (req: Admi
 });
 
 // Fetch summary for a single user entity without reloading all users or unrelated data
-router.get('/users/:userId/summary', requireAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+router.get('/users/:userId/summary', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const userId = req.params.userId as string;
     const u = await prisma.user.findUnique({
@@ -1392,7 +1392,7 @@ router.post('/users/:userId/adjust-credit-points', requireAdmin, requireSuperAdm
 // 5. TASK MANAGEMENT & EDITING MODAL
 // ==========================================
 
-router.get('/tasks', requireAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+router.get('/tasks', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     const levelNumber = isMiniAdmin ? 1 : (req.query.level ? parseInt(req.query.level as string, 10) : undefined);
@@ -1485,7 +1485,7 @@ router.put('/tasks/:taskId', requireAdmin, requireSuperAdmin, async (req: AdminA
 // 6. LEVEL MANAGEMENT
 // ==========================================
 
-router.get('/levels', requireAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+router.get('/levels', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
     const levels = await prisma.level.findMany({
