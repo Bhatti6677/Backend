@@ -65056,7 +65056,7 @@ async function handleTelegramWebhookUpdate(update) {
         chat_id: chatId,
         text: `You have already registered!
 
-\u{1F4CA} Available codes: <b>${user.remainingQuota}</b> / <b>${user.totalQuota}</b>
+\u{1F4CA} Available codes: <b>${user.remainingQuota}</b>
 
 \u{1F449} Send <b>code</b> to generate an invitation code.`,
         parse_mode: "HTML",
@@ -65070,7 +65070,7 @@ async function handleTelegramWebhookUpdate(update) {
           return {
             method: "sendMessage",
             chat_id: chatId,
-            text: `\u26A0\uFE0F You have used all your <b>${result.totalQuota}</b> available codes.
+            text: `\u26A0\uFE0F You have no available codes remaining.
 
 Please contact administration to grant you more referral codes.`,
             parse_mode: "HTML"
@@ -65090,7 +65090,7 @@ Please contact administration to grant you more referral codes.`,
 
 <b><code>${result.code}</code></b>
 
-\u{1F4CA} <b>Remaining codes:</b> ${result.remainingQuota} / ${result.totalQuota}`,
+\u{1F4CA} <b>Available codes:</b> ${result.remainingQuota}`,
         parse_mode: "HTML",
         reply_markup: authKeyboard
       };
@@ -65101,7 +65101,7 @@ Please contact administration to grant you more referral codes.`,
         chat_id: chatId,
         text: `You are already registered!
 
-\u{1F4CA} Available codes: <b>${user.remainingQuota}</b> / <b>${user.totalQuota}</b>
+\u{1F4CA} Available codes: <b>${user.remainingQuota}</b>
 
 Send <b>code</b> to receive an invitation code.`,
         parse_mode: "HTML",
@@ -65113,7 +65113,7 @@ Send <b>code</b> to receive an invitation code.`,
       chat_id: chatId,
       text: `Send <b>code</b> to receive an invitation code.
 
-\u{1F4CA} Available codes: <b>${user.remainingQuota}</b> / <b>${user.totalQuota}</b>`,
+\u{1F4CA} Available codes: <b>${user.remainingQuota}</b>`,
       parse_mode: "HTML",
       reply_markup: authKeyboard
     };
@@ -65191,6 +65191,68 @@ Send <b>code</b> to generate a new invitation code.`;
   }, "HTML");
   return { success: true, user: updated };
 }
+async function mergeTelegramUsers(sourceChatId, targetChatId) {
+  await ensureTelegramUserTable();
+  const strSource = String(sourceChatId).trim();
+  const strTarget = String(targetChatId).trim();
+  if (!strSource || !strTarget || strSource === strTarget) {
+    return { success: false, error: "Source and target Telegram accounts must be distinct valid chat IDs." };
+  }
+  const [sourceUser, targetUser] = await Promise.all([
+    getTelegramUserByChatId(strSource),
+    getTelegramUserByChatId(strTarget)
+  ]);
+  if (!sourceUser) {
+    return { success: false, error: `Source account with Chat ID ${strSource} not found.` };
+  }
+  if (!targetUser) {
+    return { success: false, error: `Target account with Chat ID ${strTarget} not found.` };
+  }
+  const updateRes = await prisma.$executeRawUnsafe(`
+    UPDATE "AdminReferralCode"
+    SET "notes" = REPLACE("notes", 'TG:' || $1, 'TG:' || $2),
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "notes" LIKE '%TG:' || $1 || '%' OR "notes" = 'TG:' || $1
+  `, strSource, strTarget);
+  await prisma.$executeRawUnsafe(`
+    UPDATE "TelegramUser"
+    SET "remainingQuota" = "remainingQuota" + $1,
+        "codesGenerated" = "codesGenerated" + $2,
+        "totalQuota" = "totalQuota" + $3,
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "chatId" = $4
+  `, sourceUser.remainingQuota, sourceUser.codesGenerated, sourceUser.totalQuota, strTarget);
+  await prisma.$executeRawUnsafe(`
+    UPDATE "TelegramUser"
+    SET "status" = 'MERGED',
+        "remainingQuota" = 0,
+        "firstName" = COALESCE("firstName", 'Client') || ' [Merged into ' || $1 || ']',
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "chatId" = $2
+  `, strTarget, strSource);
+  await prisma.$executeRawUnsafe(`
+    UPDATE "AdminUser"
+    SET "telegramChatId" = $1,
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "telegramChatId" = $2
+  `, strTarget, strSource);
+  const updatedTarget = await getTelegramUserByChatId(strTarget);
+  try {
+    const notifyText = `\u{1F504} <b>Accounts Merged Successfully!</b>
+
+Your previous account data (${sourceUser.username ? "@" + sourceUser.username : sourceUser.chatId}) has been merged into this account.
+
+\u{1F4CA} You now have <b>${updatedTarget?.remainingQuota}</b> codes available.
+
+Send <b>code</b> to generate your next invitation code.`;
+    await sendTelegramDirectMessage(strTarget, notifyText, {
+      keyboard: [[{ text: "code" }]],
+      resize_keyboard: true
+    }, "HTML");
+  } catch (e) {
+  }
+  return { success: true, mergedCodesCount: Number(updateRes), targetUser: updatedTarget || void 0 };
+}
 
 // src/services/adminReferralService.ts
 var tableEnsured2 = false;
@@ -65203,52 +65265,6 @@ function generateSixLetterCode() {
   return code;
 }
 async function replenishAvailableCodesTo100() {
-  try {
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "AdminReferralCode"
-      WHERE "status" = 'AVAILABLE' AND "code" !~ '^[a-zA-Z]{6}$'
-    `);
-    await prisma.$executeRawUnsafe(`
-      UPDATE "AdminReferralCode"
-      SET "code" = LOWER("code")
-      WHERE "status" = 'AVAILABLE' AND "code" ~ '^[a-zA-Z]{6}$' AND "code" != LOWER("code")
-    `);
-    const countRes = await prisma.$queryRawUnsafe(`
-      SELECT COUNT(*)::int AS count FROM "AdminReferralCode" WHERE "status" = 'AVAILABLE'
-    `);
-    const currentAvailable = Number(countRes[0]?.count || 0);
-    const needed = 100 - currentAvailable;
-    if (needed <= 0) return;
-    const existingRows = await prisma.$queryRawUnsafe(`
-      SELECT LOWER("code") AS code FROM "AdminReferralCode"
-    `);
-    const existingSet = new Set(existingRows.map((r) => String(r.code).toLowerCase()));
-    const newCodes = [];
-    let attempts = 0;
-    while (newCodes.length < needed && attempts < needed * 20) {
-      attempts++;
-      const candidate = generateSixLetterCode();
-      if (!existingSet.has(candidate)) {
-        existingSet.add(candidate);
-        newCodes.push({
-          id: `arc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${newCodes.length}`,
-          code: candidate
-        });
-      }
-    }
-    if (newCodes.length > 0) {
-      const valuesSql = newCodes.map(
-        (item) => `('${item.id}', '${item.code}', 'AVAILABLE', 'Official 6-Letter Admin Referral Code', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-      ).join(",\n");
-      await prisma.$executeRawUnsafe(`
-        INSERT INTO "AdminReferralCode" ("id", "code", "status", "notes", "createdAt", "updatedAt")
-        VALUES ${valuesSql}
-        ON CONFLICT ("code") DO NOTHING;
-      `);
-    }
-  } catch (err) {
-    console.error("Error replenishing admin referral codes to 100:", err);
-  }
 }
 async function ensureAdminReferralCodes() {
   if (!tableEnsured2) {
@@ -65278,7 +65294,21 @@ async function ensureAdminReferralCodes() {
       console.error("Error ensuring AdminReferralCode table:", err);
     }
   }
-  await replenishAvailableCodesTo100();
+}
+async function deleteReferralCodeById(id) {
+  await ensureAdminReferralCodes();
+  const res = await prisma.$executeRawUnsafe(`
+    DELETE FROM "AdminReferralCode" WHERE "id" = $1
+  `, id);
+  return Number(res) > 0;
+}
+async function batchDeleteReferralCodes(ids) {
+  await ensureAdminReferralCodes();
+  if (!ids || ids.length === 0) return 0;
+  const res = await prisma.$executeRawUnsafe(`
+    DELETE FROM "AdminReferralCode" WHERE "id" = ANY($1::text[])
+  `, ids);
+  return Number(res);
 }
 async function getAdminReferralCodesOverview() {
   await ensureAdminReferralCodes();
@@ -65388,17 +65418,17 @@ router.post("/register", async (req, res, next) => {
         error: "An official invitation code is required to register. Client self-invites are disabled; codes are provided exclusively by administration."
       });
     }
-    const isValidAdminCode = await validateAdminReferralCode(trimmedRefCode);
-    if (!isValidAdminCode) {
-      return res.status(400).json({
-        error: "Invalid or already used invitation code. Registration requires an exclusive 1-time invitation code provided directly by administration."
-      });
-    }
     const existingUser = await prisma.user.findUnique({
       where: { phone: normalizedPhone }
     });
     if (existingUser) {
       return res.status(400).json({ error: "A user with this phone number is already registered" });
+    }
+    const isValidAdminCode = await validateAdminReferralCode(trimmedRefCode);
+    if (!isValidAdminCode) {
+      return res.status(400).json({
+        error: "Invalid or already used invitation code. Registration requires an exclusive 1-time invitation code provided directly by administration."
+      });
     }
     let userReferralCode = generateReferralCode(validated.name);
     let codeExists = await prisma.user.findUnique({ where: { referralCode: userReferralCode } });
@@ -77593,12 +77623,31 @@ router11.get(["/notifications/counts", "/pending-counts"], requireAdmin, async (
   try {
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     if (isMiniAdmin) {
-      const pendingTasks2 = await prisma.taskSubmission.count({
-        where: {
-          status: "PENDING",
-          task: { level: { levelNumber: 1 } }
-        }
+      const miniAdminRecord = await prisma.adminUser.findUnique({
+        where: { id: req.admin.id },
+        select: { telegramChatId: true }
       });
+      const chatId = miniAdminRecord?.telegramChatId?.trim() || null;
+      let pendingTasks2 = 0;
+      if (chatId) {
+        const invitedUserRows = await prisma.$queryRawUnsafe(`
+          SELECT DISTINCT "usedById"
+          FROM "AdminReferralCode"
+          WHERE "status" = 'USED'
+            AND ("notes" LIKE $1 OR "notes" = $2)
+            AND "usedById" IS NOT NULL
+        `, `%TG:${chatId}%`, `TG:${chatId}`);
+        const invitedUserIds = invitedUserRows.map((r) => r.usedById).filter(Boolean);
+        if (invitedUserIds.length > 0) {
+          pendingTasks2 = await prisma.taskSubmission.count({
+            where: {
+              status: "PENDING",
+              userId: { in: invitedUserIds },
+              task: { level: { levelNumber: 1 } }
+            }
+          });
+        }
+      }
       return res.json({
         success: true,
         counts: {
@@ -77696,12 +77745,26 @@ router11.get("/dashboard", requireAdmin, async (req, res, next) => {
           console.error("Error fetching mini admin telegram performance:", err);
         }
       }
-      const pendingSubmissions2 = await prisma.taskSubmission.count({
-        where: {
-          status: "PENDING",
-          task: { level: { levelNumber: 1 } }
+      let pendingSubmissions2 = 0;
+      if (chatId) {
+        const invitedUserRows = await prisma.$queryRawUnsafe(`
+          SELECT DISTINCT "usedById"
+          FROM "AdminReferralCode"
+          WHERE "status" = 'USED'
+            AND ("notes" LIKE $1 OR "notes" = $2)
+            AND "usedById" IS NOT NULL
+        `, `%TG:${chatId}%`, `TG:${chatId}`);
+        const invitedUserIds = invitedUserRows.map((r) => r.usedById).filter(Boolean);
+        if (invitedUserIds.length > 0) {
+          pendingSubmissions2 = await prisma.taskSubmission.count({
+            where: {
+              status: "PENDING",
+              userId: { in: invitedUserIds },
+              task: { level: { levelNumber: 1 } }
+            }
+          });
         }
-      });
+      }
       const now = /* @__PURE__ */ new Date();
       const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const startOfWeek = new Date(startOfToday);
@@ -77729,7 +77792,13 @@ router11.get("/dashboard", requireAdmin, async (req, res, next) => {
       return res.json({
         isMiniAdmin: true,
         performance: {
-          telegramAccount,
+          telegramAccount: telegramAccount ? {
+            chatId: telegramAccount.chatId,
+            username: telegramAccount.username,
+            firstName: telegramAccount.firstName,
+            availableCodes: telegramAccount.remainingQuota
+            // ONLY Available codes! No totalQuota or X out of Y
+          } : null,
           totalInvited: invitedRows.length,
           invitedToday,
           invitedThisWeek,
@@ -78878,13 +78947,43 @@ router11.get("/submissions", requireAdmin, async (req, res, next) => {
     const page = parseInt(req.query.page || "1", 10);
     const limit = parseInt(req.query.limit || "20", 10);
     const skip = (page - 1) * limit;
+    let miniAdminInvitedUserIds = null;
+    if (isMiniAdmin) {
+      const miniAdminRecord = await prisma.adminUser.findUnique({
+        where: { id: req.admin.id },
+        select: { telegramChatId: true }
+      });
+      const chatId = miniAdminRecord?.telegramChatId?.trim() || null;
+      if (!chatId) {
+        return res.json({
+          submissions: [],
+          pagination: { total: 0, page: 1, limit, totalPages: 1 }
+        });
+      }
+      const invitedRows = await prisma.$queryRawUnsafe(`
+        SELECT DISTINCT "usedById"
+        FROM "AdminReferralCode"
+        WHERE "status" = 'USED'
+          AND ("notes" LIKE $1 OR "notes" = $2)
+          AND "usedById" IS NOT NULL
+      `, `%TG:${chatId}%`, `TG:${chatId}`);
+      miniAdminInvitedUserIds = invitedRows.map((r) => r.usedById).filter(Boolean);
+      if (miniAdminInvitedUserIds.length === 0) {
+        return res.json({
+          submissions: [],
+          pagination: { total: 0, page: 1, limit, totalPages: 1 }
+        });
+      }
+    }
     const where = {};
     if (isMiniAdmin) {
       where.status = "PENDING";
-    } else if (status) {
-      where.status = status;
+      where.task = { level: { levelNumber: 1 } };
+      where.userId = { in: miniAdminInvitedUserIds };
+    } else {
+      if (status) where.status = status;
+      if (levelNumber) where.task = { level: { levelNumber } };
     }
-    if (levelNumber) where.task = { level: { levelNumber } };
     if (search) {
       where.AND = [
         ...where.AND || [],
@@ -79060,7 +79159,7 @@ async function executeReviewSubmissionCore(params) {
         }
       }
       return { updatedSub: updatedSub2, updatedWallet: updatedWallet2 };
-    });
+    }, { timeout: 25e3, maxWait: 1e4 });
     const { updatedSub, updatedWallet } = result;
     await Promise.all([
       taskProgressionService.updateLevelProgress(user.id, task.levelId),
@@ -79121,7 +79220,7 @@ async function executeReviewSubmissionCore(params) {
         }
       });
       return sub;
-    });
+    }, { timeout: 25e3, maxWait: 1e4 });
     logAdminAction({
       adminId: admin.id,
       adminUsername: admin.username,
@@ -79147,12 +79246,35 @@ router11.put("/submissions/:submissionId/review", requireAdmin, async (req, res,
     }).parse(req.body);
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     if (isMiniAdmin) {
+      const miniAdminRecord = await prisma.adminUser.findUnique({
+        where: { id: req.admin.id },
+        select: { telegramChatId: true }
+      });
+      const chatId = miniAdminRecord?.telegramChatId?.trim() || null;
+      if (!chatId) {
+        return res.status(403).json({ error: "Access Denied: You do not have a linked Telegram account." });
+      }
       const targetSub = await prisma.taskSubmission.findUnique({
         where: { id: submissionId },
-        select: { task: { select: { level: { select: { levelNumber: true } } } } }
+        select: {
+          userId: true,
+          task: { select: { level: { select: { levelNumber: true } } } }
+        }
       });
       if (!targetSub || targetSub.task?.level?.levelNumber !== 1) {
-        return res.status(403).json({ error: "Access Denied: Mini Admins can only review Level 1 task submissions" });
+        return res.status(403).json({ error: "Access Denied: Mini Admins can only review Level 1 task submissions." });
+      }
+      const invitedCheck = await prisma.$queryRawUnsafe(`
+        SELECT 1 FROM "AdminReferralCode"
+        WHERE "status" = 'USED'
+          AND "usedById" = $1
+          AND ("notes" LIKE $2 OR "notes" = $3)
+        LIMIT 1
+      `, targetSub.userId, `%TG:${chatId}%`, `TG:${chatId}`);
+      if (invitedCheck.length === 0) {
+        return res.status(403).json({
+          error: "Access Denied: You can only approve task submissions for users invited by your account."
+        });
       }
     }
     const result = await executeReviewSubmissionCore({
@@ -79182,6 +79304,14 @@ router11.post("/submissions/batch-review", requireAdmin, async (req, res, next) 
     }).parse(req.body);
     const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
     if (isMiniAdmin) {
+      const miniAdminRecord = await prisma.adminUser.findUnique({
+        where: { id: req.admin.id },
+        select: { telegramChatId: true }
+      });
+      const chatId = miniAdminRecord?.telegramChatId?.trim() || null;
+      if (!chatId) {
+        return res.status(403).json({ error: "Access Denied: You do not have a linked Telegram account." });
+      }
       const nonLevel1Count = await prisma.taskSubmission.count({
         where: {
           id: { in: submissionIds },
@@ -79189,7 +79319,25 @@ router11.post("/submissions/batch-review", requireAdmin, async (req, res, next) 
         }
       });
       if (nonLevel1Count > 0) {
-        return res.status(403).json({ error: "Access Denied: Mini Admins can only review Level 1 task submissions" });
+        return res.status(403).json({ error: "Access Denied: Mini Admins can only review Level 1 task submissions." });
+      }
+      const targetSubs = await prisma.taskSubmission.findMany({
+        where: { id: { in: submissionIds } },
+        select: { userId: true }
+      });
+      const targetUserIds = Array.from(new Set(targetSubs.map((s) => s.userId)));
+      const invitedRows = await prisma.$queryRawUnsafe(`
+        SELECT DISTINCT "usedById" FROM "AdminReferralCode"
+        WHERE "status" = 'USED'
+          AND "usedById" = ANY($1::text[])
+          AND ("notes" LIKE $2 OR "notes" = $3)
+      `, targetUserIds, `%TG:${chatId}%`, `TG:${chatId}`);
+      const allowedUserIds = new Set(invitedRows.map((r) => r.usedById));
+      const hasUnauthorized = targetUserIds.some((uid) => !allowedUserIds.has(uid));
+      if (hasUnauthorized) {
+        return res.status(403).json({
+          error: "Access Denied: You can only review submissions for users invited by your account."
+        });
       }
     }
     const results = [];
@@ -80173,10 +80321,141 @@ router11.post("/referral-codes/create", requireAdmin, requireSuperAdmin, async (
     next(err);
   }
 });
+router11.delete("/referral-codes/:id", requireAdmin, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const deleted = await deleteReferralCodeById(id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Referral code not found" });
+    }
+    await logAdminAction({
+      adminId: req.admin.id,
+      adminUsername: req.admin.username,
+      action: "DELETE_REFERRAL_CODE",
+      entityType: "AdminReferralCode",
+      entityId: id,
+      reason: "Master Admin deleted referral code",
+      ipAddress: req.ip
+    });
+    const data = await getAdminReferralCodesOverview();
+    res.json({ message: "Referral code deleted successfully", ...data });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.post("/referral-codes/batch-delete", requireAdmin, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const { ids } = external_exports.object({
+      ids: external_exports.array(external_exports.string()).min(1, "Select at least one referral code to delete")
+    }).parse(req.body);
+    const count = await batchDeleteReferralCodes(ids);
+    await logAdminAction({
+      adminId: req.admin.id,
+      adminUsername: req.admin.username,
+      action: "BATCH_DELETE_REFERRAL_CODES",
+      entityType: "AdminReferralCode",
+      entityId: `batch_${Date.now()}`,
+      details: { count, ids },
+      reason: `Master Admin batch deleted ${count} referral codes`,
+      ipAddress: req.ip
+    });
+    const data = await getAdminReferralCodesOverview();
+    res.json({ message: `Successfully deleted ${count} referral codes`, count, ...data });
+  } catch (err) {
+    next(err);
+  }
+});
 router11.get("/telegram-users", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const users = await getAllTelegramUsers();
     res.json({ users });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.post("/telegram-users/merge", requireAdmin, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const { sourceChatId, targetChatId } = external_exports.object({
+      sourceChatId: external_exports.string().min(1, "Source (old/lost) Telegram Chat ID is required"),
+      targetChatId: external_exports.string().min(1, "Target (new) Telegram Chat ID is required")
+    }).parse(req.body);
+    const result = await mergeTelegramUsers(sourceChatId, targetChatId);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || "Failed to merge Telegram accounts" });
+    }
+    await logAdminAction({
+      adminId: req.admin.id,
+      adminUsername: req.admin.username,
+      action: "MERGE_TELEGRAM_ACCOUNTS",
+      entityType: "TelegramUser",
+      entityId: targetChatId,
+      details: { sourceChatId, targetChatId, mergedCodesCount: result.mergedCodesCount },
+      reason: `Master Admin merged Telegram account ${sourceChatId} into ${targetChatId}`,
+      ipAddress: req.ip
+    });
+    res.json({
+      message: `Successfully merged account ${sourceChatId} into ${targetChatId}! Transferred all invitation codes, quota, and Mini Admin links.`,
+      result
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.get("/my-assigned-codes", requireAdmin, async (req, res, next) => {
+  try {
+    const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
+    let chatId = null;
+    if (isMiniAdmin) {
+      const miniAdmin = await prisma.adminUser.findUnique({
+        where: { id: req.admin.id },
+        select: { telegramChatId: true }
+      });
+      chatId = miniAdmin?.telegramChatId?.trim() || null;
+    } else {
+      chatId = req.query.chatId?.trim() || null;
+    }
+    if (!chatId) {
+      return res.json({
+        hasLinkedTelegram: false,
+        message: "Your account is not linked to any Telegram invitation account. Please ask administration to link or merge your Telegram account.",
+        telegramAccount: null,
+        codes: []
+      });
+    }
+    const tgUser = await getTelegramUserByChatId(chatId);
+    if (!tgUser) {
+      return res.json({
+        hasLinkedTelegram: false,
+        message: "The linked Telegram account was not found in the system. Please ask administration to link or merge your Telegram account.",
+        telegramAccount: null,
+        codes: []
+      });
+    }
+    const codes = await prisma.$queryRawUnsafe(`
+      SELECT "id", "code", "status", "usedByName", "usedAt", "createdAt"
+      FROM "AdminReferralCode"
+      WHERE "notes" LIKE $1 OR "notes" = $2
+      ORDER BY "createdAt" DESC
+    `, `%TG:${chatId}%`, `TG:${chatId}`);
+    res.json({
+      hasLinkedTelegram: true,
+      telegramAccount: {
+        chatId: tgUser.chatId,
+        username: tgUser.username,
+        firstName: tgUser.firstName,
+        availableCodes: tgUser.remainingQuota
+        // ONLY Available codes! No totalQuota or X out of Y
+      },
+      codes: codes.map((c) => ({
+        id: c.id,
+        code: c.code,
+        status: c.status,
+        usedByName: c.usedByName,
+        // Name only, strictly no user details!
+        usedAt: c.usedAt,
+        createdAt: c.createdAt
+      }))
+    });
   } catch (err) {
     next(err);
   }
@@ -80613,7 +80892,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-DIT4OECU.js")) {
+        if (content.includes('id="root"') && content.includes("index-C_Pwm7M_.js")) {
           return content;
         }
       } catch (err) {
@@ -80636,8 +80915,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-DIT4OECU.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-D-Rluf9Z.css">
+    <script type="module" crossorigin src="/assets/index-C_Pwm7M_.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D6GkBrwi.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -80786,11 +81065,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-DIT4OECU.js")) {
-        return res.redirect(302, "/assets/index-DIT4OECU.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-C_Pwm7M_.js")) {
+        return res.redirect(302, "/assets/index-C_Pwm7M_.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-D-Rluf9Z.css")) {
-        return res.redirect(302, "/assets/index-D-Rluf9Z.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-D6GkBrwi.css")) {
+        return res.redirect(302, "/assets/index-D6GkBrwi.css");
       }
       return res.status(404).end();
     }

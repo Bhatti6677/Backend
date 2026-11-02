@@ -204,23 +204,27 @@ describe('Royal Rewards Full-Stack API Suite', { timeout: 30000 }, () => {
 
   describe('3. Paid Task Unlocking & Balance Safety', () => {
     it('prevents paid task unlock with insufficient balance', async () => {
-      // Find Task 9 of Level 1 (isPaid: true, fee: 5000)
-      const level1 = await prisma.level.findUnique({
-        where: { levelNumber: 1 },
-        include: { tasks: { orderBy: { taskNumber: 'asc' } } },
+      // Find a prepaid VIP task (isPaid: true)
+      const paidTask = await prisma.task.findFirst({
+        where: { isPaid: true },
+        include: { level: { include: { tasks: { orderBy: { taskNumber: 'asc' } } } } },
       });
-      const task9 = level1!.tasks[8];
-      expect(task9.isPaid).toBe(true);
+      expect(paidTask).not.toBeNull();
+      expect(paidTask!.isPaid).toBe(true);
 
-      // Make sure Task 9 prerequisite is satisfied for this check
-      await prisma.userTaskProgress.upsert({
-        where: { userId_taskId: { userId, taskId: level1!.tasks[7].id } },
-        update: { status: 'APPROVED' },
-        create: { userId, taskId: level1!.tasks[7].id, status: 'APPROVED' },
-      });
+      // Make sure prerequisite task is satisfied for this check
+      const levelTasks = paidTask!.level.tasks;
+      const prevTaskIndex = levelTasks.findIndex((t) => t.id === paidTask!.id) - 1;
+      if (prevTaskIndex >= 0) {
+        await prisma.userTaskProgress.upsert({
+          where: { userId_taskId: { userId, taskId: levelTasks[prevTaskIndex].id } },
+          update: { status: 'APPROVED' },
+          create: { userId, taskId: levelTasks[prevTaskIndex].id, status: 'APPROVED' },
+        });
+      }
 
       const res = await request(app)
-        .post(`/api/tasks/${task9.id}/unlock`)
+        .post(`/api/tasks/${paidTask!.id}/unlock`)
         .set('Authorization', `Bearer ${userToken}`);
 
       expect(res.status).toBe(400);
@@ -228,25 +232,24 @@ describe('Royal Rewards Full-Stack API Suite', { timeout: 30000 }, () => {
     });
 
     it('unlocks paid task when user has sufficient balance', async () => {
-      // Admin credits PKR 10,000 to user wallet via balance adjustment
+      // Find a prepaid VIP task (isPaid: true)
+      const paidTask = await prisma.task.findFirst({
+        where: { isPaid: true },
+      });
+
+      // Admin credits PKR 50,000 to user wallet via balance adjustment
       const adjustRes = await request(app)
         .post(`/api/admin/users/${userId}/adjust-balance`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          amount: 10000,
+          amount: 50000,
           actionType: 'CREDIT',
           reason: 'Test promotional credit for paid task unlocking',
         });
       expect(adjustRes.status).toBe(200);
 
-      const level1 = await prisma.level.findUnique({
-        where: { levelNumber: 1 },
-        include: { tasks: { orderBy: { taskNumber: 'asc' } } },
-      });
-      const task9 = level1!.tasks[8];
-
       const unlockRes = await request(app)
-        .post(`/api/tasks/${task9.id}/unlock`)
+        .post(`/api/tasks/${paidTask!.id}/unlock`)
         .set('Authorization', `Bearer ${userToken}`);
 
       expect(unlockRes.status).toBe(200);

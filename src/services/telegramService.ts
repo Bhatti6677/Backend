@@ -287,7 +287,7 @@ export async function handleTelegramWebhookUpdate(update: any): Promise<any | nu
         chat_id: chatId,
         text:
           `You have already registered!\n\n` +
-          `📊 Available codes: <b>${user.remainingQuota}</b> / <b>${user.totalQuota}</b>\n\n` +
+          `📊 Available codes: <b>${user.remainingQuota}</b>\n\n` +
           `👉 Send <b>code</b> to generate an invitation code.`,
         parse_mode: 'HTML',
         reply_markup: authKeyboard,
@@ -304,7 +304,7 @@ export async function handleTelegramWebhookUpdate(update: any): Promise<any | nu
             method: 'sendMessage',
             chat_id: chatId,
             text:
-              `⚠️ You have used all your <b>${result.totalQuota}</b> available codes.\n\n` +
+              `⚠️ You have no available codes remaining.\n\n` +
               `Please contact administration to grant you more referral codes.`,
             parse_mode: 'HTML',
           };
@@ -323,7 +323,7 @@ export async function handleTelegramWebhookUpdate(update: any): Promise<any | nu
         text:
           `🎟️ <b>Your Invitation Code:</b>\n\n` +
           `<b><code>${result.code}</code></b>\n\n` +
-          `📊 <b>Remaining codes:</b> ${result.remainingQuota} / ${result.totalQuota}`,
+          `📊 <b>Available codes:</b> ${result.remainingQuota}`,
         parse_mode: 'HTML',
         reply_markup: authKeyboard,
       };
@@ -336,7 +336,7 @@ export async function handleTelegramWebhookUpdate(update: any): Promise<any | nu
         chat_id: chatId,
         text:
           `You are already registered!\n\n` +
-          `📊 Available codes: <b>${user.remainingQuota}</b> / <b>${user.totalQuota}</b>\n\n` +
+          `📊 Available codes: <b>${user.remainingQuota}</b>\n\n` +
           `Send <b>code</b> to receive an invitation code.`,
         parse_mode: 'HTML',
         reply_markup: authKeyboard,
@@ -349,7 +349,7 @@ export async function handleTelegramWebhookUpdate(update: any): Promise<any | nu
       chat_id: chatId,
       text:
         `Send <b>code</b> to receive an invitation code.\n\n` +
-        `📊 Available codes: <b>${user.remainingQuota}</b> / <b>${user.totalQuota}</b>`,
+        `📊 Available codes: <b>${user.remainingQuota}</b>`,
       parse_mode: 'HTML',
       reply_markup: authKeyboard,
     };
@@ -488,4 +488,87 @@ export async function grantMoreCodesToTelegramUser(
   }, 'HTML');
 
   return { success: true, user: updated! };
+}
+
+/**
+ * Admin action: Merges an old/lost Telegram account into a new Telegram account.
+ * Transfers all generated codes, registered members, remaining quota, and Mini Admin assignments.
+ */
+export async function mergeTelegramUsers(
+  sourceChatId: string,
+  targetChatId: string
+): Promise<{ success: boolean; error?: string; mergedCodesCount?: number; targetUser?: TelegramUserRecord }> {
+  await ensureTelegramUserTable();
+  const strSource = String(sourceChatId).trim();
+  const strTarget = String(targetChatId).trim();
+
+  if (!strSource || !strTarget || strSource === strTarget) {
+    return { success: false, error: 'Source and target Telegram accounts must be distinct valid chat IDs.' };
+  }
+
+  const [sourceUser, targetUser] = await Promise.all([
+    getTelegramUserByChatId(strSource),
+    getTelegramUserByChatId(strTarget),
+  ]);
+
+  if (!sourceUser) {
+    return { success: false, error: `Source account with Chat ID ${strSource} not found.` };
+  }
+  if (!targetUser) {
+    return { success: false, error: `Target account with Chat ID ${strTarget} not found.` };
+  }
+
+  // 1. Transfer all codes issued previously by strSource so their notes now reference strTarget
+  const updateRes = await prisma.$executeRawUnsafe(`
+    UPDATE "AdminReferralCode"
+    SET "notes" = REPLACE("notes", 'TG:' || $1, 'TG:' || $2),
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "notes" LIKE '%TG:' || $1 || '%' OR "notes" = 'TG:' || $1
+  `, strSource, strTarget);
+
+  // 2. Transfer quota to target user
+  await prisma.$executeRawUnsafe(`
+    UPDATE "TelegramUser"
+    SET "remainingQuota" = "remainingQuota" + $1,
+        "codesGenerated" = "codesGenerated" + $2,
+        "totalQuota" = "totalQuota" + $3,
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "chatId" = $4
+  `, sourceUser.remainingQuota, sourceUser.codesGenerated, sourceUser.totalQuota, strTarget);
+
+  // 3. Mark source user as MERGED
+  await prisma.$executeRawUnsafe(`
+    UPDATE "TelegramUser"
+    SET "status" = 'MERGED',
+        "remainingQuota" = 0,
+        "firstName" = COALESCE("firstName", 'Client') || ' [Merged into ' || $1 || ']',
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "chatId" = $2
+  `, strTarget, strSource);
+
+  // 4. Update any Mini Admin linked to sourceChatId to point to targetChatId
+  await prisma.$executeRawUnsafe(`
+    UPDATE "AdminUser"
+    SET "telegramChatId" = $1,
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "telegramChatId" = $2
+  `, strTarget, strSource);
+
+  const updatedTarget = await getTelegramUserByChatId(strTarget);
+
+  // Notify new Telegram user about the merged codes/quota
+  try {
+    const notifyText =
+      `🔄 <b>Accounts Merged Successfully!</b>\n\n` +
+      `Your previous account data (${sourceUser.username ? '@' + sourceUser.username : sourceUser.chatId}) has been merged into this account.\n\n` +
+      `📊 You now have <b>${updatedTarget?.remainingQuota}</b> codes available.\n\n` +
+      `Send <b>code</b> to generate your next invitation code.`;
+
+    await sendTelegramDirectMessage(strTarget, notifyText, {
+      keyboard: [[{ text: 'code' }]],
+      resize_keyboard: true,
+    }, 'HTML');
+  } catch (e) {}
+
+  return { success: true, mergedCodesCount: Number(updateRes), targetUser: updatedTarget || undefined };
 }

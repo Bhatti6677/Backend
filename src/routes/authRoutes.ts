@@ -65,19 +65,19 @@ router.post('/register', async (req: Request, res: Response, next) => {
       });
     }
 
-    const isValidAdminCode = await validateAdminReferralCode(trimmedRefCode);
-    if (!isValidAdminCode) {
-      return res.status(400).json({
-        error: 'Invalid or already used invitation code. Registration requires an exclusive 1-time invitation code provided directly by administration.',
-      });
-    }
-
-    // Check unique phone
+    // Check unique phone first
     const existingUser = await prisma.user.findUnique({
       where: { phone: normalizedPhone },
     });
     if (existingUser) {
       return res.status(400).json({ error: 'A user with this phone number is already registered' });
+    }
+
+    const isValidAdminCode = await validateAdminReferralCode(trimmedRefCode);
+    if (!isValidAdminCode) {
+      return res.status(400).json({
+        error: 'Invalid or already used invitation code. Registration requires an exclusive 1-time invitation code provided directly by administration.',
+      });
     }
 
     // Generate unique internal DB token for required column

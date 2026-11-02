@@ -29,73 +29,15 @@ export function generateSixLetterCode(): string {
 }
 
 /**
- * Replenishes the available referral code pool so there are always at least 100 available codes.
+ * Code Strategy: We no longer force automatic auto-replenishment to 100 on code deletion or registration.
+ * Master Admin has full control to create and delete codes.
  */
 export async function replenishAvailableCodesTo100(): Promise<void> {
-  try {
-    // Remove any legacy AVAILABLE codes that are not 6-letter alphabetical (e.g. ROYAL-VIP-001)
-    await prisma.$executeRawUnsafe(`
-      DELETE FROM "AdminReferralCode"
-      WHERE "status" = 'AVAILABLE' AND "code" !~ '^[a-zA-Z]{6}$'
-    `);
-
-    // Normalize any existing 6-letter AVAILABLE codes to lowercase for consistency
-    await prisma.$executeRawUnsafe(`
-      UPDATE "AdminReferralCode"
-      SET "code" = LOWER("code")
-      WHERE "status" = 'AVAILABLE' AND "code" ~ '^[a-zA-Z]{6}$' AND "code" != LOWER("code")
-    `);
-
-    const countRes = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT COUNT(*)::int AS count FROM "AdminReferralCode" WHERE "status" = 'AVAILABLE'
-    `);
-    const currentAvailable = Number(countRes[0]?.count || 0);
-    const needed = 100 - currentAvailable;
-
-    if (needed <= 0) return;
-
-    // Fetch existing codes to avoid collisions
-    const existingRows = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT LOWER("code") AS code FROM "AdminReferralCode"
-    `);
-    const existingSet = new Set<string>(existingRows.map((r) => String(r.code).toLowerCase()));
-
-    const newCodes: { id: string; code: string }[] = [];
-    let attempts = 0;
-    while (newCodes.length < needed && attempts < needed * 20) {
-      attempts++;
-      const candidate = generateSixLetterCode();
-      if (!existingSet.has(candidate)) {
-        existingSet.add(candidate);
-        newCodes.push({
-          id: `arc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${newCodes.length}`,
-          code: candidate,
-        });
-      }
-    }
-
-    if (newCodes.length > 0) {
-      const valuesSql = newCodes
-        .map(
-          (item) =>
-            `('${item.id}', '${item.code}', 'AVAILABLE', 'Official 6-Letter Admin Referral Code', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-        )
-        .join(',\n');
-
-      await prisma.$executeRawUnsafe(`
-        INSERT INTO "AdminReferralCode" ("id", "code", "status", "notes", "createdAt", "updatedAt")
-        VALUES ${valuesSql}
-        ON CONFLICT ("code") DO NOTHING;
-      `);
-    }
-  } catch (err) {
-    console.error('Error replenishing admin referral codes to 100:', err);
-  }
+  // No-op: Auto-replenishment disabled per new code strategy so Master Admin can delete assigned codes.
 }
 
 /**
- * Ensures the AdminReferralCode table exists in PostgreSQL and maintains
- * 100 6-letter alphabetical referral codes.
+ * Ensures the AdminReferralCode table exists in PostgreSQL.
  */
 export async function ensureAdminReferralCodes(): Promise<void> {
   if (!tableEnsured) {
@@ -127,8 +69,29 @@ export async function ensureAdminReferralCodes(): Promise<void> {
       console.error('Error ensuring AdminReferralCode table:', err);
     }
   }
+}
 
-  await replenishAvailableCodesTo100();
+/**
+ * Deletes a single referral code by ID.
+ */
+export async function deleteReferralCodeById(id: string): Promise<boolean> {
+  await ensureAdminReferralCodes();
+  const res = await prisma.$executeRawUnsafe(`
+    DELETE FROM "AdminReferralCode" WHERE "id" = $1
+  `, id);
+  return Number(res) > 0;
+}
+
+/**
+ * Deletes multiple referral codes by an array of IDs.
+ */
+export async function batchDeleteReferralCodes(ids: string[]): Promise<number> {
+  await ensureAdminReferralCodes();
+  if (!ids || ids.length === 0) return 0;
+  const res = await prisma.$executeRawUnsafe(`
+    DELETE FROM "AdminReferralCode" WHERE "id" = ANY($1::text[])
+  `, ids);
+  return Number(res);
 }
 
 /**
