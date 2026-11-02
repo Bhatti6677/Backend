@@ -96,6 +96,8 @@ export async function batchDeleteReferralCodes(ids: string[]): Promise<number> {
 
 /**
  * Fetches all available and used referral codes for the Admin Panel.
+ * Per policy: Master Admin sees their own Available Codes (excluding codes assigned to Telegram clients/Mini Admins).
+ * In Used Codes, Master Admin sees all redeemed codes across the entire platform.
  */
 export async function getAdminReferralCodesOverview() {
   await ensureAdminReferralCodes();
@@ -105,6 +107,7 @@ export async function getAdminReferralCodesOverview() {
       SELECT "id", "code", "status", "usedById", "usedByName", "usedByPhone", "usedAt", "notes", "createdAt", "updatedAt"
       FROM "AdminReferralCode"
       WHERE "status" = 'AVAILABLE'
+        AND ("notes" IS NULL OR "notes" NOT LIKE 'TG:%')
       ORDER BY "createdAt" DESC, "code" ASC
     `),
     prisma.$queryRawUnsafe<any[]>(`

@@ -64910,7 +64910,8 @@ async function sendTelegramDirectMessage(chatId, text, keyboard, parseMode = "HT
     const res = await fetch(`${TG_API_BASE}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(3e3)
     });
     return res.ok;
   } catch (err) {
@@ -64976,6 +64977,7 @@ async function registerTelegramUser(chatId, meta3) {
   const user = await getTelegramUserByChatId(strChatId);
   return user;
 }
+var MAX_TELEGRAM_QUOTA = 50;
 async function generateCodeForTelegramUser(chatId, firstName) {
   await ensureTelegramUserTable();
   const strChatId = String(chatId);
@@ -64991,33 +64993,38 @@ async function generateCodeForTelegramUser(chatId, firstName) {
       totalQuota: user.totalQuota
     };
   }
-  const available = await prisma.$queryRawUnsafe(`
-    SELECT "id", "code"
-    FROM "AdminReferralCode"
-    WHERE "status" = 'AVAILABLE'
-    ORDER BY RANDOM()
-    LIMIT 1
-  `);
-  let codeId;
-  let code;
-  if (available.length > 0) {
-    codeId = available[0].id;
-    code = available[0].code;
-  } else {
-    const generated = await generateAdditionalCodes(10);
-    code = generated[0];
-    const row = await prisma.$queryRawUnsafe(
-      `SELECT "id" FROM "AdminReferralCode" WHERE "code" = $1 LIMIT 1`,
-      code
+  const clientName = firstName || user.firstName || "Client";
+  const tag = `TG:${strChatId}|${clientName}`;
+  const alphabet = "abcdefghijklmnopqrstuvwxyz";
+  let code = "";
+  let attempts = 0;
+  while (attempts < 50) {
+    attempts++;
+    let candidate = "";
+    for (let i = 0; i < 6; i++) {
+      candidate += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    }
+    const existing = await prisma.$queryRawUnsafe(
+      `SELECT "id" FROM "AdminReferralCode" WHERE LOWER("code") = $1 LIMIT 1`,
+      candidate.toLowerCase()
     );
-    codeId = row[0]?.id || `arc_tg_${Date.now()}`;
+    if (existing.length === 0) {
+      code = candidate.toLowerCase();
+      const id = `arc_tg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "AdminReferralCode" ("id", "code", "status", "notes", "createdAt", "updatedAt")
+         VALUES ($1, $2, 'AVAILABLE', $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         ON CONFLICT ("code") DO NOTHING`,
+        id,
+        code,
+        tag
+      );
+      break;
+    }
   }
-  const tag = `TG:${strChatId}|${firstName || user.firstName || "Client"}`;
-  await prisma.$executeRawUnsafe(
-    `UPDATE "AdminReferralCode" SET "notes" = $1, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $2`,
-    tag,
-    codeId
-  );
+  if (!code) {
+    return { success: false, error: "Could not generate a unique code at the moment. Please try again." };
+  }
   await prisma.$executeRawUnsafe(
     `UPDATE "TelegramUser"
      SET "codesGenerated" = "codesGenerated" + 1,
@@ -65168,28 +65175,88 @@ async function grantMoreCodesToTelegramUser(chatId, additionalQuota) {
   if (!user) {
     return { success: false, error: "Telegram user not found" };
   }
+  if (user.remainingQuota >= MAX_TELEGRAM_QUOTA) {
+    return {
+      success: false,
+      error: `User already has the maximum allowable quota of ${MAX_TELEGRAM_QUOTA} available codes.`
+    };
+  }
+  const effectiveAddition = Math.min(additionalQuota, MAX_TELEGRAM_QUOTA - user.remainingQuota);
+  if (effectiveAddition <= 0) {
+    return {
+      success: false,
+      error: `Cannot grant codes beyond the maximum limit of ${MAX_TELEGRAM_QUOTA}.`
+    };
+  }
   await prisma.$executeRawUnsafe(
     `UPDATE "TelegramUser"
      SET "totalQuota" = "totalQuota" + $1,
-         "remainingQuota" = "remainingQuota" + $1,
+         "remainingQuota" = LEAST(50, "remainingQuota" + $1),
          "updatedAt" = CURRENT_TIMESTAMP
      WHERE "chatId" = $2`,
-    additionalQuota,
+    effectiveAddition,
     strChatId
   );
   const updated = await getTelegramUserByChatId(strChatId);
   const notifyText = `\u{1F389} <b>Quota Updated!</b>
 
-Administration has granted you <b>+${additionalQuota} more invitation codes</b>.
+Administration has granted you <b>+${effectiveAddition} more invitation codes</b>.
+
+\u{1F4CA} You now have <b>${updated?.remainingQuota}</b> codes available (Max 50).
+
+Send <b>code</b> to generate a new invitation code.`;
+  sendTelegramDirectMessage(strChatId, notifyText, {
+    keyboard: [[{ text: "code" }]],
+    resize_keyboard: true
+  }, "HTML").catch((err) => {
+    console.error("Error sending Telegram quota grant notification:", err);
+  });
+  return { success: true, user: updated, grantedAmount: effectiveAddition };
+}
+async function deductQuotaFromTelegramUser(chatId, deductAmount) {
+  await ensureTelegramUserTable();
+  const strChatId = String(chatId);
+  const user = await getTelegramUserByChatId(strChatId);
+  if (!user) {
+    return { success: false, error: "Telegram user not found" };
+  }
+  if (user.remainingQuota <= 0) {
+    return {
+      success: false,
+      error: "User has 0 remaining quota. Cannot decrease further."
+    };
+  }
+  const effectiveDeduction = Math.min(deductAmount, user.remainingQuota);
+  if (effectiveDeduction <= 0) {
+    return {
+      success: false,
+      error: "Invalid deduction amount."
+    };
+  }
+  await prisma.$executeRawUnsafe(
+    `UPDATE "TelegramUser"
+     SET "totalQuota" = GREATEST("codesGenerated", "totalQuota" - $1),
+         "remainingQuota" = GREATEST(0, "remainingQuota" - $1),
+         "updatedAt" = CURRENT_TIMESTAMP
+     WHERE "chatId" = $2`,
+    effectiveDeduction,
+    strChatId
+  );
+  const updated = await getTelegramUserByChatId(strChatId);
+  const notifyText = `\u26A0\uFE0F <b>Quota Adjusted</b>
+
+Administration has updated your invitation code quota (-${effectiveDeduction} codes).
 
 \u{1F4CA} You now have <b>${updated?.remainingQuota}</b> codes available.
 
-Send <b>code</b> to generate a new invitation code.`;
-  await sendTelegramDirectMessage(strChatId, notifyText, {
+Send <b>code</b> to generate an invitation code.`;
+  sendTelegramDirectMessage(strChatId, notifyText, {
     keyboard: [[{ text: "code" }]],
     resize_keyboard: true
-  }, "HTML");
-  return { success: true, user: updated };
+  }, "HTML").catch((err) => {
+    console.error("Error sending Telegram quota deduct notification:", err);
+  });
+  return { success: true, user: updated, deductedAmount: effectiveDeduction };
 }
 async function mergeTelegramUsers(sourceChatId, targetChatId) {
   await ensureTelegramUserTable();
@@ -65216,7 +65283,7 @@ async function mergeTelegramUsers(sourceChatId, targetChatId) {
   `, strSource, strTarget);
   await prisma.$executeRawUnsafe(`
     UPDATE "TelegramUser"
-    SET "remainingQuota" = "remainingQuota" + $1,
+    SET "remainingQuota" = LEAST(50, "remainingQuota" + $1),
         "codesGenerated" = "codesGenerated" + $2,
         "totalQuota" = "totalQuota" + $3,
         "updatedAt" = CURRENT_TIMESTAMP
@@ -65317,6 +65384,7 @@ async function getAdminReferralCodesOverview() {
       SELECT "id", "code", "status", "usedById", "usedByName", "usedByPhone", "usedAt", "notes", "createdAt", "updatedAt"
       FROM "AdminReferralCode"
       WHERE "status" = 'AVAILABLE'
+        AND ("notes" IS NULL OR "notes" NOT LIKE 'TG:%')
       ORDER BY "createdAt" DESC, "code" ASC
     `),
     prisma.$queryRawUnsafe(`
@@ -80460,6 +80528,35 @@ router11.get("/my-assigned-codes", requireAdmin, async (req, res, next) => {
     next(err);
   }
 });
+router11.post("/my-assigned-codes/generate", requireAdmin, async (req, res, next) => {
+  try {
+    const isMiniAdmin = req.admin?.role === "MINI_ADMIN";
+    let chatId = null;
+    if (isMiniAdmin) {
+      const miniAdmin = await prisma.adminUser.findUnique({
+        where: { id: req.admin.id },
+        select: { telegramChatId: true }
+      });
+      chatId = miniAdmin?.telegramChatId?.trim() || null;
+    } else {
+      chatId = req.body.chatId?.trim() || null;
+    }
+    if (!chatId) {
+      return res.status(400).json({ error: "Your account is not linked to any Telegram invitation account." });
+    }
+    const result = await generateCodeForTelegramUser(chatId, req.admin?.username || "MiniAdmin");
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || "Failed to generate code from quota" });
+    }
+    res.json({
+      message: `Code "${result.code}" generated successfully!`,
+      code: result.code,
+      remainingQuota: result.remainingQuota
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 router11.post("/telegram-users/:chatId/grant", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const chatId = req.params.chatId;
@@ -80467,7 +80564,7 @@ router11.post("/telegram-users/:chatId/grant", requireAdmin, requireSuperAdmin, 
     const quotaToAdd = Math.max(1, parseInt(String(amount), 10) || 10);
     const result = await grantMoreCodesToTelegramUser(chatId, quotaToAdd);
     if (!result.success) {
-      return res.status(404).json({ error: result.error || "Failed to grant codes" });
+      return res.status(400).json({ error: result.error || "Failed to grant codes" });
     }
     await logAdminAction({
       adminId: req.admin.id,
@@ -80476,11 +80573,38 @@ router11.post("/telegram-users/:chatId/grant", requireAdmin, requireSuperAdmin, 
       entityType: "TelegramUser",
       entityId: chatId,
       newState: result.user,
-      reason: `Granted +${quotaToAdd} referral codes to Telegram user ${chatId}`,
+      reason: `Granted +${result.grantedAmount || quotaToAdd} referral codes to Telegram user ${chatId} (Max 50 Cap)`,
       ipAddress: req.ip
     });
     res.json({
-      message: `Successfully granted +${quotaToAdd} invitation codes!`,
+      message: `Successfully granted +${result.grantedAmount || quotaToAdd} invitation codes! User now has ${result.user?.remainingQuota} available (Max 50).`,
+      user: result.user
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.post("/telegram-users/:chatId/deduct", requireAdmin, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const chatId = req.params.chatId;
+    const { amount = 5 } = req.body;
+    const quotaToDeduct = Math.max(1, parseInt(String(amount), 10) || 5);
+    const result = await deductQuotaFromTelegramUser(chatId, quotaToDeduct);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || "Failed to deduct quota" });
+    }
+    await logAdminAction({
+      adminId: req.admin.id,
+      adminUsername: req.admin.username,
+      action: "DEDUCTED_TELEGRAM_REFERRAL_CODES",
+      entityType: "TelegramUser",
+      entityId: chatId,
+      newState: result.user,
+      reason: `Deducted -${result.deductedAmount} referral codes quota from Telegram user ${chatId}`,
+      ipAddress: req.ip
+    });
+    res.json({
+      message: `Successfully decreased quota by -${result.deductedAmount} codes! Client now has ${result.user?.remainingQuota} available.`,
       user: result.user
     });
   } catch (err) {
@@ -80892,7 +81016,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-C_Pwm7M_.js")) {
+        if (content.includes('id="root"') && content.includes("index-BdQIZ_Ti.js")) {
           return content;
         }
       } catch (err) {
@@ -80915,8 +81039,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-C_Pwm7M_.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-D6GkBrwi.css">
+    <script type="module" crossorigin src="/assets/index-BdQIZ_Ti.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BB60NfXx.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -81065,11 +81189,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-C_Pwm7M_.js")) {
-        return res.redirect(302, "/assets/index-C_Pwm7M_.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-BdQIZ_Ti.js")) {
+        return res.redirect(302, "/assets/index-BdQIZ_Ti.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-D6GkBrwi.css")) {
-        return res.redirect(302, "/assets/index-D6GkBrwi.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-BB60NfXx.css")) {
+        return res.redirect(302, "/assets/index-BB60NfXx.css");
       }
       return res.status(404).end();
     }

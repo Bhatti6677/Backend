@@ -31,6 +31,8 @@ import {
 import {
   getAllTelegramUsers,
   grantMoreCodesToTelegramUser,
+  deductQuotaFromTelegramUser,
+  generateCodeForTelegramUser,
   getTelegramUserByChatId,
   mergeTelegramUsers,
 } from '../services/telegramService';
@@ -3405,6 +3407,41 @@ router.get('/my-assigned-codes', requireAdmin, async (req: AdminAuthRequest, res
   }
 });
 
+// Mini Admin generates a code from their available quota directly
+router.post('/my-assigned-codes/generate', requireAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+  try {
+    const isMiniAdmin = req.admin?.role === 'MINI_ADMIN';
+    let chatId: string | null = null;
+
+    if (isMiniAdmin) {
+      const miniAdmin = await prisma.adminUser.findUnique({
+        where: { id: req.admin!.id },
+        select: { telegramChatId: true },
+      });
+      chatId = miniAdmin?.telegramChatId?.trim() || null;
+    } else {
+      chatId = (req.body.chatId as string)?.trim() || null;
+    }
+
+    if (!chatId) {
+      return res.status(400).json({ error: 'Your account is not linked to any Telegram invitation account.' });
+    }
+
+    const result = await generateCodeForTelegramUser(chatId, req.admin?.username || 'MiniAdmin');
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || 'Failed to generate code from quota' });
+    }
+
+    res.json({
+      message: `Code "${result.code}" generated successfully!`,
+      code: result.code,
+      remainingQuota: result.remainingQuota,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/telegram-users/:chatId/grant', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
   try {
     const chatId = req.params.chatId as string;
@@ -3413,7 +3450,7 @@ router.post('/telegram-users/:chatId/grant', requireAdmin, requireSuperAdmin, as
 
     const result = await grantMoreCodesToTelegramUser(chatId, quotaToAdd);
     if (!result.success) {
-      return res.status(404).json({ error: result.error || 'Failed to grant codes' });
+      return res.status(400).json({ error: result.error || 'Failed to grant codes' });
     }
 
     await logAdminAction({
@@ -3423,12 +3460,43 @@ router.post('/telegram-users/:chatId/grant', requireAdmin, requireSuperAdmin, as
       entityType: 'TelegramUser',
       entityId: chatId,
       newState: result.user,
-      reason: `Granted +${quotaToAdd} referral codes to Telegram user ${chatId}`,
+      reason: `Granted +${result.grantedAmount || quotaToAdd} referral codes to Telegram user ${chatId} (Max 50 Cap)`,
       ipAddress: req.ip,
     });
 
     res.json({
-      message: `Successfully granted +${quotaToAdd} invitation codes!`,
+      message: `Successfully granted +${result.grantedAmount || quotaToAdd} invitation codes! User now has ${result.user?.remainingQuota} available (Max 50).`,
+      user: result.user,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/telegram-users/:chatId/deduct', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+  try {
+    const chatId = req.params.chatId as string;
+    const { amount = 5 } = req.body;
+    const quotaToDeduct = Math.max(1, parseInt(String(amount), 10) || 5);
+
+    const result = await deductQuotaFromTelegramUser(chatId, quotaToDeduct);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || 'Failed to deduct quota' });
+    }
+
+    await logAdminAction({
+      adminId: req.admin!.id,
+      adminUsername: req.admin!.username,
+      action: 'DEDUCTED_TELEGRAM_REFERRAL_CODES',
+      entityType: 'TelegramUser',
+      entityId: chatId,
+      newState: result.user,
+      reason: `Deducted -${result.deductedAmount} referral codes quota from Telegram user ${chatId}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: `Successfully decreased quota by -${result.deductedAmount} codes! Client now has ${result.user?.remainingQuota} available.`,
       user: result.user,
     });
   } catch (err) {

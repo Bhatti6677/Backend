@@ -86,6 +86,7 @@ export async function sendTelegramDirectMessage(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(3000),
     });
 
     return res.ok;
@@ -176,8 +177,12 @@ export async function registerTelegramUser(
   return user!;
 }
 
+export const MAX_TELEGRAM_QUOTA = 50;
+
 /**
- * Assigns an available 6-letter referral code to the user and decrements their remaining quota.
+ * Assigns a brand-new unique 6-letter referral code dedicated exclusively to this Telegram user
+ * and decrements their remaining quota. Assigned codes are strictly segregated so no two users
+ * ever receive the same code, and Master Admin only sees them once they are redeemed/used.
  */
 export async function generateCodeForTelegramUser(
   chatId: string | number,
@@ -200,40 +205,46 @@ export async function generateCodeForTelegramUser(
     };
   }
 
-  // 1. Fetch a random available code
-  const available = await prisma.$queryRawUnsafe<any[]>(`
-    SELECT "id", "code"
-    FROM "AdminReferralCode"
-    WHERE "status" = 'AVAILABLE'
-    ORDER BY RANDOM()
-    LIMIT 1
-  `);
+  // Generate a dedicated unique 6-letter code exclusively for this Telegram user
+  const clientName = firstName || user.firstName || 'Client';
+  const tag = `TG:${strChatId}|${clientName}`;
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz';
 
-  let codeId: string;
-  let code: string;
+  let code = '';
+  let attempts = 0;
+  while (attempts < 50) {
+    attempts++;
+    let candidate = '';
+    for (let i = 0; i < 6; i++) {
+      candidate += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    }
 
-  if (available.length > 0) {
-    codeId = available[0].id;
-    code = available[0].code;
-  } else {
-    const generated = await generateAdditionalCodes(10);
-    code = generated[0];
-    const row = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT "id" FROM "AdminReferralCode" WHERE "code" = $1 LIMIT 1`,
-      code
+    const existing = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT "id" FROM "AdminReferralCode" WHERE LOWER("code") = $1 LIMIT 1`,
+      candidate.toLowerCase()
     );
-    codeId = row[0]?.id || `arc_tg_${Date.now()}`;
+
+    if (existing.length === 0) {
+      code = candidate.toLowerCase();
+      const id = `arc_tg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "AdminReferralCode" ("id", "code", "status", "notes", "createdAt", "updatedAt")
+         VALUES ($1, $2, 'AVAILABLE', $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         ON CONFLICT ("code") DO NOTHING`,
+        id,
+        code,
+        tag
+      );
+      break;
+    }
   }
 
-  // 2. Tag code with client's Telegram info in notes
-  const tag = `TG:${strChatId}|${firstName || user.firstName || 'Client'}`;
-  await prisma.$executeRawUnsafe(
-    `UPDATE "AdminReferralCode" SET "notes" = $1, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = $2`,
-    tag,
-    codeId
-  );
+  if (!code) {
+    return { success: false, error: 'Could not generate a unique code at the moment. Please try again.' };
+  }
 
-  // 3. Decrement user quota and increment codesGenerated atomically
+  // Decrement user quota and increment codesGenerated atomically
   await prisma.$executeRawUnsafe(
     `UPDATE "TelegramUser"
      SET "codesGenerated" = "codesGenerated" + 1,
@@ -450,11 +461,12 @@ export async function getAllTelegramUsers(): Promise<TelegramUserRecord[]> {
 
 /**
  * Admin action: Grants additional referral codes to a Telegram user.
+ * Strictly enforces a MAXIMUM CAP of 50 assigned/remaining codes per user.
  */
 export async function grantMoreCodesToTelegramUser(
   chatId: string,
   additionalQuota: number
-): Promise<{ success: boolean; user?: TelegramUserRecord; error?: string }> {
+): Promise<{ success: boolean; user?: TelegramUserRecord; error?: string; grantedAmount?: number }> {
   await ensureTelegramUserTable();
   const strChatId = String(chatId);
   const user = await getTelegramUserByChatId(strChatId);
@@ -463,31 +475,108 @@ export async function grantMoreCodesToTelegramUser(
     return { success: false, error: 'Telegram user not found' };
   }
 
+  if (user.remainingQuota >= MAX_TELEGRAM_QUOTA) {
+    return {
+      success: false,
+      error: `User already has the maximum allowable quota of ${MAX_TELEGRAM_QUOTA} available codes.`,
+    };
+  }
+
+  const effectiveAddition = Math.min(additionalQuota, MAX_TELEGRAM_QUOTA - user.remainingQuota);
+  if (effectiveAddition <= 0) {
+    return {
+      success: false,
+      error: `Cannot grant codes beyond the maximum limit of ${MAX_TELEGRAM_QUOTA}.`,
+    };
+  }
+
   await prisma.$executeRawUnsafe(
     `UPDATE "TelegramUser"
      SET "totalQuota" = "totalQuota" + $1,
-         "remainingQuota" = "remainingQuota" + $1,
+         "remainingQuota" = LEAST(50, "remainingQuota" + $1),
          "updatedAt" = CURRENT_TIMESTAMP
      WHERE "chatId" = $2`,
-    additionalQuota,
+    effectiveAddition,
     strChatId
   );
 
   const updated = await getTelegramUserByChatId(strChatId);
 
-  // Notify client on Telegram about the quota increase
+  // Notify client on Telegram about the quota increase (non-blocking)
   const notifyText =
     `🎉 <b>Quota Updated!</b>\n\n` +
-    `Administration has granted you <b>+${additionalQuota} more invitation codes</b>.\n\n` +
-    `📊 You now have <b>${updated?.remainingQuota}</b> codes available.\n\n` +
+    `Administration has granted you <b>+${effectiveAddition} more invitation codes</b>.\n\n` +
+    `📊 You now have <b>${updated?.remainingQuota}</b> codes available (Max 50).\n\n` +
     `Send <b>code</b> to generate a new invitation code.`;
 
-  await sendTelegramDirectMessage(strChatId, notifyText, {
+  sendTelegramDirectMessage(strChatId, notifyText, {
     keyboard: [[{ text: 'code' }]],
     resize_keyboard: true,
-  }, 'HTML');
+  }, 'HTML').catch((err) => {
+    console.error('Error sending Telegram quota grant notification:', err);
+  });
 
-  return { success: true, user: updated! };
+  return { success: true, user: updated!, grantedAmount: effectiveAddition };
+}
+
+/**
+ * Admin action: Decreases / deducts referral codes quota from a Telegram user.
+ * Cannot decrease remaining quota below 0.
+ */
+export async function deductQuotaFromTelegramUser(
+  chatId: string,
+  deductAmount: number
+): Promise<{ success: boolean; user?: TelegramUserRecord; error?: string; deductedAmount?: number }> {
+  await ensureTelegramUserTable();
+  const strChatId = String(chatId);
+  const user = await getTelegramUserByChatId(strChatId);
+
+  if (!user) {
+    return { success: false, error: 'Telegram user not found' };
+  }
+
+  if (user.remainingQuota <= 0) {
+    return {
+      success: false,
+      error: 'User has 0 remaining quota. Cannot decrease further.',
+    };
+  }
+
+  const effectiveDeduction = Math.min(deductAmount, user.remainingQuota);
+  if (effectiveDeduction <= 0) {
+    return {
+      success: false,
+      error: 'Invalid deduction amount.',
+    };
+  }
+
+  await prisma.$executeRawUnsafe(
+    `UPDATE "TelegramUser"
+     SET "totalQuota" = GREATEST("codesGenerated", "totalQuota" - $1),
+         "remainingQuota" = GREATEST(0, "remainingQuota" - $1),
+         "updatedAt" = CURRENT_TIMESTAMP
+     WHERE "chatId" = $2`,
+    effectiveDeduction,
+    strChatId
+  );
+
+  const updated = await getTelegramUserByChatId(strChatId);
+
+  // Notify client on Telegram about the quota reduction (non-blocking)
+  const notifyText =
+    `⚠️ <b>Quota Adjusted</b>\n\n` +
+    `Administration has updated your invitation code quota (-${effectiveDeduction} codes).\n\n` +
+    `📊 You now have <b>${updated?.remainingQuota}</b> codes available.\n\n` +
+    `Send <b>code</b> to generate an invitation code.`;
+
+  sendTelegramDirectMessage(strChatId, notifyText, {
+    keyboard: [[{ text: 'code' }]],
+    resize_keyboard: true,
+  }, 'HTML').catch((err) => {
+    console.error('Error sending Telegram quota deduct notification:', err);
+  });
+
+  return { success: true, user: updated!, deductedAmount: effectiveDeduction };
 }
 
 /**
@@ -526,10 +615,10 @@ export async function mergeTelegramUsers(
     WHERE "notes" LIKE '%TG:' || $1 || '%' OR "notes" = 'TG:' || $1
   `, strSource, strTarget);
 
-  // 2. Transfer quota to target user
+  // 2. Transfer quota to target user (strictly capped at MAX 50)
   await prisma.$executeRawUnsafe(`
     UPDATE "TelegramUser"
-    SET "remainingQuota" = "remainingQuota" + $1,
+    SET "remainingQuota" = LEAST(50, "remainingQuota" + $1),
         "codesGenerated" = "codesGenerated" + $2,
         "totalQuota" = "totalQuota" + $3,
         "updatedAt" = CURRENT_TIMESTAMP
