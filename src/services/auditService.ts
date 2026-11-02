@@ -8,6 +8,7 @@ interface AuditLogParams {
   entityId: string;
   previousState?: any;
   newState?: any;
+  details?: any;
   reason?: string;
   ipAddress?: string;
 }
@@ -22,7 +23,7 @@ export async function logAdminAction(params: AuditLogParams) {
         entityType: params.entityType,
         entityId: params.entityId,
         previousState: params.previousState ? JSON.stringify(params.previousState) : null,
-        newState: params.newState ? JSON.stringify(params.newState) : null,
+        newState: (params.newState || params.details) ? JSON.stringify(params.newState || params.details) : null,
         reason: params.reason || null,
         ipAddress: params.ipAddress || null,
       },

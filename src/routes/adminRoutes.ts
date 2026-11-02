@@ -233,12 +233,17 @@ router.get('/dashboard', requireAdmin, async (req: AdminAuthRequest, res: Respon
             task: { level: { levelNumber: 1 } },
           },
         }),
-        prisma.taskSubmission.aggregate({
+        prisma.walletTransaction.aggregate({
           where: {
-            status: 'APPROVED',
-            task: { level: { levelNumber: 1 } },
+            transactionType: 'TASK_REWARD',
+            status: 'COMPLETED',
+            user: {
+              levelProgress: {
+                some: { level: { levelNumber: 1 } },
+              },
+            },
           },
-          _sum: { rewardAmount: true },
+          _sum: { amount: true },
         }),
         prisma.adminAuditLog.findMany({
           where: {
@@ -262,7 +267,7 @@ router.get('/dashboard', requireAdmin, async (req: AdminAuthRequest, res: Respon
           pendingWithdrawals: 0,
           totalDepositsAmount: 0,
           totalPaidWithdrawalsAmount: 0,
-          totalApprovedRewardsAmount: approvedLevel1Rewards._sum.rewardAmount || 0,
+          totalApprovedRewardsAmount: approvedLevel1Rewards._sum.amount || 0,
           totalReferrals: 0,
         },
         recentActivity,

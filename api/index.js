@@ -76447,6 +76447,15 @@ async function ensureUserWithdrawalColumns(prisma2) {
         await prisma2.$executeRawUnsafe(`
           ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "withdrawalLockReason" TEXT;
         `);
+        await prisma2.$executeRawUnsafe(`
+          ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "email" TEXT;
+        `);
+        await prisma2.$executeRawUnsafe(`
+          ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "otpSecret" TEXT;
+        `);
+        await prisma2.$executeRawUnsafe(`
+          ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'SUPER_ADMIN';
+        `);
         schemaEnsured = true;
       } catch (err) {
         console.warn("[Auto-Migration] Notice ensuring User withdrawal columns:", err);
@@ -77454,7 +77463,7 @@ async function logAdminAction(params) {
         entityType: params.entityType,
         entityId: params.entityId,
         previousState: params.previousState ? JSON.stringify(params.previousState) : null,
-        newState: params.newState ? JSON.stringify(params.newState) : null,
+        newState: params.newState || params.details ? JSON.stringify(params.newState || params.details) : null,
         reason: params.reason || null,
         ipAddress: params.ipAddress || null
       }
@@ -77664,12 +77673,17 @@ router11.get("/dashboard", requireAdmin, async (req, res, next) => {
             task: { level: { levelNumber: 1 } }
           }
         }),
-        prisma.taskSubmission.aggregate({
+        prisma.walletTransaction.aggregate({
           where: {
-            status: "APPROVED",
-            task: { level: { levelNumber: 1 } }
+            transactionType: "TASK_REWARD",
+            status: "COMPLETED",
+            user: {
+              levelProgress: {
+                some: { level: { levelNumber: 1 } }
+              }
+            }
           },
-          _sum: { rewardAmount: true }
+          _sum: { amount: true }
         }),
         prisma.adminAuditLog.findMany({
           where: {
@@ -77692,7 +77706,7 @@ router11.get("/dashboard", requireAdmin, async (req, res, next) => {
           pendingWithdrawals: 0,
           totalDepositsAmount: 0,
           totalPaidWithdrawalsAmount: 0,
-          totalApprovedRewardsAmount: approvedLevel1Rewards._sum.rewardAmount || 0,
+          totalApprovedRewardsAmount: approvedLevel1Rewards._sum.amount || 0,
           totalReferrals: 0
         },
         recentActivity: recentActivity2,

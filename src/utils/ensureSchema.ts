@@ -19,6 +19,15 @@ export async function ensureUserWithdrawalColumns(prisma: PrismaClient): Promise
         await prisma.$executeRawUnsafe(`
           ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "withdrawalLockReason" TEXT;
         `);
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "email" TEXT;
+        `);
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "otpSecret" TEXT;
+        `);
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'SUPER_ADMIN';
+        `);
         schemaEnsured = true;
       } catch (err) {
         console.warn('[Auto-Migration] Notice ensuring User withdrawal columns:', err);
