@@ -25,7 +25,7 @@ export async function requireAdmin(req: AdminAuthRequest, res: Response, next: N
     const decoded = jwt.verify(token, config.adminSecret) as {
       adminId: string;
       role: string;
-      tokenVersion?: number;
+      sessionKey?: string;
     };
 
     const admin = await prisma.adminUser.findUnique({
@@ -36,7 +36,7 @@ export async function requireAdmin(req: AdminAuthRequest, res: Response, next: N
         email: true,
         role: true,
         status: true,
-        tokenVersion: true,
+        otpSecret: true,
       },
     });
 
@@ -44,15 +44,14 @@ export async function requireAdmin(req: AdminAuthRequest, res: Response, next: N
       return res.status(403).json({ error: 'Admin Access Denied: Administrator account is inactive or not found' });
     }
 
-    if (
-      decoded.tokenVersion !== undefined &&
-      admin.tokenVersion !== undefined &&
-      decoded.tokenVersion !== admin.tokenVersion
-    ) {
-      return res.status(401).json({
-        error: 'Admin Session Terminated: Your session has been revoked by the Master Administrator',
-        sessionRevoked: true,
-      });
+    if (admin.role === 'MINI_ADMIN' && decoded.sessionKey) {
+      const currentKey = admin.otpSecret ? admin.otpSecret.slice(-10) : 'v1';
+      if (decoded.sessionKey !== currentKey) {
+        return res.status(401).json({
+          error: 'Admin Session Terminated: Your session has been revoked by the Master Administrator',
+          sessionRevoked: true,
+        });
+      }
     }
 
     req.admin = {

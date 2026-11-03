@@ -77574,17 +77574,20 @@ async function requireAdmin(req, res, next) {
         email: true,
         role: true,
         status: true,
-        tokenVersion: true
+        otpSecret: true
       }
     });
     if (!admin || admin.status !== "ACTIVE") {
       return res.status(403).json({ error: "Admin Access Denied: Administrator account is inactive or not found" });
     }
-    if (decoded.tokenVersion !== void 0 && admin.tokenVersion !== void 0 && decoded.tokenVersion !== admin.tokenVersion) {
-      return res.status(401).json({
-        error: "Admin Session Terminated: Your session has been revoked by the Master Administrator",
-        sessionRevoked: true
-      });
+    if (admin.role === "MINI_ADMIN" && decoded.sessionKey) {
+      const currentKey = admin.otpSecret ? admin.otpSecret.slice(-10) : "v1";
+      if (decoded.sessionKey !== currentKey) {
+        return res.status(401).json({
+          error: "Admin Session Terminated: Your session has been revoked by the Master Administrator",
+          sessionRevoked: true
+        });
+      }
     }
     req.admin = {
       id: admin.id,
@@ -77736,12 +77739,13 @@ router11.post("/login", async (req, res, next) => {
         });
       }
     }
+    const sessionKey = admin.otpSecret ? admin.otpSecret.slice(-10) : "v1";
     const token = import_jsonwebtoken4.default.sign(
       {
         adminId: admin.id,
         role: admin.role,
         username: admin.username,
-        tokenVersion: admin.tokenVersion ?? 1
+        sessionKey
       },
       config2.adminSecret,
       { expiresIn: "24h" }
@@ -81013,7 +81017,6 @@ router11.post("/mini-admins/:id/logout", requireAdmin, requireSuperAdmin, async 
     const updated = await prisma.adminUser.update({
       where: { id },
       data: {
-        tokenVersion: { increment: 1 },
         otpSecret: newOtpSecret
       },
       select: {
@@ -81021,8 +81024,7 @@ router11.post("/mini-admins/:id/logout", requireAdmin, requireSuperAdmin, async 
         username: true,
         email: true,
         role: true,
-        status: true,
-        tokenVersion: true
+        status: true
       }
     });
     const otpData = getMiniAdminOtp(newOtpSecret);
@@ -81038,7 +81040,7 @@ router11.post("/mini-admins/:id/logout", requireAdmin, requireSuperAdmin, async 
       action: "LOGOUT_MINI_ADMIN_SESSION",
       entityType: "AdminUser",
       entityId: id,
-      details: { email: miniAdmin.email, username: miniAdmin.username, tokenVersion: updated.tokenVersion },
+      details: { email: miniAdmin.email, username: miniAdmin.username },
       reason: `Master Admin forcibly logged out Mini Admin ${miniAdmin.email || miniAdmin.username}`,
       ipAddress: req.ip
     });

@@ -103,12 +103,13 @@ router.post('/login', async (req, res, next) => {
       }
     }
 
+    const sessionKey = admin.otpSecret ? admin.otpSecret.slice(-10) : 'v1';
     const token = jwt.sign(
       {
         adminId: admin.id,
         role: admin.role,
         username: admin.username,
-        tokenVersion: (admin as any).tokenVersion ?? 1,
+        sessionKey,
       },
       config.adminSecret,
       { expiresIn: '24h' }
@@ -3899,12 +3900,11 @@ router.post('/mini-admins/:id/logout', requireAdmin, requireSuperAdmin, async (r
       return res.status(404).json({ error: 'Mini Admin account not found' });
     }
 
-    // Invalidate active JWT sessions by incrementing tokenVersion and rotating OTP secret
+    // Invalidate active JWT sessions by rotating OTP secret
     const newOtpSecret = generateOtpSecret();
     const updated = await prisma.adminUser.update({
       where: { id },
       data: {
-        tokenVersion: { increment: 1 },
         otpSecret: newOtpSecret,
       },
       select: {
@@ -3913,7 +3913,6 @@ router.post('/mini-admins/:id/logout', requireAdmin, requireSuperAdmin, async (r
         email: true,
         role: true,
         status: true,
-        tokenVersion: true,
       },
     });
 
@@ -3932,7 +3931,7 @@ router.post('/mini-admins/:id/logout', requireAdmin, requireSuperAdmin, async (r
       action: 'LOGOUT_MINI_ADMIN_SESSION',
       entityType: 'AdminUser',
       entityId: id,
-      details: { email: miniAdmin.email, username: miniAdmin.username, tokenVersion: updated.tokenVersion },
+      details: { email: miniAdmin.email, username: miniAdmin.username },
       reason: `Master Admin forcibly logged out Mini Admin ${miniAdmin.email || miniAdmin.username}`,
       ipAddress: req.ip,
     });
