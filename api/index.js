@@ -81314,8 +81314,8 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-B9mwRxV3.js")) {
-        return res.redirect(302, "/assets/index-B9mwRxV3.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-D9QI1d0J.js")) {
+        return res.redirect(302, "/assets/index-D9QI1d0J.js");
       }
       if (req.path.endsWith(".css") && !req.path.includes("index-BhWaOMR1.css")) {
         return res.redirect(302, "/assets/index-BhWaOMR1.css");
