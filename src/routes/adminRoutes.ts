@@ -14,6 +14,7 @@ import {
   getMiniAdminOtp,
   verifyMiniAdminOtp,
   generateOtpSecret,
+  ensureDefaultMiniAdmin,
 } from '../services/miniAdminOtpService';
 import {
   getAdminReferralCodesOverview,
@@ -55,6 +56,9 @@ router.post('/login', async (req, res, next) => {
     const { username, password, otp } = adminLoginSchema.parse(req.body);
     const input = username.trim();
 
+    // Ensure baseline mini admin exists if none has been provisioned
+    await ensureDefaultMiniAdmin();
+
     const admin = await prisma.adminUser.findFirst({
       where: {
         OR: [
@@ -75,6 +79,15 @@ router.post('/login', async (req, res, next) => {
 
     // Role-specific check: Mini Admins MUST provide a valid 10-minute dynamic OTP
     if (admin.role === 'MINI_ADMIN') {
+      if (!admin.otpSecret) {
+        const freshSecret = generateOtpSecret();
+        await prisma.adminUser.update({
+          where: { id: admin.id },
+          data: { otpSecret: freshSecret },
+        });
+        admin.otpSecret = freshSecret;
+      }
+
       if (!otp || !otp.trim()) {
         return res.status(200).json({
           requiresOtp: true,
@@ -82,7 +95,7 @@ router.post('/login', async (req, res, next) => {
         });
       }
 
-      if (!admin.otpSecret || !verifyMiniAdminOtp(admin.otpSecret, otp.trim())) {
+      if (!verifyMiniAdminOtp(admin.otpSecret, otp.trim())) {
         return res.status(401).json({
           error: 'Invalid security code',
           requiresOtp: true,
