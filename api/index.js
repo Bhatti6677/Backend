@@ -77676,14 +77676,14 @@ router11.post("/login", async (req, res, next) => {
     }
     if (admin.role === "MINI_ADMIN") {
       if (!otp || !otp.trim()) {
-        return res.status(400).json({
-          error: "10-minute dynamic OTP is required for Mini Admin login. Please obtain the current OTP from the Master Admin.",
-          requiresOtp: true
+        return res.status(200).json({
+          requiresOtp: true,
+          message: "Security code required"
         });
       }
       if (!admin.otpSecret || !verifyMiniAdminOtp(admin.otpSecret, otp.trim())) {
         return res.status(401).json({
-          error: "Invalid or expired 10-minute OTP. Please check the current active OTP with Master Admin.",
+          error: "Invalid security code",
           requiresOtp: true
         });
       }
@@ -81059,7 +81059,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-CwTg-ji-.js")) {
+        if (content.includes('id="root"') && content.includes("index--nVzQhHm.js")) {
           return content;
         }
       } catch (err) {
@@ -81082,8 +81082,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-CwTg-ji-.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BmaOnTtl.css">
+    <script type="module" crossorigin src="/assets/index--nVzQhHm.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-tSSj_Zun.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -81272,11 +81272,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-CwTg-ji-.js")) {
-        return res.redirect(302, "/assets/index-CwTg-ji-.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index--nVzQhHm.js")) {
+        return res.redirect(302, "/assets/index--nVzQhHm.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-BmaOnTtl.css")) {
-        return res.redirect(302, "/assets/index-BmaOnTtl.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-tSSj_Zun.css")) {
+        return res.redirect(302, "/assets/index-tSSj_Zun.css");
       }
       return res.status(404).end();
     }

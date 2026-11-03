@@ -76,15 +76,15 @@ router.post('/login', async (req, res, next) => {
     // Role-specific check: Mini Admins MUST provide a valid 10-minute dynamic OTP
     if (admin.role === 'MINI_ADMIN') {
       if (!otp || !otp.trim()) {
-        return res.status(400).json({
-          error: '10-minute dynamic OTP is required for Mini Admin login. Please obtain the current OTP from the Master Admin.',
+        return res.status(200).json({
           requiresOtp: true,
+          message: 'Security code required',
         });
       }
 
       if (!admin.otpSecret || !verifyMiniAdminOtp(admin.otpSecret, otp.trim())) {
         return res.status(401).json({
-          error: 'Invalid or expired 10-minute OTP. Please check the current active OTP with Master Admin.',
+          error: 'Invalid security code',
           requiresOtp: true,
         });
       }
