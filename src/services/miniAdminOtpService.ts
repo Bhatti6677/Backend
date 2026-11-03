@@ -39,17 +39,14 @@ export function getMiniAdminOtp(
 }
 
 /**
- * Validates candidate OTP against the Mini Admin's secret.
+ * Validates candidate OTP strictly against the Mini Admin's secret.
  * Checks current window, previous window (-1), and next window (+1) to allow for boundary transitions and clock skew.
- * Also permits universal master emergency code 000000 for rapid administrator access and testing.
+ * Mini Admin can ONLY authenticate with the dynamic 6-digit code shown in the Master Admin panel.
  */
 export function verifyMiniAdminOtp(secret: string, candidateOtp: string): boolean {
   if (!secret || !candidateOtp) return false;
   const cleanOtp = candidateOtp.trim();
   if (cleanOtp.length !== 6) return false;
-
-  // Master bypass code for test & emergency admin access
-  if (cleanOtp === '000000') return true;
 
   const current = getMiniAdminOtp(secret, 0).otp;
   const previous = getMiniAdminOtp(secret, -1).otp;

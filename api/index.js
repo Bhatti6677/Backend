@@ -77573,11 +77573,18 @@ async function requireAdmin(req, res, next) {
         username: true,
         email: true,
         role: true,
-        status: true
+        status: true,
+        tokenVersion: true
       }
     });
     if (!admin || admin.status !== "ACTIVE") {
       return res.status(403).json({ error: "Admin Access Denied: Administrator account is inactive or not found" });
+    }
+    if (decoded.tokenVersion !== void 0 && admin.tokenVersion !== void 0 && decoded.tokenVersion !== admin.tokenVersion) {
+      return res.status(401).json({
+        error: "Admin Session Terminated: Your session has been revoked by the Master Administrator",
+        sessionRevoked: true
+      });
     }
     req.admin = {
       id: admin.id,
@@ -77643,7 +77650,6 @@ function verifyMiniAdminOtp(secret, candidateOtp) {
   if (!secret || !candidateOtp) return false;
   const cleanOtp = candidateOtp.trim();
   if (cleanOtp.length !== 6) return false;
-  if (cleanOtp === "000000") return true;
   const current = getMiniAdminOtp(secret, 0).otp;
   const previous = getMiniAdminOtp(secret, -1).otp;
   const next = getMiniAdminOtp(secret, 1).otp;
@@ -77731,7 +77737,12 @@ router11.post("/login", async (req, res, next) => {
       }
     }
     const token = import_jsonwebtoken4.default.sign(
-      { adminId: admin.id, role: admin.role, username: admin.username },
+      {
+        adminId: admin.id,
+        role: admin.role,
+        username: admin.username,
+        tokenVersion: admin.tokenVersion ?? 1
+      },
       config2.adminSecret,
       { expiresIn: "24h" }
     );
@@ -80989,6 +81000,57 @@ router11.post("/mini-admins/:id/regenerate-otp", requireAdmin, requireSuperAdmin
     next(err);
   }
 });
+router11.post("/mini-admins/:id/logout", requireAdmin, requireSuperAdmin, async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const miniAdmin = await prisma.adminUser.findUnique({
+      where: { id }
+    });
+    if (!miniAdmin || miniAdmin.role !== "MINI_ADMIN") {
+      return res.status(404).json({ error: "Mini Admin account not found" });
+    }
+    const newOtpSecret = generateOtpSecret();
+    const updated = await prisma.adminUser.update({
+      where: { id },
+      data: {
+        tokenVersion: { increment: 1 },
+        otpSecret: newOtpSecret
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        status: true,
+        tokenVersion: true
+      }
+    });
+    const otpData = getMiniAdminOtp(newOtpSecret);
+    try {
+      await sendUserLiveCommand(id, "FORCE_ADMIN_LOGOUT", {
+        reason: "Master Administrator terminated session"
+      });
+    } catch (e) {
+    }
+    await logAdminAction({
+      adminId: req.admin.id,
+      adminUsername: req.admin.username,
+      action: "LOGOUT_MINI_ADMIN_SESSION",
+      entityType: "AdminUser",
+      entityId: id,
+      details: { email: miniAdmin.email, username: miniAdmin.username, tokenVersion: updated.tokenVersion },
+      reason: `Master Admin forcibly logged out Mini Admin ${miniAdmin.email || miniAdmin.username}`,
+      ipAddress: req.ip
+    });
+    res.json({
+      message: `Mini Admin ${miniAdmin.email || miniAdmin.username} has been logged out successfully.`,
+      currentOtp: otpData.otp,
+      otpSecondsRemaining: otpData.secondsRemaining
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 router11.delete("/mini-admins/:id", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const id = req.params.id;
@@ -81101,7 +81163,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-D9QI1d0J.js")) {
+        if (content.includes('id="root"') && content.includes("index-CunhlnDK.js")) {
           return content;
         }
       } catch (err) {
@@ -81124,7 +81186,7 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-D9QI1d0J.js"></script>
+    <script type="module" crossorigin src="/assets/index-CunhlnDK.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-BhWaOMR1.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
@@ -81314,8 +81376,8 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-D9QI1d0J.js")) {
-        return res.redirect(302, "/assets/index-D9QI1d0J.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-CunhlnDK.js")) {
+        return res.redirect(302, "/assets/index-CunhlnDK.js");
       }
       if (req.path.endsWith(".css") && !req.path.includes("index-BhWaOMR1.css")) {
         return res.redirect(302, "/assets/index-BhWaOMR1.css");

@@ -63,6 +63,7 @@ model AdminUser {
   status         String   @default("ACTIVE")
   otpSecret      String?
   telegramChatId String?
+  tokenVersion   Int      @default(1)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

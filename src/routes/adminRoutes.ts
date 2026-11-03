@@ -104,7 +104,12 @@ router.post('/login', async (req, res, next) => {
     }
 
     const token = jwt.sign(
-      { adminId: admin.id, role: admin.role, username: admin.username },
+      {
+        adminId: admin.id,
+        role: admin.role,
+        username: admin.username,
+        tokenVersion: (admin as any).tokenVersion ?? 1,
+      },
       config.adminSecret,
       { expiresIn: '24h' }
     );
@@ -3874,6 +3879,66 @@ router.post('/mini-admins/:id/regenerate-otp', requireAdmin, requireSuperAdmin, 
 
     res.json({
       message: 'New OTP secret rotated and generated successfully',
+      currentOtp: otpData.otp,
+      otpSecondsRemaining: otpData.secondsRemaining,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Forcibly terminate and logout all active sessions for a Mini Admin anytime
+router.post('/mini-admins/:id/logout', requireAdmin, requireSuperAdmin, async (req: AdminAuthRequest, res: Response, next) => {
+  try {
+    const id = req.params.id as string;
+    const miniAdmin = await prisma.adminUser.findUnique({
+      where: { id },
+    });
+
+    if (!miniAdmin || miniAdmin.role !== 'MINI_ADMIN') {
+      return res.status(404).json({ error: 'Mini Admin account not found' });
+    }
+
+    // Invalidate active JWT sessions by incrementing tokenVersion and rotating OTP secret
+    const newOtpSecret = generateOtpSecret();
+    const updated = await prisma.adminUser.update({
+      where: { id },
+      data: {
+        tokenVersion: { increment: 1 },
+        otpSecret: newOtpSecret,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        status: true,
+        tokenVersion: true,
+      },
+    });
+
+    const otpData = getMiniAdminOtp(newOtpSecret);
+
+    // Broadcast instant real-time termination signal
+    try {
+      await sendUserLiveCommand(id, 'FORCE_ADMIN_LOGOUT', {
+        reason: 'Master Administrator terminated session',
+      });
+    } catch (e) {}
+
+    await logAdminAction({
+      adminId: req.admin!.id,
+      adminUsername: req.admin!.username,
+      action: 'LOGOUT_MINI_ADMIN_SESSION',
+      entityType: 'AdminUser',
+      entityId: id,
+      details: { email: miniAdmin.email, username: miniAdmin.username, tokenVersion: updated.tokenVersion },
+      reason: `Master Admin forcibly logged out Mini Admin ${miniAdmin.email || miniAdmin.username}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: `Mini Admin ${miniAdmin.email || miniAdmin.username} has been logged out successfully.`,
       currentOtp: otpData.otp,
       otpSecondsRemaining: otpData.secondsRemaining,
     });
