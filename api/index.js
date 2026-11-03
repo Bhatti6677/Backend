@@ -81165,7 +81165,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-CunhlnDK.js")) {
+        if (content.includes('id="root"') && content.includes("index-CUQa6DFw.js")) {
           return content;
         }
       } catch (err) {
@@ -81188,7 +81188,7 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-CunhlnDK.js"></script>
+    <script type="module" crossorigin src="/assets/index-CUQa6DFw.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-BhWaOMR1.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
@@ -81206,7 +81206,7 @@ function createApp() {
   app2.use((req, res, next) => {
     res.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+      "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
     );
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -81378,8 +81378,8 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-CunhlnDK.js")) {
-        return res.redirect(302, "/assets/index-CunhlnDK.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-CUQa6DFw.js")) {
+        return res.redirect(302, "/assets/index-CUQa6DFw.js");
       }
       if (req.path.endsWith(".css") && !req.path.includes("index-BhWaOMR1.css")) {
         return res.redirect(302, "/assets/index-BhWaOMR1.css");
