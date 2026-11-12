@@ -81165,7 +81165,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-CBhccdQV.js")) {
+        if (content.includes('id="root"') && content.includes("index-lJRSJrGO.js")) {
           return content;
         }
       } catch (err) {
@@ -81188,8 +81188,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-CBhccdQV.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BhWaOMR1.css">
+    <script type="module" crossorigin src="/assets/index-lJRSJrGO.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D-ayoWG8.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -81378,11 +81378,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-CBhccdQV.js")) {
-        return res.redirect(302, "/assets/index-CBhccdQV.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-lJRSJrGO.js")) {
+        return res.redirect(302, "/assets/index-lJRSJrGO.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-BhWaOMR1.css")) {
-        return res.redirect(302, "/assets/index-BhWaOMR1.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-D-ayoWG8.css")) {
+        return res.redirect(302, "/assets/index-D-ayoWG8.css");
       }
       return res.status(404).end();
     }
