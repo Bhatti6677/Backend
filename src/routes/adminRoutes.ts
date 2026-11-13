@@ -4075,7 +4075,7 @@ router.get('/developer/config', requireAdmin, requireDeveloper, async (req: Admi
     });
     const map = Object.fromEntries(settings.map((s) => [s.key, s.value]));
     const runtime = getDualSyncRuntimeConfig();
-    const secondaryUrl = (map.secondary_database_url ?? runtime.secondaryDbUrl ?? '').trim();
+    const secondaryUrl = (map.secondary_database_url || runtime.secondaryDbUrl || '').trim();
     const dualSyncEnabled = map.dual_sync_enabled !== 'false';
 
     setDualSyncRuntimeConfig(secondaryUrl, dualSyncEnabled);

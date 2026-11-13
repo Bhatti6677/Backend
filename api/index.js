@@ -81992,7 +81992,7 @@ router11.get("/developer/config", requireAdmin, requireDeveloper, async (req, re
     });
     const map2 = Object.fromEntries(settings.map((s) => [s.key, s.value]));
     const runtime = getDualSyncRuntimeConfig();
-    const secondaryUrl = (map2.secondary_database_url ?? runtime.secondaryDbUrl ?? "").trim();
+    const secondaryUrl = (map2.secondary_database_url || runtime.secondaryDbUrl || "").trim();
     const dualSyncEnabled = map2.dual_sync_enabled !== "false";
     setDualSyncRuntimeConfig(secondaryUrl, dualSyncEnabled);
     const secondaryClient = secondaryUrl ? getSecondaryPrisma(secondaryUrl) : null;
