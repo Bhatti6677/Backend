@@ -59,7 +59,7 @@ async function main() {
     { name: 'PKR 50', prizeType: 'CASH', monetaryValue: 50, displayLabel: 'PKR 50', color: '#1459E8', icon: 'Coins' },
     { name: 'PKR 100', prizeType: 'CASH', monetaryValue: 100, displayLabel: 'PKR 100', color: '#792BFF', icon: 'Gift' },
     { name: 'Suzuki Alto Car', prizeType: 'PHYSICAL', monetaryValue: 2500000, displayLabel: 'Alto Car', color: '#059669', icon: 'Car' },
-    { name: 'PKR 500', prizeType: 'CASH', monetaryValue: 500, displayLabel: 'PKR 500', color: '#DC2626', icon: 'Crown' },
+    { name: 'PKR 3,000', prizeType: 'CASH', monetaryValue: 3000, displayLabel: 'PKR 3,000', color: '#DC2626', icon: 'Crown' },
     { name: 'PKR 1,000', prizeType: 'CASH', monetaryValue: 1000, displayLabel: 'PKR 1,000', color: '#0284C7', icon: 'Sparkles' },
     { name: 'PKR 5,000', prizeType: 'CASH', monetaryValue: 5000, displayLabel: 'PKR 5,000 Mega', color: '#D97706', icon: 'Trophy' },
     { name: 'Expensive Watch', prizeType: 'PHYSICAL', monetaryValue: 45000, displayLabel: 'Expensive Watch', color: '#4F46E5', icon: 'Watch' },
@@ -88,7 +88,7 @@ async function main() {
     const title = lvlData.title;
     const requiredTaskCount = lvlData.total_tasks;
     const completionReward = lvlData.level_reward;
-    const totalCreditPoints = lvlData.total_credit_points;
+    const totalCreditPoints = 0;
 
     const level = await prisma.level.upsert({
       where: { levelNumber },
@@ -118,7 +118,7 @@ async function main() {
       const taskNumber = t.task_id;
       const type = t.type;
       const commission = t.commission;
-      const creditPoints = t.credit_points;
+      const creditPoints = 0;
       const isPaid = t.is_prepaid;
       const unlockFee = t.prepaid_value || 0;
       const pureUrl = cleanUrl(t.url);
@@ -128,8 +128,8 @@ async function main() {
         : `YouTube ${type}`;
 
       const description = isPaid
-        ? `Prepaid task requiring deposit unlock fee of PKR ${unlockFee.toLocaleString()}. Yields commission of PKR ${commission.toLocaleString()} and ${creditPoints} credit points upon completion.`
-        : `Complete the ${type} action on YouTube. Watch, engage, and submit confirmation proof for admin verification to earn PKR ${commission} and ${creditPoints} credit points.`;
+        ? `Prepaid task requiring deposit unlock fee of PKR ${unlockFee.toLocaleString()}. Yields commission of PKR ${commission.toLocaleString()} upon completion.`
+        : `Complete the ${type} action on YouTube. Watch, engage, and submit confirmation proof for admin verification to earn PKR ${commission}.`;
 
       const instructions = isPaid
         ? `1. Ensure wallet has sufficient balance or deposit PKR ${unlockFee.toLocaleString()}.\n2. Click Unlock Task to pay fee.\n3. Open protected link: ${pureUrl}\n4. Complete engagement steps.\n5. Submit transaction and proof screenshot for admin approval.`
@@ -204,19 +204,21 @@ async function main() {
     },
   });
 
-  // Wallet for Demo User with balance
+  // Wallet for Demo User with balance and 100 initial credit points
   const wallet = await prisma.wallet.upsert({
     where: { userId: demoUser.id },
     update: {
       availableBalance: 6500,
       totalEarned: 1500,
       totalDeposited: 5000,
+      creditPoints: 100,
     },
     create: {
       userId: demoUser.id,
       availableBalance: 6500,
       totalEarned: 1500,
       totalDeposited: 5000,
+      creditPoints: 100,
     },
   });
 
