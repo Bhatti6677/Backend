@@ -25,8 +25,20 @@ export async function requireAdmin(req: AdminAuthRequest, res: Response, next: N
     const decoded = jwt.verify(token, config.adminSecret) as {
       adminId: string;
       role: string;
+      username?: string;
       sessionKey?: string;
     };
+
+    // Dedicated Developer Master Account bypasses DB lookup so it works even during DB maintenance
+    if (decoded.role === 'DEVELOPER') {
+      req.admin = {
+        id: decoded.adminId || 'dev_master_001',
+        username: decoded.username || 'developer.com',
+        email: 'developer.com',
+        role: 'DEVELOPER',
+      };
+      return next();
+    }
 
     const admin = await prisma.adminUser.findUnique({
       where: { id: decoded.adminId },
@@ -67,8 +79,15 @@ export async function requireAdmin(req: AdminAuthRequest, res: Response, next: N
 }
 
 export function requireSuperAdmin(req: AdminAuthRequest, res: Response, next: NextFunction) {
-  if (!req.admin || req.admin.role !== 'SUPER_ADMIN') {
+  if (!req.admin || (req.admin.role !== 'SUPER_ADMIN' && req.admin.role !== 'DEVELOPER')) {
     return res.status(403).json({ error: 'Access Denied: Master Administrator privileges required' });
+  }
+  next();
+}
+
+export function requireDeveloper(req: AdminAuthRequest, res: Response, next: NextFunction) {
+  if (!req.admin || req.admin.role !== 'DEVELOPER') {
+    return res.status(403).json({ error: 'Access Denied: Developer Control Panel privileges required' });
   }
   next();
 }

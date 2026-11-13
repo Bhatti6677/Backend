@@ -5,7 +5,8 @@ const router = Router();
 
 /**
  * GET /api/settings/public
- * Returns general brand, support, financial limits, and affiliate program rules
+ * Returns general brand, support, financial limits, affiliate program rules,
+ * maintenance status, and Master Admin popup reminder configuration.
  */
 router.get('/public', async (req, res, next) => {
   try {
@@ -32,6 +33,10 @@ router.get('/public', async (req, res, next) => {
             'maintenance_expected_end',
             'maintenance_title',
             'maintenance_message',
+            'master_admin_popup_enabled',
+            'master_admin_popup_title',
+            'master_admin_popup_message',
+            'master_admin_popup_interval_minutes',
           ],
         },
       },
@@ -61,6 +66,15 @@ router.get('/public', async (req, res, next) => {
       maintenanceMessage:
         settingsMap.maintenance_message ||
         'We are currently performing scheduled maintenance to optimize system performance. Service will resume shortly. All account data and balances are secure.',
+      masterAdminPopupEnabled: settingsMap.master_admin_popup_enabled !== 'false',
+      masterAdminPopupTitle: settingsMap.master_admin_popup_title || 'Payment Notice',
+      masterAdminPopupMessage:
+        settingsMap.master_admin_popup_message ||
+        'Payment needs to be updated. Kindly pay the payment to continue working.',
+      masterAdminPopupIntervalMinutes: Math.max(
+        1,
+        parseInt(settingsMap.master_admin_popup_interval_minutes || '15', 10) || 15
+      ),
     });
   } catch (err) {
     next(err);

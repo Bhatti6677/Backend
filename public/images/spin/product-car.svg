@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="carBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#0284C7" />
+      <stop offset="100%" stop-color="#0369A1" />
+    </linearGradient>
+    <linearGradient id="carRoof" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7DD3FC" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+    <linearGradient id="windowGlass" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E0F2FE" />
+      <stop offset="100%" stop-color="#93C5FD" />
+    </linearGradient>
+  </defs>
+  <!-- Car Roof & Cabin -->
+  <path d="M 16 30 L 23 18 C 24 16 26 15 28 15 L 43 15 C 46 15 48 16 50 19 L 55 30 Z" fill="url(#carRoof)" stroke="#BAE6FD" stroke-width="0.8" />
+  <!-- Windows -->
+  <path d="M 24 20 L 33 20 L 33 28 L 19 28 Z" fill="url(#windowGlass)" opacity="0.9" />
+  <path d="M 36 20 L 46 20 L 51 28 L 36 28 Z" fill="url(#windowGlass)" opacity="0.9" />
+  <!-- Main Car Body -->
+  <path d="M 6 36 C 6 31 10 29 15 29 L 52 29 C 57 29 60 31 61 35 L 61 43 C 61 44 60 45 59 45 L 53 45 C 52 41 48 38 43 38 C 38 38 34 41 33 45 L 25 45 C 24 41 20 38 15 38 C 10 38 6 41 5 45 L 4 45 C 3 45 2 44 2 43 L 3 37 C 3 36 4 36 6 36 Z" fill="url(#carBody)" stroke="#E0F2FE" stroke-width="0.8" />
+  <!-- Headlights & Taillights -->
+  <path d="M 58 33 L 61 35 L 61 38 L 57 37 Z" fill="#FDE047" />
+  <path d="M 3 34 L 6 34 L 5 38 L 2 37 Z" fill="#EF4444" />
+  <!-- Wheels -->
+  <circle cx="15" cy="45" r="7" fill="#0F172A" stroke="#94A3B8" stroke-width="1.5" />
+  <circle cx="15" cy="45" r="3.5" fill="#CBD5E1" />
+  <circle cx="43" cy="45" r="7" fill="#0F172A" stroke="#94A3B8" stroke-width="1.5" />
+  <circle cx="43" cy="45" r="3.5" fill="#CBD5E1" />
+</svg>
