@@ -4,7 +4,13 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma, getSecondaryPrisma, setDualSyncRuntimeConfig, getDualSyncRuntimeConfig } from '../prisma';
 import { config } from '../config';
-import { requireAdmin, requireSuperAdmin, requireDeveloper, AdminAuthRequest } from '../middleware/adminAuth';
+import {
+  requireAdmin,
+  requireSuperAdmin,
+  requireDeveloper,
+  invalidateAdminBlockCache,
+  AdminAuthRequest,
+} from '../middleware/adminAuth';
 import {
   getDatabaseStats,
   cloneDatabaseData,
@@ -3152,8 +3158,26 @@ router.put('/settings', requireAdmin, requireSuperAdmin, async (req: AdminAuthRe
       return res.status(400).json({ error: 'No settings provided to update' });
     }
 
+    const RESTRICTED_TO_DEVELOPER = new Set([
+      'maintenance_mode',
+      'maintenance_title',
+      'maintenance_message',
+      'maintenance_expected_end',
+      'master_admin_popup_enabled',
+      'master_admin_popup_title',
+      'master_admin_popup_message',
+      'master_admin_popup_interval_minutes',
+      'master_admin_blocked',
+      'mini_admin_blocked',
+      'admin_block_title',
+      'admin_block_message',
+      'secondary_database_url',
+      'dual_sync_enabled',
+    ]);
+
     const settings = rawList
       .filter((item) => item && typeof item.key === 'string' && item.key.trim() !== '')
+      .filter((item) => req.admin?.role === 'DEVELOPER' || !RESTRICTED_TO_DEVELOPER.has(item.key.trim()))
       .map((item) => ({
         key: item.key.trim(),
         value: item.value === null || item.value === undefined ? '' : String(item.value),
@@ -4039,6 +4063,10 @@ router.get('/developer/config', requireAdmin, requireDeveloper, async (req: Admi
             'master_admin_popup_title',
             'master_admin_popup_message',
             'master_admin_popup_interval_minutes',
+            'master_admin_blocked',
+            'mini_admin_blocked',
+            'admin_block_title',
+            'admin_block_message',
             'secondary_database_url',
             'dual_sync_enabled',
           ],
@@ -4082,6 +4110,14 @@ router.get('/developer/config', requireAdmin, requireDeveloper, async (req: Admi
           1,
           parseInt(map.master_admin_popup_interval_minutes || '15', 10) || 15
         ),
+      },
+      adminBlock: {
+        masterBlocked: map.master_admin_blocked === 'true',
+        miniBlocked: map.mini_admin_blocked === 'true',
+        title: map.admin_block_title || 'Administrator Access Locked',
+        message:
+          map.admin_block_message ||
+          'Please clear the remaining developer payment to unlock your admin panel and continue working.',
       },
       database: {
         primaryDatabaseUrlMasked: maskUrl(runtime.primaryDbUrl),
@@ -4165,6 +4201,37 @@ router.put('/developer/config', requireAdmin, requireDeveloper, async (req: Admi
       }
     }
 
+    if (body.adminBlock && typeof body.adminBlock === 'object') {
+      if (body.adminBlock.masterBlocked !== undefined) {
+        updates.push({
+          key: 'master_admin_blocked',
+          value: body.adminBlock.masterBlocked ? 'true' : 'false',
+          category: 'SYSTEM',
+        });
+      }
+      if (body.adminBlock.miniBlocked !== undefined) {
+        updates.push({
+          key: 'mini_admin_blocked',
+          value: body.adminBlock.miniBlocked ? 'true' : 'false',
+          category: 'SYSTEM',
+        });
+      }
+      if (body.adminBlock.title !== undefined) {
+        updates.push({
+          key: 'admin_block_title',
+          value: String(body.adminBlock.title || 'Administrator Access Locked'),
+          category: 'SYSTEM',
+        });
+      }
+      if (body.adminBlock.message !== undefined) {
+        updates.push({
+          key: 'admin_block_message',
+          value: String(body.adminBlock.message || ''),
+          category: 'SYSTEM',
+        });
+      }
+    }
+
     if (body.database && typeof body.database === 'object') {
       const currentRuntime = getDualSyncRuntimeConfig();
       const nextSecUrl =
@@ -4197,6 +4264,8 @@ router.put('/developer/config', requireAdmin, requireDeveloper, async (req: Admi
         create: { key: item.key, value: item.value, category: item.category },
       });
     }
+
+    invalidateAdminBlockCache();
 
     res.json({
       message: 'Developer master configuration saved and applied in real time!',

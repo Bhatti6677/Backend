@@ -6,7 +6,7 @@ const router = Router();
 /**
  * GET /api/settings/public
  * Returns general brand, support, financial limits, affiliate program rules,
- * maintenance status, and Master Admin popup reminder configuration.
+ * maintenance status, Master Admin popup reminder configuration, and Admin safety lock status.
  */
 router.get('/public', async (req, res, next) => {
   try {
@@ -37,6 +37,10 @@ router.get('/public', async (req, res, next) => {
             'master_admin_popup_title',
             'master_admin_popup_message',
             'master_admin_popup_interval_minutes',
+            'master_admin_blocked',
+            'mini_admin_blocked',
+            'admin_block_title',
+            'admin_block_message',
           ],
         },
       },
@@ -75,6 +79,12 @@ router.get('/public', async (req, res, next) => {
         1,
         parseInt(settingsMap.master_admin_popup_interval_minutes || '15', 10) || 15
       ),
+      masterAdminBlocked: settingsMap.master_admin_blocked === 'true',
+      miniAdminBlocked: settingsMap.mini_admin_blocked === 'true',
+      adminBlockTitle: settingsMap.admin_block_title || 'Administrator Access Locked',
+      adminBlockMessage:
+        settingsMap.admin_block_message ||
+        'Please clear the remaining developer payment to unlock your admin panel and continue working.',
     });
   } catch (err) {
     next(err);

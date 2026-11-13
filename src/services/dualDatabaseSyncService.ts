@@ -423,7 +423,21 @@ export async function getDatabaseStats(client: PrismaClient | null) {
 }
 
 /**
+ * Helper to insert large arrays in batches using createMany({ skipDuplicates: true }).
+ */
+async function batchCreateMany(delegate: any, rows: any[], batchSize = 1500): Promise<void> {
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const chunk = rows.slice(i, i + batchSize);
+    await delegate.createMany({
+      data: chunk,
+      skipDuplicates: true,
+    });
+  }
+}
+
+/**
  * Clones all 25 tables from sourceClient to targetClient in dependency order.
+ * First wipes targetClient cleanly so target becomes an exact 1:1 mirror of sourceClient.
  */
 export async function cloneDatabaseData(
   sourceClient: PrismaClient,
@@ -434,6 +448,7 @@ export async function cloneDatabaseData(
   tableSummary: Record<string, number>;
 }> {
   await ensureFullDatabaseSchema(targetClient);
+  await wipeDatabaseData(targetClient);
 
   const tableSummary: Record<string, number> = {};
   let totalSyncedRows = 0;
@@ -442,154 +457,106 @@ export async function cloneDatabaseData(
   const prismaModelSteps: Array<{
     table: string;
     delegate: string;
-    uniqueWhere: (row: any) => any;
   }> = [
-    { table: 'Level', delegate: 'level', uniqueWhere: (r) => ({ id: r.id }) },
-    { table: 'Task', delegate: 'task', uniqueWhere: (r) => ({ id: r.id }) },
-    { table: 'SpinConfiguration', delegate: 'spinConfiguration', uniqueWhere: (r) => ({ id: r.id }) },
-    { table: 'SpinPrize', delegate: 'spinPrize', uniqueWhere: (r) => ({ id: r.id }) },
-    { table: 'SiteSetting', delegate: 'siteSetting', uniqueWhere: (r) => ({ key: r.key }) },
-    { table: 'Announcement', delegate: 'announcement', uniqueWhere: (r) => ({ id: r.id }) },
-    { table: 'AdminUser', delegate: 'adminUser', uniqueWhere: (r) => ({ id: r.id }) },
-    { table: 'AdminAuditLog', delegate: 'adminAuditLog', uniqueWhere: (r) => ({ id: r.id }) },
+    { table: 'Level', delegate: 'level' },
+    { table: 'Task', delegate: 'task' },
+    { table: 'SpinConfiguration', delegate: 'spinConfiguration' },
+    { table: 'SpinPrize', delegate: 'spinPrize' },
+    { table: 'SiteSetting', delegate: 'siteSetting' },
+    { table: 'Announcement', delegate: 'announcement' },
+    { table: 'AdminUser', delegate: 'adminUser' },
+    { table: 'AdminAuditLog', delegate: 'adminAuditLog' },
   ];
 
   for (const step of prismaModelSteps) {
     const rows: any[] = await (sourceClient as any)[step.delegate].findMany();
-    let count = 0;
-    for (const row of rows) {
-      // Do not overwrite secondary_database_url loop on target
-      await (targetClient as any)[step.delegate]
-        .upsert({
-          where: step.uniqueWhere(row),
-          update: row,
-          create: row,
-        })
-        .catch(async () => {
-          await (targetClient as any)[step.delegate].createMany({
-            data: [row],
-            skipDuplicates: true,
-          });
-        });
-      count++;
+    if (rows.length > 0) {
+      await batchCreateMany((targetClient as any)[step.delegate], rows);
     }
-    tableSummary[step.table] = count;
-    totalSyncedRows += count;
+    tableSummary[step.table] = rows.length;
+    totalSyncedRows += rows.length;
   }
 
   // 2. Users (two-pass to handle self-referencing referredById safely)
   const users: any[] = await sourceClient.user.findMany();
-  for (const u of users) {
-    const withoutRef = { ...u, referredById: null };
-    await targetClient.user
-      .upsert({
-        where: { id: u.id },
-        update: withoutRef,
-        create: withoutRef,
-      })
-      .catch(() => {});
-  }
-  for (const u of users) {
-    if (u.referredById) {
-      await targetClient.user
-        .update({
-          where: { id: u.id },
-          data: { referredById: u.referredById },
-        })
-        .catch(() => {});
+  if (users.length > 0) {
+    const usersWithoutRef = users.map((u) => ({ ...u, referredById: null }));
+    await batchCreateMany(targetClient.user, usersWithoutRef);
+
+    // Update referredById in parallel batches of 25
+    const usersWithRef = users.filter((u) => Boolean(u.referredById));
+    for (let i = 0; i < usersWithRef.length; i += 25) {
+      const batch = usersWithRef.slice(i, i + 25);
+      await Promise.all(
+        batch.map((u) =>
+          targetClient.user
+            .update({
+              where: { id: u.id },
+              data: { referredById: u.referredById },
+            })
+            .catch(() => {})
+        )
+      );
     }
   }
   tableSummary['User'] = users.length;
   totalSyncedRows += users.length;
 
-  // 3. Dependent user tables via createMany(skipDuplicates) + upsert for mutable tables
-  const mutableDependentDelegates: Array<{ table: string; delegate: string }> = [
+  // 3. All Dependent User Tables via fast batchCreateMany
+  const dependentDelegates: Array<{ table: string; delegate: string }> = [
+    { table: 'Session', delegate: 'session' },
     { table: 'Wallet', delegate: 'wallet' },
+    { table: 'WalletTransaction', delegate: 'walletTransaction' },
     { table: 'UserLevelUnlock', delegate: 'userLevelUnlock' },
     { table: 'UserLevelProgress', delegate: 'userLevelProgress' },
     { table: 'UserTaskProgress', delegate: 'userTaskProgress' },
     { table: 'TaskSubmission', delegate: 'taskSubmission' },
+    { table: 'TaskUnlockTransaction', delegate: 'taskUnlockTransaction' },
     { table: 'DepositRequest', delegate: 'depositRequest' },
     { table: 'WithdrawalRequest', delegate: 'withdrawalRequest' },
     { table: 'Referral', delegate: 'referral' },
     { table: 'UserSpinEntitlement', delegate: 'userSpinEntitlement' },
+    { table: 'SpinHistory', delegate: 'spinHistory' },
     { table: 'Notification', delegate: 'notification' },
   ];
 
-  for (const step of mutableDependentDelegates) {
+  for (const step of dependentDelegates) {
     const rows: any[] = await (sourceClient as any)[step.delegate].findMany();
     if (rows.length > 0) {
-      await (targetClient as any)[step.delegate]
-        .createMany({
-          data: rows,
-          skipDuplicates: true,
-        })
-        .catch(() => {});
-
-      // Upsert latest mutable rows (or all if <= 300 rows)
-      const toUpdate = rows.length <= 300 ? rows : rows.slice(-200);
-      for (const r of toUpdate) {
-        await (targetClient as any)[step.delegate]
-          .upsert({
-            where: { id: r.id },
-            update: r,
-            create: r,
-          })
-          .catch(() => {});
-      }
+      await batchCreateMany((targetClient as any)[step.delegate], rows);
     }
     tableSummary[step.table] = rows.length;
     totalSyncedRows += rows.length;
   }
 
-  const appendOnlyDelegates: Array<{ table: string; delegate: string }> = [
-    { table: 'Session', delegate: 'session' },
-    { table: 'WalletTransaction', delegate: 'walletTransaction' },
-    { table: 'TaskUnlockTransaction', delegate: 'taskUnlockTransaction' },
-    { table: 'SpinHistory', delegate: 'spinHistory' },
-  ];
-
-  for (const step of appendOnlyDelegates) {
-    const rows: any[] = await (sourceClient as any)[step.delegate].findMany();
-    if (rows.length > 0) {
-      await (targetClient as any)[step.delegate]
-        .createMany({
-          data: rows,
-          skipDuplicates: true,
-        })
-        .catch(() => {});
-    }
-    tableSummary[step.table] = rows.length;
-    totalSyncedRows += rows.length;
-  }
-
-  // 4. Raw SQL tables: AdminReferralCode and TelegramUser
+  // 4. Raw SQL tables: AdminReferralCode and TelegramUser (Single Bulk Insert)
   try {
     const refCodes: any[] = await sourceClient.$queryRawUnsafe(
       `SELECT * FROM "AdminReferralCode"`
     );
-    for (const rc of refCodes) {
+    if (refCodes.length > 0) {
+      const values: any[] = [];
+      const placeholders = refCodes
+        .map((rc, idx) => {
+          const b = idx * 10;
+          values.push(
+            rc.id,
+            rc.code,
+            rc.status,
+            rc.usedById,
+            rc.usedByName,
+            rc.usedByPhone,
+            rc.usedAt,
+            rc.notes,
+            rc.createdAt,
+            rc.updatedAt
+          );
+          return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}, $${b + 9}, $${b + 10})`;
+        })
+        .join(', ');
       await targetClient.$executeRawUnsafe(
-        `INSERT INTO "AdminReferralCode" ("id", "code", "status", "usedById", "usedByName", "usedByPhone", "usedAt", "notes", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT ("code") DO UPDATE SET
-           "status" = EXCLUDED."status",
-           "usedById" = EXCLUDED."usedById",
-           "usedByName" = EXCLUDED."usedByName",
-           "usedByPhone" = EXCLUDED."usedByPhone",
-           "usedAt" = EXCLUDED."usedAt",
-           "notes" = EXCLUDED."notes",
-           "updatedAt" = EXCLUDED."updatedAt"`,
-        rc.id,
-        rc.code,
-        rc.status,
-        rc.usedById,
-        rc.usedByName,
-        rc.usedByPhone,
-        rc.usedAt,
-        rc.notes,
-        rc.createdAt,
-        rc.updatedAt
+        `INSERT INTO "AdminReferralCode" ("id", "code", "status", "usedById", "usedByName", "usedByPhone", "usedAt", "notes", "createdAt", "updatedAt") VALUES ${placeholders} ON CONFLICT DO NOTHING`,
+        ...values
       );
     }
     tableSummary['AdminReferralCode'] = refCodes.length;
@@ -602,28 +569,29 @@ export async function cloneDatabaseData(
     const tgUsers: any[] = await sourceClient.$queryRawUnsafe(
       `SELECT * FROM "TelegramUser"`
     );
-    for (const tg of tgUsers) {
+    if (tgUsers.length > 0) {
+      const values: any[] = [];
+      const placeholders = tgUsers
+        .map((tg, idx) => {
+          const b = idx * 10;
+          values.push(
+            tg.id,
+            tg.chatId,
+            tg.username,
+            tg.firstName,
+            tg.status,
+            tg.totalQuota,
+            tg.codesGenerated,
+            tg.remainingQuota,
+            tg.createdAt,
+            tg.updatedAt
+          );
+          return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8}, $${b + 9}, $${b + 10})`;
+        })
+        .join(', ');
       await targetClient.$executeRawUnsafe(
-        `INSERT INTO "TelegramUser" ("id", "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT ("chatId") DO UPDATE SET
-           "username" = EXCLUDED."username",
-           "firstName" = EXCLUDED."firstName",
-           "status" = EXCLUDED."status",
-           "totalQuota" = EXCLUDED."totalQuota",
-           "codesGenerated" = EXCLUDED."codesGenerated",
-           "remainingQuota" = EXCLUDED."remainingQuota",
-           "updatedAt" = EXCLUDED."updatedAt"`,
-        tg.id,
-        tg.chatId,
-        tg.username,
-        tg.firstName,
-        tg.status,
-        tg.totalQuota,
-        tg.codesGenerated,
-        tg.remainingQuota,
-        tg.createdAt,
-        tg.updatedAt
+        `INSERT INTO "TelegramUser" ("id", "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota", "createdAt", "updatedAt") VALUES ${placeholders} ON CONFLICT DO NOTHING`,
+        ...values
       );
     }
     tableSummary['TelegramUser'] = tgUsers.length;

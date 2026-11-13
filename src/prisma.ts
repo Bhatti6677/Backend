@@ -14,10 +14,20 @@ dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
 dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env.production') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-const FALLBACK_DATABASE_URL =
+// Old Supabase Database (Primary Source of Truth during transition)
+export const OLD_SUPABASE_URL =
+  'postgresql://postgres.iwzonipiymbsspnyoszt:Password%407878IUGUI7868%25%24%23%5Eyius@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
+export const OLD_SUPABASE_DIRECT_URL =
+  'postgresql://postgres.iwzonipiymbsspnyoszt:Password%407878IUGUI7868%25%24%23%5Eyius@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres';
+
+// New Supabase Database (Live Real-Time Mirror & Cutover Target)
+export const NEW_SUPABASE_URL =
   'postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
-const FALLBACK_DIRECT_URL =
+export const NEW_SUPABASE_DIRECT_URL =
   'postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres';
+
+const FALLBACK_DATABASE_URL = OLD_SUPABASE_URL;
+const FALLBACK_DIRECT_URL = OLD_SUPABASE_DIRECT_URL;
 
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = FALLBACK_DATABASE_URL;
@@ -27,6 +37,11 @@ if (!process.env.DIRECT_URL) {
 }
 
 const dbUrl = process.env.DATABASE_URL || FALLBACK_DATABASE_URL;
+
+// Automatically pair the opposite database as default secondary mirror if not explicitly overridden
+const DEFAULT_SECONDARY_URL = dbUrl.includes('iwzonipiymbsspnyoszt')
+  ? NEW_SUPABASE_URL
+  : OLD_SUPABASE_URL;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -65,7 +80,12 @@ const WRITE_ACTIONS = new Set([
  * Returns or initializes the secondary PrismaClient instance for Dual-Write Sync.
  */
 export function getSecondaryPrisma(customUrl?: string): PrismaClient | null {
-  const targetUrl = (customUrl ?? globalForPrisma.secondaryDbUrl ?? process.env.SECONDARY_DATABASE_URL ?? '').trim();
+  const targetUrl = (
+    customUrl ??
+    globalForPrisma.secondaryDbUrl ??
+    process.env.SECONDARY_DATABASE_URL ??
+    DEFAULT_SECONDARY_URL
+  ).trim();
   if (!targetUrl || targetUrl === dbUrl) {
     return null;
   }
@@ -99,18 +119,21 @@ export function getSecondaryPrisma(customUrl?: string): PrismaClient | null {
  * Updates the runtime Dual-Sync configuration immediately without requiring a server restart.
  */
 export function setDualSyncRuntimeConfig(secondaryUrl: string, enabled: boolean) {
-  globalForPrisma.secondaryDbUrl = secondaryUrl.trim();
+  globalForPrisma.secondaryDbUrl = secondaryUrl.trim() || DEFAULT_SECONDARY_URL;
   globalForPrisma.dualSyncEnabled = enabled;
   globalForPrisma.lastDualSyncConfigFetch = Date.now();
-  if (secondaryUrl.trim() && enabled) {
-    getSecondaryPrisma(secondaryUrl.trim());
+  if (globalForPrisma.secondaryDbUrl && enabled) {
+    getSecondaryPrisma(globalForPrisma.secondaryDbUrl);
   }
 }
 
 export function getDualSyncRuntimeConfig() {
   return {
     primaryDbUrl: dbUrl,
-    secondaryDbUrl: globalForPrisma.secondaryDbUrl || process.env.SECONDARY_DATABASE_URL || '',
+    secondaryDbUrl:
+      globalForPrisma.secondaryDbUrl ||
+      process.env.SECONDARY_DATABASE_URL ||
+      DEFAULT_SECONDARY_URL,
     dualSyncEnabled: globalForPrisma.dualSyncEnabled ?? true,
   };
 }
@@ -137,12 +160,18 @@ export async function refreshDualSyncConfigIfNeeded(): Promise<void> {
       },
     });
     const map = Object.fromEntries(records.map((r) => [r.key, r.value]));
-    const secUrl = (map.secondary_database_url || process.env.SECONDARY_DATABASE_URL || '').trim();
+    const secUrl = (
+      map.secondary_database_url ||
+      process.env.SECONDARY_DATABASE_URL ||
+      DEFAULT_SECONDARY_URL
+    ).trim();
     const enabled = map.dual_sync_enabled !== 'false';
     globalForPrisma.secondaryDbUrl = secUrl;
     globalForPrisma.dualSyncEnabled = enabled;
   } catch {
-    // Ignore errors during bootstrap
+    if (!globalForPrisma.secondaryDbUrl) {
+      globalForPrisma.secondaryDbUrl = DEFAULT_SECONDARY_URL;
+    }
   }
 }
 
@@ -166,18 +195,49 @@ if (!globalForPrisma.rawSqlHookInstalled && typeof prisma.$executeRawUnsafe === 
   globalForPrisma.rawSqlHookInstalled = true;
   const origExecuteRawUnsafe = prisma.$executeRawUnsafe.bind(prisma);
   (prisma as any).$executeRawUnsafe = async (query: string, ...values: any[]) => {
-    const res = await origExecuteRawUnsafe(query, ...values);
-    executeDualRawUnsafe(query, ...values).catch(() => {});
-    return res;
+    try {
+      const res = await origExecuteRawUnsafe(query, ...values);
+      executeDualRawUnsafe(query, ...values).catch(() => {});
+      return res;
+    } catch (primaryErr) {
+      // Automatic failover if Primary (Old DB) is deleted/unreachable
+      const secondary = getSecondaryPrisma();
+      if (secondary) {
+        return secondary.$executeRawUnsafe(query, ...values);
+      }
+      throw primaryErr;
+    }
   };
 }
 
-// Install Prisma $use middleware once to mirror all write operations to the secondary database
+// Install Prisma $use middleware once to mirror all write operations to the secondary database (and auto-failover if primary is deleted)
 if (!globalForPrisma.dualSyncMiddlewareInstalled && typeof (prisma as any).$use === 'function') {
   globalForPrisma.dualSyncMiddlewareInstalled = true;
 
   (prisma as any).$use(async (params: any, next: any) => {
-    const result = await next(params);
+    let result: any;
+    try {
+      result = await next(params);
+    } catch (primaryErr: any) {
+      // If Primary (Old DB) is ever deleted or unreachable, transparently fail over to Secondary (New DB)
+      const msg = String(primaryErr?.message || '');
+      if (
+        msg.includes("Can't reach database server") ||
+        msg.includes('Tenant or user not found') ||
+        msg.includes('Connection terminated') ||
+        msg.includes('P1001')
+      ) {
+        const secondary = getSecondaryPrisma();
+        if (secondary && params.model) {
+          const modelKey = params.model.charAt(0).toLowerCase() + params.model.slice(1);
+          const delegate = (secondary as any)[modelKey];
+          if (delegate && typeof delegate[params.action] === 'function') {
+            return await delegate[params.action](params.args);
+          }
+        }
+      }
+      throw primaryErr;
+    }
 
     if (params.model && WRITE_ACTIONS.has(params.action)) {
       // Asynchronously mirror the exact write operation to the secondary database wrapped in non-blocking try/catch
