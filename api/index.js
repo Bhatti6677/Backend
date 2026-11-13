@@ -64790,11 +64790,10 @@ import_dotenv.default.config({ path: path.resolve(__dirname, "../.env.production
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env.production") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), ".env") });
-var OLD_SUPABASE_URL = "postgresql://postgres.iwzonipiymbsspnyoszt:Password%407878IUGUI7868%25%24%23%5Eyius@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
-var OLD_SUPABASE_DIRECT_URL = "postgresql://postgres.iwzonipiymbsspnyoszt:Password%407878IUGUI7868%25%24%23%5Eyius@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres";
 var NEW_SUPABASE_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
-var FALLBACK_DATABASE_URL = OLD_SUPABASE_URL;
-var FALLBACK_DIRECT_URL = OLD_SUPABASE_DIRECT_URL;
+var NEW_SUPABASE_DIRECT_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres";
+var FALLBACK_DATABASE_URL = NEW_SUPABASE_URL;
+var FALLBACK_DIRECT_URL = NEW_SUPABASE_DIRECT_URL;
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = FALLBACK_DATABASE_URL;
 }
@@ -64802,7 +64801,7 @@ if (!process.env.DIRECT_URL) {
   process.env.DIRECT_URL = FALLBACK_DIRECT_URL;
 }
 var dbUrl = process.env.DATABASE_URL || FALLBACK_DATABASE_URL;
-var DEFAULT_SECONDARY_URL = dbUrl.includes("iwzonipiymbsspnyoszt") ? NEW_SUPABASE_URL : OLD_SUPABASE_URL;
+var DEFAULT_SECONDARY_URL = "";
 var globalForPrisma = globalThis;
 var prisma = globalForPrisma.prisma ?? new PrismaClient({
   datasources: {
@@ -64852,7 +64851,7 @@ function getSecondaryPrisma(customUrl) {
   }
 }
 function setDualSyncRuntimeConfig(secondaryUrl, enabled) {
-  globalForPrisma.secondaryDbUrl = secondaryUrl.trim() || DEFAULT_SECONDARY_URL;
+  globalForPrisma.secondaryDbUrl = secondaryUrl.trim();
   globalForPrisma.dualSyncEnabled = enabled;
   globalForPrisma.lastDualSyncConfigFetch = Date.now();
   if (globalForPrisma.secondaryDbUrl && enabled) {
@@ -64862,8 +64861,8 @@ function setDualSyncRuntimeConfig(secondaryUrl, enabled) {
 function getDualSyncRuntimeConfig() {
   return {
     primaryDbUrl: dbUrl,
-    secondaryDbUrl: globalForPrisma.secondaryDbUrl || process.env.SECONDARY_DATABASE_URL || DEFAULT_SECONDARY_URL,
-    dualSyncEnabled: globalForPrisma.dualSyncEnabled ?? true
+    secondaryDbUrl: globalForPrisma.secondaryDbUrl ?? process.env.SECONDARY_DATABASE_URL ?? DEFAULT_SECONDARY_URL,
+    dualSyncEnabled: globalForPrisma.dualSyncEnabled ?? false
   };
 }
 async function refreshDualSyncConfigIfNeeded() {
@@ -64881,20 +64880,19 @@ async function refreshDualSyncConfigIfNeeded() {
       }
     });
     const map2 = Object.fromEntries(records.map((r) => [r.key, r.value]));
-    const secUrl = (map2.secondary_database_url || process.env.SECONDARY_DATABASE_URL || DEFAULT_SECONDARY_URL).trim();
-    const enabled = map2.dual_sync_enabled !== "false";
+    const secUrl = (map2.secondary_database_url ?? process.env.SECONDARY_DATABASE_URL ?? "").trim();
+    const enabled = map2.dual_sync_enabled === "true" && Boolean(secUrl);
     globalForPrisma.secondaryDbUrl = secUrl;
     globalForPrisma.dualSyncEnabled = enabled;
   } catch {
-    if (!globalForPrisma.secondaryDbUrl) {
-      globalForPrisma.secondaryDbUrl = DEFAULT_SECONDARY_URL;
-    }
+    globalForPrisma.secondaryDbUrl = "";
+    globalForPrisma.dualSyncEnabled = false;
   }
 }
 async function executeDualRawUnsafe(query, ...values) {
   try {
     await refreshDualSyncConfigIfNeeded();
-    if (globalForPrisma.dualSyncEnabled === false) return;
+    if (!globalForPrisma.dualSyncEnabled) return;
     const secondary = getSecondaryPrisma();
     if (!secondary) return;
     await secondary.$executeRawUnsafe(query, ...values);
@@ -64906,45 +64904,21 @@ if (!globalForPrisma.rawSqlHookInstalled && typeof prisma.$executeRawUnsafe === 
   globalForPrisma.rawSqlHookInstalled = true;
   const origExecuteRawUnsafe = prisma.$executeRawUnsafe.bind(prisma);
   prisma.$executeRawUnsafe = async (query, ...values) => {
-    try {
-      const res = await origExecuteRawUnsafe(query, ...values);
-      executeDualRawUnsafe(query, ...values).catch(() => {
-      });
-      return res;
-    } catch (primaryErr) {
-      const secondary = getSecondaryPrisma();
-      if (secondary) {
-        return secondary.$executeRawUnsafe(query, ...values);
-      }
-      throw primaryErr;
-    }
+    const res = await origExecuteRawUnsafe(query, ...values);
+    executeDualRawUnsafe(query, ...values).catch(() => {
+    });
+    return res;
   };
 }
 if (!globalForPrisma.dualSyncMiddlewareInstalled && typeof prisma.$use === "function") {
   globalForPrisma.dualSyncMiddlewareInstalled = true;
   prisma.$use(async (params, next) => {
-    let result;
-    try {
-      result = await next(params);
-    } catch (primaryErr) {
-      const msg = String(primaryErr?.message || "");
-      if (msg.includes("Can't reach database server") || msg.includes("Tenant or user not found") || msg.includes("Connection terminated") || msg.includes("P1001")) {
-        const secondary = getSecondaryPrisma();
-        if (secondary && params.model) {
-          const modelKey = params.model.charAt(0).toLowerCase() + params.model.slice(1);
-          const delegate = secondary[modelKey];
-          if (delegate && typeof delegate[params.action] === "function") {
-            return await delegate[params.action](params.args);
-          }
-        }
-      }
-      throw primaryErr;
-    }
+    const result = await next(params);
     if (params.model && WRITE_ACTIONS.has(params.action)) {
       (async () => {
         try {
           await refreshDualSyncConfigIfNeeded();
-          if (globalForPrisma.dualSyncEnabled === false) return;
+          if (!globalForPrisma.dualSyncEnabled) return;
           const secondary = getSecondaryPrisma();
           if (!secondary) return;
           const modelKey = params.model.charAt(0).toLowerCase() + params.model.slice(1);
