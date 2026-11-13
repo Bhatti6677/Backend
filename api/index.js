@@ -79864,11 +79864,32 @@ router11.put("/tasks/:taskId", requireAdmin, requireSuperAdmin, async (req, res,
     const validated = schema.parse(req.body);
     const existingTask = await prisma.task.findUnique({ where: { id: taskId } });
     if (!existingTask) return res.status(404).json({ error: "Task not found" });
+    const finalUnlockFee = validated.isPaid ? validated.unlockFee : 0;
+    const feeStr = Math.max(0, finalUnlockFee).toLocaleString("en-US");
+    const rewardStr = Math.max(0, validated.rewardAmount).toLocaleString("en-US");
+    let syncedTitle = validated.title;
+    let syncedDescription = validated.description;
+    let syncedInstructions = validated.instructions;
+    if (validated.isPaid) {
+      if (/\(\s*PKR\s*[\d,]+(?:\.\d+)?\s*\)/i.test(syncedTitle)) {
+        syncedTitle = syncedTitle.replace(/\(\s*PKR\s*[\d,]+(?:\.\d+)?\s*\)/gi, `(PKR ${feeStr})`);
+      } else if (/^Prepaid VIP Task/i.test(syncedTitle)) {
+        syncedTitle = `${syncedTitle.trim()} (PKR ${feeStr})`;
+      }
+      syncedDescription = syncedDescription.replace(/unlock fee of PKR\s*[\d,]+(?:\.\d+)?/gi, `unlock fee of PKR ${feeStr}`).replace(/commission of PKR\s*[\d,]+(?:\.\d+)?/gi, `commission of PKR ${rewardStr}`).replace(/to earn PKR\s*[\d,]+(?:\.\d+)?/gi, `to earn PKR ${rewardStr}`);
+      syncedInstructions = syncedInstructions.replace(/deposit PKR\s*[\d,]+(?:\.\d+)?/gi, `deposit PKR ${feeStr}`);
+    } else {
+      syncedTitle = syncedTitle.replace(/\s*\(\s*PKR\s*[\d,]+(?:\.\d+)?\s*\)/gi, "").trim();
+      syncedDescription = syncedDescription.replace(/commission of PKR\s*[\d,]+(?:\.\d+)?/gi, `commission of PKR ${rewardStr}`).replace(/to earn PKR\s*[\d,]+(?:\.\d+)?/gi, `to earn PKR ${rewardStr}`);
+    }
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
       data: {
         ...validated,
-        unlockFee: validated.isPaid ? validated.unlockFee : 0
+        title: syncedTitle,
+        description: syncedDescription,
+        instructions: syncedInstructions,
+        unlockFee: finalUnlockFee
       }
     });
     await logAdminAction({
@@ -82310,7 +82331,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-ZaMdFuf0.js")) {
+        if (content.includes('id="root"') && content.includes("index-Dofr0K7W.js")) {
           return content;
         }
       } catch (err) {
@@ -82333,7 +82354,7 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-ZaMdFuf0.js"></script>
+    <script type="module" crossorigin src="/assets/index-Dofr0K7W.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-DQIuX_2B.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">

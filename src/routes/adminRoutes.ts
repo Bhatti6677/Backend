@@ -1616,11 +1616,40 @@ router.put('/tasks/:taskId', requireAdmin, requireSuperAdmin, async (req: AdminA
     const existingTask = await prisma.task.findUnique({ where: { id: taskId } });
     if (!existingTask) return res.status(404).json({ error: 'Task not found' });
 
+    const finalUnlockFee = validated.isPaid ? validated.unlockFee : 0;
+    const feeStr = Math.max(0, finalUnlockFee).toLocaleString('en-US');
+    const rewardStr = Math.max(0, validated.rewardAmount).toLocaleString('en-US');
+
+    let syncedTitle = validated.title;
+    let syncedDescription = validated.description;
+    let syncedInstructions = validated.instructions;
+
+    if (validated.isPaid) {
+      if (/\(\s*PKR\s*[\d,]+(?:\.\d+)?\s*\)/i.test(syncedTitle)) {
+        syncedTitle = syncedTitle.replace(/\(\s*PKR\s*[\d,]+(?:\.\d+)?\s*\)/gi, `(PKR ${feeStr})`);
+      } else if (/^Prepaid VIP Task/i.test(syncedTitle)) {
+        syncedTitle = `${syncedTitle.trim()} (PKR ${feeStr})`;
+      }
+      syncedDescription = syncedDescription
+        .replace(/unlock fee of PKR\s*[\d,]+(?:\.\d+)?/gi, `unlock fee of PKR ${feeStr}`)
+        .replace(/commission of PKR\s*[\d,]+(?:\.\d+)?/gi, `commission of PKR ${rewardStr}`)
+        .replace(/to earn PKR\s*[\d,]+(?:\.\d+)?/gi, `to earn PKR ${rewardStr}`);
+      syncedInstructions = syncedInstructions.replace(/deposit PKR\s*[\d,]+(?:\.\d+)?/gi, `deposit PKR ${feeStr}`);
+    } else {
+      syncedTitle = syncedTitle.replace(/\s*\(\s*PKR\s*[\d,]+(?:\.\d+)?\s*\)/gi, '').trim();
+      syncedDescription = syncedDescription
+        .replace(/commission of PKR\s*[\d,]+(?:\.\d+)?/gi, `commission of PKR ${rewardStr}`)
+        .replace(/to earn PKR\s*[\d,]+(?:\.\d+)?/gi, `to earn PKR ${rewardStr}`);
+    }
+
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
       data: {
         ...validated,
-        unlockFee: validated.isPaid ? validated.unlockFee : 0,
+        title: syncedTitle,
+        description: syncedDescription,
+        instructions: syncedInstructions,
+        unlockFee: finalUnlockFee,
       },
     });
 
