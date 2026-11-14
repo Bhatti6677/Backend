@@ -39,8 +39,8 @@ export function getAdminSpaHtml(): string {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-BPtnDjtt.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BB-WbFfd.css">
+    <script type="module" crossorigin src="/assets/index-C3GYmxLq.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CsXu20mJ.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
