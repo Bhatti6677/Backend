@@ -260,11 +260,11 @@ export function createApp() {
   // Graceful fallback for stale or missing assets
   app.use('/assets', (req, res, next) => {
     if (req.method === 'GET' || req.method === 'HEAD') {
-      if (req.path.endsWith('.js') && !req.path.includes('index-aLoHRxAR.js')) {
-        return res.redirect(302, '/assets/index-aLoHRxAR.js');
+      if (req.path.endsWith('.js') && !req.path.includes('index-zOsWPJpt.js')) {
+        return res.redirect(302, '/assets/index-zOsWPJpt.js');
       }
-      if (req.path.endsWith('.css') && !req.path.includes('index-BB-Lutex.css')) {
-        return res.redirect(302, '/assets/index-BB-Lutex.css');
+      if (req.path.endsWith('.css') && !req.path.includes('index-CZ08NIvj.css')) {
+        return res.redirect(302, '/assets/index-CZ08NIvj.css');
       }
       return res.status(404).end();
     }
