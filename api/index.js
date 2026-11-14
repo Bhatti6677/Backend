@@ -82610,8 +82610,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-C3GYmxLq.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CsXu20mJ.css">
+    <script type="module" crossorigin src="/assets/index-DBmLTeta.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CUA7kZna.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -82800,11 +82800,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-C3GYmxLq.js")) {
-        return res.redirect(302, "/assets/index-C3GYmxLq.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-DBmLTeta.js")) {
+        return res.redirect(302, "/assets/index-DBmLTeta.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-CsXu20mJ.css")) {
-        return res.redirect(302, "/assets/index-CsXu20mJ.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-CUA7kZna.css")) {
+        return res.redirect(302, "/assets/index-CUA7kZna.css");
       }
       return res.status(404).end();
     }
