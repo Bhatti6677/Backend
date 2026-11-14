@@ -75055,82 +75055,82 @@ var DATASET_10_LEVELS = [
         "task_id": 1,
         "type": "Subscribe",
         "url": "https://youtu.be/nzciqaNN4I0?si=QcGDCUl8ABo9Qlwd",
-        "commission": 40,
-        "credit_points": 40,
+        "commission": 30,
+        "credit_points": 30,
         "is_prepaid": false
       },
       {
         "task_id": 2,
         "type": "Like and Comment",
         "url": "https://youtu.be/1iJE8Lyvvls?si=yP3qFuihCpIdC5UV",
-        "commission": 40,
-        "credit_points": 40,
+        "commission": 30,
+        "credit_points": 30,
         "is_prepaid": false
       },
       {
         "task_id": 3,
         "type": "Watch Video (30s)",
         "url": "https://youtu.be/wyBimQmMZMo?si=BM6sLmxsw3UiQetL",
-        "commission": 40,
-        "credit_points": 40,
+        "commission": 30,
+        "credit_points": 30,
         "is_prepaid": false
       },
       {
         "task_id": 4,
         "type": "Watch Video (45s)",
         "url": "https://youtu.be/798f3txy4Zs?si=NpAZSSjCHf5sXQHn",
-        "commission": 40,
-        "credit_points": 40,
+        "commission": 30,
+        "credit_points": 30,
         "is_prepaid": false
       },
       {
         "task_id": 5,
         "type": "Watch Video (30s)",
         "url": "https://youtu.be/M2iHz1cVKxc?si=AKicqraZOjPv3mgg",
-        "commission": 40,
-        "credit_points": 40,
+        "commission": 30,
+        "credit_points": 30,
         "is_prepaid": false
       },
       {
         "task_id": 6,
         "type": "Subscribe",
         "url": "https://youtu.be/3cZ_QsA-Q0Q?si=EVMDukq8QHPDKnep",
-        "commission": 40,
-        "credit_points": 40,
+        "commission": 30,
+        "credit_points": 30,
         "is_prepaid": false
       },
       {
         "task_id": 7,
         "type": "Like and Comment",
         "url": "https://youtu.be/HGX31br5XD4?si=i55C748M-mSi0lts",
-        "commission": 40,
-        "credit_points": 40,
+        "commission": 30,
+        "credit_points": 30,
         "is_prepaid": false
       },
       {
         "task_id": 8,
         "type": "Watch Video (30s)",
         "url": "https://youtu.be/pgn8wq-WRN8?si=EcwXdqRmVC9LynqC",
-        "commission": 40,
-        "credit_points": 40,
+        "commission": 30,
+        "credit_points": 30,
         "is_prepaid": false
       },
       {
         "task_id": 9,
         "type": "Watch Video (45s)",
         "url": "https://youtu.be/UlvuMvKkg5U?si=O35IJAiVVAKTmttz",
-        "commission": 40,
-        "credit_points": 40,
+        "commission": 30,
+        "credit_points": 30,
         "is_prepaid": false
       },
       {
         "task_id": 10,
         "type": "Prepaid VIP Task #10",
         "url": "https://youtu.be/K8Y2V9AwOos?si=SxysGiMzNJ9Eg2id",
-        "commission": 564,
-        "credit_points": 564,
+        "commission": 264,
+        "credit_points": 264,
         "is_prepaid": true,
-        "prepaid_value": 1410
+        "prepaid_value": 1320
       }
     ]
   },
@@ -75145,83 +75145,82 @@ var DATASET_10_LEVELS = [
         "task_id": 1,
         "type": "Subscribe",
         "url": "https://youtu.be/7vOkn4m-XCs?si=t75KaK78GG1D87ev",
-        "commission": 60,
-        "credit_points": 60,
+        "commission": 50,
+        "credit_points": 50,
         "is_prepaid": false
       },
       {
         "task_id": 2,
         "type": "Like and Comment",
         "url": "https://youtu.be/96GXqWaQcEE?si=QGeuAtrOng32KBf2",
-        "commission": 60,
-        "credit_points": 60,
+        "commission": 50,
+        "credit_points": 50,
         "is_prepaid": false
       },
       {
         "task_id": 3,
         "type": "Watch Video (30s)",
         "url": "https://youtu.be/CZvYvUGLNMg?si=CAdnkQ9DrlGLeNji",
-        "commission": 60,
-        "credit_points": 60,
+        "commission": 50,
+        "credit_points": 50,
         "is_prepaid": false
       },
       {
         "task_id": 4,
         "type": "Watch Video (45s)",
         "url": "https://youtu.be/APe0TO49E00?si=uzr2jUeVwfwiCEpC",
-        "commission": 60,
-        "credit_points": 60,
+        "commission": 50,
+        "credit_points": 50,
         "is_prepaid": false
       },
       {
         "task_id": 5,
         "type": "Watch Video (45s)",
         "url": "https://youtu.be/hbHILEt52VI?si=M-5ga8nGEDax316y",
-        "commission": 60,
-        "credit_points": 60,
+        "commission": 50,
+        "credit_points": 50,
         "is_prepaid": false
       },
       {
         "task_id": 6,
         "type": "Subscribe",
         "url": "https://youtu.be/WkQrMzwqKv4?si=_eQzhwDMoiCrsDUi",
-        "commission": 60,
-        "credit_points": 60,
+        "commission": 50,
+        "credit_points": 50,
         "is_prepaid": false
       },
       {
         "task_id": 7,
         "type": "Like and Comment",
         "url": "https://youtu.be/CQpxJhN16pM?si=Huj0tEOmziuHzY-A",
-        "commission": 60,
-        "credit_points": 60,
+        "commission": 50,
+        "credit_points": 50,
         "is_prepaid": false
       },
       {
         "task_id": 8,
         "type": "Watch Video (30s)",
         "url": "https://youtu.be/CBhRIsc_14A?si=taf3RX_E_M3_wgXs",
-        "commission": 60,
-        "credit_points": 60,
+        "commission": 50,
+        "credit_points": 50,
         "is_prepaid": false
       },
       {
         "task_id": 9,
-        "type": "Prepaid VIP Task #9",
+        "type": "Watch Video (45s)",
         "url": "https://youtu.be/F7sPLM-ThnA?si=GozFZ1wHIl4HPnSL",
-        "commission": 2503,
-        "credit_points": 2503,
-        "is_prepaid": true,
-        "prepaid_value": 6257
+        "commission": 50,
+        "credit_points": 50,
+        "is_prepaid": false
       },
       {
         "task_id": 10,
         "type": "Prepaid VIP Task #10",
         "url": "https://youtu.be/8T0m8f44Kgs?si=XPXvxc3B5IOOXrP-",
-        "commission": 5704,
-        "credit_points": 5704,
+        "commission": 1390,
+        "credit_points": 1390,
         "is_prepaid": true,
-        "prepaid_value": 14260
+        "prepaid_value": 6950
       }
     ]
   },
@@ -77125,10 +77124,10 @@ var OFFICIAL_SPIN_PRIZES = [
     imageUrl: "/images/spin/product-car.jpg"
   },
   {
-    name: "PKR 500",
-    displayLabel: "PKR 500",
+    name: "PKR 3,000",
+    displayLabel: "PKR 3,000",
     prizeType: "CASH",
-    monetaryValue: 500,
+    monetaryValue: 3e3,
     color: "#DC2626",
     icon: "Crown",
     imageUrl: "/images/spin/product-cash-bundle.jpg"
@@ -77176,7 +77175,12 @@ async function ensureOfficialSpinPrizes() {
     for (const p of OFFICIAL_SPIN_PRIZES) {
       await prisma.spinPrize.create({
         data: {
-          ...p,
+          name: p.name,
+          displayLabel: p.displayLabel,
+          prizeType: p.prizeType,
+          monetaryValue: p.monetaryValue,
+          color: p.color,
+          icon: p.icon,
           status: "ACTIVE"
         }
       });
@@ -77185,6 +77189,9 @@ async function ensureOfficialSpinPrizes() {
     for (const official of OFFICIAL_SPIN_PRIZES) {
       const match = existing.find((e) => {
         if (e.name === official.name || e.displayLabel === official.displayLabel) return true;
+        if (official.name === "PKR 3,000" && (e.monetaryValue === 3e3 || e.monetaryValue === 500 || e.id === "prize_4")) {
+          return true;
+        }
         if (official.name === "Suzuki Alto Car" && (e.name.includes("250") || e.displayLabel.includes("250") || e.name.toLowerCase().includes("alto") || e.name.toLowerCase().includes("car"))) {
           return true;
         }
@@ -77215,7 +77222,12 @@ async function ensureOfficialSpinPrizes() {
       } else {
         await prisma.spinPrize.create({
           data: {
-            ...official,
+            name: official.name,
+            displayLabel: official.displayLabel,
+            prizeType: official.prizeType,
+            monetaryValue: official.monetaryValue,
+            color: official.color,
+            icon: official.icon,
             status: "ACTIVE"
           }
         });
@@ -82331,7 +82343,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-Dofr0K7W.js")) {
+        if (content.includes('id="root"') && content.includes("index-N4lbp0B9.js")) {
           return content;
         }
       } catch (err) {
@@ -82354,7 +82366,7 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-Dofr0K7W.js"></script>
+    <script type="module" crossorigin src="/assets/index-N4lbp0B9.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-DQIuX_2B.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">

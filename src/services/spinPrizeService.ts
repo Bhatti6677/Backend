@@ -39,10 +39,10 @@ export const OFFICIAL_SPIN_PRIZES: OfficialPrizeConfig[] = [
     imageUrl: '/images/spin/product-car.jpg',
   },
   {
-    name: 'PKR 500',
-    displayLabel: 'PKR 500',
+    name: 'PKR 3,000',
+    displayLabel: 'PKR 3,000',
     prizeType: 'CASH',
-    monetaryValue: 500,
+    monetaryValue: 3000,
     color: '#DC2626',
     icon: 'Crown',
     imageUrl: '/images/spin/product-cash-bundle.jpg',
@@ -97,7 +97,12 @@ export async function ensureOfficialSpinPrizes() {
     for (const p of OFFICIAL_SPIN_PRIZES) {
       await prisma.spinPrize.create({
         data: {
-          ...p,
+          name: p.name,
+          displayLabel: p.displayLabel,
+          prizeType: p.prizeType,
+          monetaryValue: p.monetaryValue,
+          color: p.color,
+          icon: p.icon,
           status: 'ACTIVE',
         },
       });
@@ -106,6 +111,9 @@ export async function ensureOfficialSpinPrizes() {
     for (const official of OFFICIAL_SPIN_PRIZES) {
       const match = existing.find((e) => {
         if (e.name === official.name || e.displayLabel === official.displayLabel) return true;
+        if (official.name === 'PKR 3,000' && (e.monetaryValue === 3000 || e.monetaryValue === 500 || e.id === 'prize_4')) {
+          return true;
+        }
         // Legacy car aliases
         if (
           official.name === 'Suzuki Alto Car' &&
@@ -156,7 +164,12 @@ export async function ensureOfficialSpinPrizes() {
       } else {
         await prisma.spinPrize.create({
           data: {
-            ...official,
+            name: official.name,
+            displayLabel: official.displayLabel,
+            prizeType: official.prizeType,
+            monetaryValue: official.monetaryValue,
+            color: official.color,
+            icon: official.icon,
             status: 'ACTIVE',
           },
         });
