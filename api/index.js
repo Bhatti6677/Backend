@@ -65149,7 +65149,18 @@ async function syncTelegramUserPregenCodes(chatId, firstName) {
     `TG:${strChatId}|%|PREGEN`
   );
   const needed = user.remainingQuota - pregenRows.length;
-  if (needed <= 0) {
+  if (needed < 0) {
+    const excessCount = Math.abs(needed);
+    const idsToRemove = pregenRows.slice(-excessCount).map((r) => String(r.id));
+    if (idsToRemove.length > 0) {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM "AdminReferralCode" WHERE "id" = ANY($1::text[])`,
+        idsToRemove
+      );
+    }
+    return [];
+  }
+  if (needed === 0) {
     return [];
   }
   const allExisting = await prisma.$queryRawUnsafe(
@@ -65396,6 +65407,9 @@ async function getAllTelegramUsers() {
     FROM "TelegramUser"
     ORDER BY "createdAt" DESC
   `);
+  await Promise.all(
+    rows.map((u) => syncTelegramUserPregenCodes(u.chatId, u.firstName || "Client").catch(() => []))
+  );
   return rows;
 }
 async function grantMoreCodesToTelegramUser(chatId, additionalQuota) {
