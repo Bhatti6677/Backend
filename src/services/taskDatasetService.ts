@@ -16,6 +16,12 @@ export async function syncDatasetTasksToDatabase(): Promise<void> {
   if (datasetSynced) return;
 
   try {
+    const existingCount = await prisma.task.count();
+    if (existingCount >= 100) {
+      datasetSynced = true;
+      return;
+    }
+
     for (const lvlData of DATASET_10_LEVELS) {
       const levelNumber = lvlData.level;
       const title = lvlData.title;

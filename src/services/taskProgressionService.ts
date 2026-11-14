@@ -223,44 +223,46 @@ export const taskProgressionService = {
       }
     }
 
+    // Determine the user's current active/in-progress level number for clear lock messages
+    let activeInProgressLevel = 1;
+    for (let lvlNum = 1; lvlNum <= 10; lvlNum++) {
+      const st = levelStatsByNumber.get(lvlNum);
+      if (!st?.isCompleted) {
+        activeInProgressLevel = lvlNum;
+        break;
+      }
+    }
+
     // If level itself is locked:
-    // When a user has reached Level 4 (or for levels 4 to 10), show task details, prizes, and descriptions!
-    // Only mask details for Levels 1 to 3 if not yet reached.
+    // Mask all task details (title, description, type, reward, free/paid) for ALL locked levels (1 to 10)
+    // until the level is unlocked!
     if (!isLevelUnlocked) {
-      const hideDetails = levelNumber <= 3 ? !isLevelUnlocked : !isLevel4Reached;
       const prevLvlDone = levelStatsByNumber.get(level.levelNumber - 1)?.isCompleted || false;
+      const lockedMessage =
+        level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber)
+          ? `This task is locked. You have completed Level ${level.levelNumber - 1}—please await administrator approval to unlock Level ${level.levelNumber}.`
+          : `This task is locked. Please complete Level ${activeInProgressLevel} first to unlock Level ${level.levelNumber}.`;
+
       const lockedTasks: EvaluatedTask[] = level.tasks.map((task) => {
-        const isPrepaidTask = Boolean(
-          task.isPaid ||
-          (task.unlockFee && task.unlockFee > 0) ||
-          task.taskType?.toLowerCase().includes('prepaid')
-        );
         return {
           id: task.id,
           levelId: task.levelId,
           taskNumber: task.taskNumber,
-          title: hideDetails ? `Locked Task #${task.taskNumber}` : task.title,
-          description: hideDetails
-            ? (level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber)
-                ? `Level ${level.levelNumber} requires administrator approval to unlock and view task details.`
-                : `Complete Level ${level.levelNumber - 1} to unlock this level and view task details.`)
-            : task.description,
-          taskType: hideDetails ? 'Locked' : (task.taskType || (isPrepaidTask ? 'Prepaid Task' : 'Task')),
-          rewardAmount: hideDetails ? 0 : task.rewardAmount,
+          title: `Locked Task #${task.taskNumber}`,
+          description: lockedMessage,
+          taskType: 'Locked',
+          rewardAmount: 0,
           creditPoints: 0,
-          isPaid: hideDetails ? false : Boolean(task.isPaid),
-          unlockFee: hideDetails ? 0 : (task.unlockFee || 0),
+          isPaid: false,
+          unlockFee: 0,
           requiresAdminApproval: task.requiresAdminApproval,
           status: task.status,
           userStatus: 'LOCKED',
           isPaidUnlocked: false,
-          lockMessage:
-            level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber)
-              ? `Level ${level.levelNumber} is locked. Please await administrator approval to unlock Level ${level.levelNumber}.`
-              : `Level ${level.levelNumber} is locked. Complete all tasks in Level ${level.levelNumber - 1} first to submit this task.`,
-          instructions: hideDetails ? null : task.instructions,
+          lockMessage: lockedMessage,
+          instructions: null,
           protectedUrl: null,
-          submissionInstructions: hideDetails ? null : task.submissionInstructions,
+          submissionInstructions: null,
           externalContact: null,
           submission: null,
         };
@@ -427,9 +429,8 @@ export const taskProgressionService = {
       const hasAccessToProtectedContent = ['UNLOCKED', 'AVAILABLE', 'IN_PROGRESS', 'PENDING_VERIFICATION', 'APPROVED', 'REJECTED', 'AWAITING_PAYMENT'].includes(userStatus);
       const isLocked = userStatus === 'LOCKED';
 
-      // In Levels 1 to 3: if a task is locked (user hasn't reached it yet), mask its title, prize, and prepaid fee!
-      // Once user reaches Level 4 (Levels 4 to 10), all tasks and their prices/rewards are visible.
-      const hideLockedTaskInL1ToL3 = isLocked && level.levelNumber <= 3;
+      // Mask any locked task across all levels (1 to 10) so its title, free/paid status, and commission are hidden until unlocked!
+      const hideLockedTask = isLocked;
 
       const isPrepaidTask = Boolean(
         task.isPaid ||
@@ -437,24 +438,28 @@ export const taskProgressionService = {
         task.taskType?.toLowerCase().includes('prepaid')
       );
 
+      const resolvedLockMessage = isLocked
+        ? (taskLockMessage || `This task is locked. Please complete Task #${task.taskNumber - 1} in Level ${level.levelNumber} first to unlock Task #${task.taskNumber}.`)
+        : '';
+
       evaluatedTasks.push({
         id: task.id,
         levelId: task.levelId,
         taskNumber: task.taskNumber,
-        title: hideLockedTaskInL1ToL3 ? `Locked Task #${task.taskNumber}` : task.title,
-        description: hideLockedTaskInL1ToL3
-          ? `Complete Task #${task.taskNumber - 1} first to unlock this task and view its reward.`
+        title: hideLockedTask ? `Locked Task #${task.taskNumber}` : task.title,
+        description: hideLockedTask
+          ? resolvedLockMessage
           : task.description,
-        taskType: hideLockedTaskInL1ToL3 ? 'Locked' : (task.taskType || (isPrepaidTask ? 'Prepaid Task' : 'Task')),
-        rewardAmount: hideLockedTaskInL1ToL3 ? 0 : task.rewardAmount,
+        taskType: hideLockedTask ? 'Locked' : (task.taskType || (isPrepaidTask ? 'Prepaid Task' : 'Task')),
+        rewardAmount: hideLockedTask ? 0 : task.rewardAmount,
         creditPoints: 0,
-        isPaid: hideLockedTaskInL1ToL3 ? false : Boolean(task.isPaid),
-        unlockFee: hideLockedTaskInL1ToL3 ? 0 : (task.unlockFee || 0),
+        isPaid: hideLockedTask ? false : Boolean(task.isPaid),
+        unlockFee: hideLockedTask ? 0 : (task.unlockFee || 0),
         requiresAdminApproval: task.requiresAdminApproval,
         status: task.status,
         userStatus,
         isPaidUnlocked,
-        lockMessage: isLocked ? (taskLockMessage || task.lockMessage || `Task #${task.taskNumber} is locked. Complete Task #${task.taskNumber - 1} first in proper sequence.`) : '',
+        lockMessage: resolvedLockMessage,
         instructions: hasAccessToProtectedContent && !isLocked ? task.instructions : null,
         protectedUrl: hasAccessToProtectedContent && !isLocked ? task.protectedUrl : null,
         submissionInstructions: hasAccessToProtectedContent && !isLocked ? task.submissionInstructions : null,

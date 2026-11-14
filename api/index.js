@@ -66439,32 +66439,37 @@ var taskProgressionService = {
         task1LockMessage = prevStats?.isCompleted || false ? `Level ${levelNumber} requires administrator approval to unlock.` : `Complete all tasks in Level ${levelNumber - 1} first to start Level ${levelNumber} tasks.`;
       }
     }
+    let activeInProgressLevel = 1;
+    for (let lvlNum = 1; lvlNum <= 10; lvlNum++) {
+      const st = levelStatsByNumber.get(lvlNum);
+      if (!st?.isCompleted) {
+        activeInProgressLevel = lvlNum;
+        break;
+      }
+    }
     if (!isLevelUnlocked) {
-      const hideDetails = levelNumber <= 3 ? !isLevelUnlocked : !isLevel4Reached;
       const prevLvlDone = levelStatsByNumber.get(level.levelNumber - 1)?.isCompleted || false;
+      const lockedMessage = level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber) ? `This task is locked. You have completed Level ${level.levelNumber - 1}\u2014please await administrator approval to unlock Level ${level.levelNumber}.` : `This task is locked. Please complete Level ${activeInProgressLevel} first to unlock Level ${level.levelNumber}.`;
       const lockedTasks = level.tasks.map((task) => {
-        const isPrepaidTask = Boolean(
-          task.isPaid || task.unlockFee && task.unlockFee > 0 || task.taskType?.toLowerCase().includes("prepaid")
-        );
         return {
           id: task.id,
           levelId: task.levelId,
           taskNumber: task.taskNumber,
-          title: hideDetails ? `Locked Task #${task.taskNumber}` : task.title,
-          description: hideDetails ? level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber) ? `Level ${level.levelNumber} requires administrator approval to unlock and view task details.` : `Complete Level ${level.levelNumber - 1} to unlock this level and view task details.` : task.description,
-          taskType: hideDetails ? "Locked" : task.taskType || (isPrepaidTask ? "Prepaid Task" : "Task"),
-          rewardAmount: hideDetails ? 0 : task.rewardAmount,
+          title: `Locked Task #${task.taskNumber}`,
+          description: lockedMessage,
+          taskType: "Locked",
+          rewardAmount: 0,
           creditPoints: 0,
-          isPaid: hideDetails ? false : Boolean(task.isPaid),
-          unlockFee: hideDetails ? 0 : task.unlockFee || 0,
+          isPaid: false,
+          unlockFee: 0,
           requiresAdminApproval: task.requiresAdminApproval,
           status: task.status,
           userStatus: "LOCKED",
           isPaidUnlocked: false,
-          lockMessage: level.levelNumber >= 4 && prevLvlDone && !approvedLevelNumbers.has(level.levelNumber) ? `Level ${level.levelNumber} is locked. Please await administrator approval to unlock Level ${level.levelNumber}.` : `Level ${level.levelNumber} is locked. Complete all tasks in Level ${level.levelNumber - 1} first to submit this task.`,
-          instructions: hideDetails ? null : task.instructions,
+          lockMessage: lockedMessage,
+          instructions: null,
           protectedUrl: null,
-          submissionInstructions: hideDetails ? null : task.submissionInstructions,
+          submissionInstructions: null,
           externalContact: null,
           submission: null
         };
@@ -66594,26 +66599,27 @@ var taskProgressionService = {
       previousTaskApproved = isApproved;
       const hasAccessToProtectedContent = ["UNLOCKED", "AVAILABLE", "IN_PROGRESS", "PENDING_VERIFICATION", "APPROVED", "REJECTED", "AWAITING_PAYMENT"].includes(userStatus);
       const isLocked = userStatus === "LOCKED";
-      const hideLockedTaskInL1ToL3 = isLocked && level.levelNumber <= 3;
+      const hideLockedTask = isLocked;
       const isPrepaidTask = Boolean(
         task.isPaid || task.unlockFee && task.unlockFee > 0 || task.taskType?.toLowerCase().includes("prepaid")
       );
+      const resolvedLockMessage = isLocked ? taskLockMessage || `This task is locked. Please complete Task #${task.taskNumber - 1} in Level ${level.levelNumber} first to unlock Task #${task.taskNumber}.` : "";
       evaluatedTasks.push({
         id: task.id,
         levelId: task.levelId,
         taskNumber: task.taskNumber,
-        title: hideLockedTaskInL1ToL3 ? `Locked Task #${task.taskNumber}` : task.title,
-        description: hideLockedTaskInL1ToL3 ? `Complete Task #${task.taskNumber - 1} first to unlock this task and view its reward.` : task.description,
-        taskType: hideLockedTaskInL1ToL3 ? "Locked" : task.taskType || (isPrepaidTask ? "Prepaid Task" : "Task"),
-        rewardAmount: hideLockedTaskInL1ToL3 ? 0 : task.rewardAmount,
+        title: hideLockedTask ? `Locked Task #${task.taskNumber}` : task.title,
+        description: hideLockedTask ? resolvedLockMessage : task.description,
+        taskType: hideLockedTask ? "Locked" : task.taskType || (isPrepaidTask ? "Prepaid Task" : "Task"),
+        rewardAmount: hideLockedTask ? 0 : task.rewardAmount,
         creditPoints: 0,
-        isPaid: hideLockedTaskInL1ToL3 ? false : Boolean(task.isPaid),
-        unlockFee: hideLockedTaskInL1ToL3 ? 0 : task.unlockFee || 0,
+        isPaid: hideLockedTask ? false : Boolean(task.isPaid),
+        unlockFee: hideLockedTask ? 0 : task.unlockFee || 0,
         requiresAdminApproval: task.requiresAdminApproval,
         status: task.status,
         userStatus,
         isPaidUnlocked,
-        lockMessage: isLocked ? taskLockMessage || task.lockMessage || `Task #${task.taskNumber} is locked. Complete Task #${task.taskNumber - 1} first in proper sequence.` : "",
+        lockMessage: resolvedLockMessage,
         instructions: hasAccessToProtectedContent && !isLocked ? task.instructions : null,
         protectedUrl: hasAccessToProtectedContent && !isLocked ? task.protectedUrl : null,
         submissionInstructions: hasAccessToProtectedContent && !isLocked ? task.submissionInstructions : null,
@@ -75217,10 +75223,10 @@ var DATASET_10_LEVELS = [
         "task_id": 10,
         "type": "Prepaid VIP Task #10",
         "url": "https://youtu.be/8T0m8f44Kgs?si=XPXvxc3B5IOOXrP-",
-        "commission": 1390,
-        "credit_points": 1390,
+        "commission": 1337,
+        "credit_points": 1337,
         "is_prepaid": true,
-        "prepaid_value": 6950
+        "prepaid_value": 6686
       }
     ]
   },
@@ -75235,91 +75241,91 @@ var DATASET_10_LEVELS = [
         "task_id": 1,
         "type": "Prepaid VIP Task #1",
         "url": "https://youtu.be/ew__gmVo3Nk?si=cFdkl1FDuMSy2749",
-        "commission": 12e3,
-        "credit_points": 12e3,
+        "commission": 6990,
+        "credit_points": 6990,
         "is_prepaid": true,
-        "prepaid_value": 3e4
+        "prepaid_value": 17476
       },
       {
         "task_id": 2,
         "type": "Prepaid VIP Task #2",
         "url": "https://youtu.be/YCzRPKRAWmw?si=OKAr0OUB0T9XBzhJ",
-        "commission": 16e3,
-        "credit_points": 16e3,
+        "commission": 10990,
+        "credit_points": 10990,
         "is_prepaid": true,
-        "prepaid_value": 4e4
+        "prepaid_value": 27476
       },
       {
         "task_id": 3,
         "type": "Prepaid VIP Task #3",
         "url": "https://youtu.be/irHIeMEP5hw?si=Fh8SSfl0koXUrYrk",
-        "commission": 2e4,
-        "credit_points": 2e4,
+        "commission": 14990,
+        "credit_points": 14990,
         "is_prepaid": true,
-        "prepaid_value": 5e4
+        "prepaid_value": 37476
       },
       {
         "task_id": 4,
         "type": "Prepaid VIP Task #4",
         "url": "https://youtu.be/45GUatkxX3s?si=ZjsYNezm1YpflOOJ",
-        "commission": 24e3,
-        "credit_points": 24e3,
+        "commission": 22990,
+        "credit_points": 22990,
         "is_prepaid": true,
-        "prepaid_value": 6e4
+        "prepaid_value": 57476
       },
       {
         "task_id": 5,
         "type": "Prepaid VIP Task #5",
         "url": "https://youtu.be/_PB8D_W6CK8?si=LpdY4Z4-d5CwjcKe",
-        "commission": 28e3,
-        "credit_points": 28e3,
+        "commission": 32990,
+        "credit_points": 32990,
         "is_prepaid": true,
-        "prepaid_value": 7e4
+        "prepaid_value": 82476
       },
       {
         "task_id": 6,
         "type": "Prepaid VIP Task #6",
         "url": "https://youtu.be/ZnmU_6BD0pY?si=XlE3zCfn8ufLolJ8",
-        "commission": 36e3,
-        "credit_points": 36e3,
+        "commission": 36990,
+        "credit_points": 36990,
         "is_prepaid": true,
-        "prepaid_value": 9e4
+        "prepaid_value": 92476
       },
       {
         "task_id": 7,
         "type": "Prepaid VIP Task #7",
         "url": "https://youtu.be/jCPcZUifbkc?si=W8SFeXKJEnh6h_BT",
-        "commission": 44e3,
-        "credit_points": 44e3,
+        "commission": 40990,
+        "credit_points": 40990,
         "is_prepaid": true,
-        "prepaid_value": 11e4
+        "prepaid_value": 102476
       },
       {
         "task_id": 8,
         "type": "Prepaid VIP Task #8",
         "url": "https://youtu.be/EYeG5TiE2B0?si=IdoR0rcI430rFiXP",
-        "commission": 52e3,
-        "credit_points": 52e3,
+        "commission": 44990,
+        "credit_points": 44990,
         "is_prepaid": true,
-        "prepaid_value": 13e4
+        "prepaid_value": 112476
       },
       {
         "task_id": 9,
         "type": "Prepaid VIP Task #9",
         "url": "https://youtu.be/veNdcvpCNRM?si=LTwSsN-0YCpuY4he",
-        "commission": 6e4,
-        "credit_points": 6e4,
+        "commission": 64990,
+        "credit_points": 64990,
         "is_prepaid": true,
-        "prepaid_value": 15e4
+        "prepaid_value": 162476
       },
       {
         "task_id": 10,
         "type": "Prepaid VIP Task #10",
         "url": "https://youtu.be/bA1j3q0Q5wo?si=IpB8KdfE9f7NA-_A",
-        "commission": 68e3,
-        "credit_points": 68e3,
+        "commission": 84990,
+        "credit_points": 84990,
         "is_prepaid": true,
-        "prepaid_value": 17e4
+        "prepaid_value": 212476
       }
     ]
   },
@@ -75924,6 +75930,11 @@ var datasetSynced = false;
 async function syncDatasetTasksToDatabase() {
   if (datasetSynced) return;
   try {
+    const existingCount = await prisma.task.count();
+    if (existingCount >= 100) {
+      datasetSynced = true;
+      return;
+    }
     for (const lvlData of DATASET_10_LEVELS) {
       const levelNumber = lvlData.level;
       const title = lvlData.title;
@@ -82343,7 +82354,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-N4lbp0B9.js")) {
+        if (content.includes('id="root"') && content.includes("index-BkgJupWO.js")) {
           return content;
         }
       } catch (err) {
@@ -82366,8 +82377,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-N4lbp0B9.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DQIuX_2B.css">
+    <script type="module" crossorigin src="/assets/index-BkgJupWO.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-P_im0XbU.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
