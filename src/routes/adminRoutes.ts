@@ -47,6 +47,7 @@ import {
   generateCodeForTelegramUser,
   getTelegramUserByChatId,
   mergeTelegramUsers,
+  syncTelegramUserPregenCodes,
 } from '../services/telegramService';
 import { ensureUserWithdrawalColumns } from '../utils/ensureSchema';
 
@@ -3512,6 +3513,9 @@ router.get('/my-assigned-codes', requireAdmin, async (req: AdminAuthRequest, res
         codes: [],
       });
     }
+
+    // Automatically ensure all granted quota codes are pre-generated and assigned to this user
+    await syncTelegramUserPregenCodes(chatId, tgUser.firstName || 'Client');
 
     const codes = await prisma.$queryRawUnsafe<any[]>(`
       SELECT "id", "code", "status", "usedByName", "usedAt", "createdAt"

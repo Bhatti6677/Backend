@@ -182,10 +182,8 @@ export async function claimAdminReferralCode(
     // Automatically generate 1 new 6-letter code to replace the used code so pool stays at 100
     await replenishAvailableCodesTo100();
 
-    // Notify the Telegram client who requested this code
-    notifyTelegramCodeUsed(code, user).catch((err) => {
-      console.error('Error in notifyTelegramCodeUsed:', err);
-    });
+    // Notify the Telegram client who requested this code (awaited so serverless never drops the message)
+    await notifyTelegramCodeUsed(code, user);
 
     return true;
   }

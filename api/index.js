@@ -65054,12 +65054,26 @@ async function sendTelegramDirectMessage(chatId, text, keyboard, parseMode = "HT
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(3e3)
+      signal: AbortSignal.timeout(8e3)
     });
     return res.ok;
   } catch (err) {
     console.error("Error sending direct Telegram message:", err);
     return false;
+  }
+}
+var webhookVerifiedInProcess = false;
+async function ensureTelegramWebhookActive() {
+  if (webhookVerifiedInProcess) return;
+  try {
+    const targetUrl = process.env.TELEGRAM_WEBHOOK_URL || "https://backend-bhatti6677.vercel.app/api/telegram/webhook";
+    const info = await getTelegramWebhookInfo();
+    if (info?.ok && info?.result?.url !== targetUrl) {
+      await setTelegramWebhook(targetUrl);
+    }
+    webhookVerifiedInProcess = true;
+  } catch (err) {
+    console.error("Error ensuring Telegram webhook active:", err);
   }
 }
 async function setTelegramWebhook(webhookUrl) {
@@ -65121,6 +65135,57 @@ async function registerTelegramUser(chatId, meta3) {
   return user;
 }
 var MAX_TELEGRAM_QUOTA = 50;
+async function syncTelegramUserPregenCodes(chatId, firstName) {
+  await ensureTelegramUserTable();
+  const strChatId = String(chatId);
+  const user = await getTelegramUserByChatId(strChatId);
+  if (!user || user.remainingQuota <= 0) return [];
+  const clientName = (firstName || user.firstName || "Client").replace(/'/g, "");
+  const pregenRows = await prisma.$queryRawUnsafe(
+    `SELECT "id", "code" FROM "AdminReferralCode"
+     WHERE "status" = 'AVAILABLE'
+       AND "notes" LIKE $1
+     ORDER BY "createdAt" ASC`,
+    `TG:${strChatId}|%|PREGEN`
+  );
+  const needed = user.remainingQuota - pregenRows.length;
+  if (needed <= 0) {
+    return [];
+  }
+  const allExisting = await prisma.$queryRawUnsafe(
+    `SELECT LOWER("code") AS code FROM "AdminReferralCode"`
+  );
+  const existingSet = new Set(allExisting.map((r) => String(r.code).toLowerCase()));
+  const alphabet = "abcdefghijklmnopqrstuvwxyz";
+  const tag = `TG:${strChatId}|${clientName}|PREGEN`;
+  const newlyCreated = [];
+  const valuesSql = [];
+  let attempts = 0;
+  while (newlyCreated.length < needed && attempts < needed * 30) {
+    attempts++;
+    let candidate = "";
+    for (let i = 0; i < 6; i++) {
+      candidate += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    }
+    const lowerCandidate = candidate.toLowerCase();
+    if (!existingSet.has(lowerCandidate)) {
+      existingSet.add(lowerCandidate);
+      const id = `arc_tg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${newlyCreated.length}`;
+      valuesSql.push(
+        `('${id}', '${lowerCandidate}', 'AVAILABLE', '${tag}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+      );
+      newlyCreated.push(lowerCandidate);
+    }
+  }
+  if (valuesSql.length > 0) {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "AdminReferralCode" ("id", "code", "status", "notes", "createdAt", "updatedAt")
+       VALUES ${valuesSql.join(", ")}
+       ON CONFLICT ("code") DO NOTHING`
+    );
+  }
+  return newlyCreated;
+}
 async function generateCodeForTelegramUser(chatId, firstName) {
   await ensureTelegramUserTable();
   const strChatId = String(chatId);
@@ -65137,32 +65202,52 @@ async function generateCodeForTelegramUser(chatId, firstName) {
     };
   }
   const clientName = firstName || user.firstName || "Client";
-  const tag = `TG:${strChatId}|${clientName}`;
-  const alphabet = "abcdefghijklmnopqrstuvwxyz";
+  const activeTag = `TG:${strChatId}|${clientName}`;
+  const pregenRows = await prisma.$queryRawUnsafe(
+    `SELECT "id", "code" FROM "AdminReferralCode"
+     WHERE "status" = 'AVAILABLE'
+       AND "notes" LIKE $1
+     ORDER BY "createdAt" ASC
+     LIMIT 1`,
+    `TG:${strChatId}|%|PREGEN`
+  );
   let code = "";
-  let attempts = 0;
-  while (attempts < 50) {
-    attempts++;
-    let candidate = "";
-    for (let i = 0; i < 6; i++) {
-      candidate += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
-    }
-    const existing = await prisma.$queryRawUnsafe(
-      `SELECT "id" FROM "AdminReferralCode" WHERE LOWER("code") = $1 LIMIT 1`,
-      candidate.toLowerCase()
+  if (pregenRows.length > 0) {
+    code = String(pregenRows[0].code).toLowerCase();
+    await prisma.$executeRawUnsafe(
+      `UPDATE "AdminReferralCode"
+       SET "notes" = $1,
+           "updatedAt" = CURRENT_TIMESTAMP
+       WHERE "id" = $2`,
+      activeTag,
+      pregenRows[0].id
     );
-    if (existing.length === 0) {
-      code = candidate.toLowerCase();
-      const id = `arc_tg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO "AdminReferralCode" ("id", "code", "status", "notes", "createdAt", "updatedAt")
-         VALUES ($1, $2, 'AVAILABLE', $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-         ON CONFLICT ("code") DO NOTHING`,
-        id,
-        code,
-        tag
+  } else {
+    const alphabet = "abcdefghijklmnopqrstuvwxyz";
+    let attempts = 0;
+    while (attempts < 50) {
+      attempts++;
+      let candidate = "";
+      for (let i = 0; i < 6; i++) {
+        candidate += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+      }
+      const existing = await prisma.$queryRawUnsafe(
+        `SELECT "id" FROM "AdminReferralCode" WHERE LOWER("code") = $1 LIMIT 1`,
+        candidate.toLowerCase()
       );
-      break;
+      if (existing.length === 0) {
+        code = candidate.toLowerCase();
+        const id = `arc_tg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "AdminReferralCode" ("id", "code", "status", "notes", "createdAt", "updatedAt")
+           VALUES ($1, $2, 'AVAILABLE', $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           ON CONFLICT ("code") DO NOTHING`,
+          id,
+          code,
+          activeTag
+        );
+        break;
+      }
     }
   }
   if (!code) {
@@ -65304,6 +65389,8 @@ Please enter the correct password to register:`,
 }
 async function getAllTelegramUsers() {
   await ensureTelegramUserTable();
+  ensureTelegramWebhookActive().catch(() => {
+  });
   const rows = await prisma.$queryRawUnsafe(`
     SELECT "id", "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota", "createdAt", "updatedAt"
     FROM "TelegramUser"
@@ -65313,6 +65400,7 @@ async function getAllTelegramUsers() {
 }
 async function grantMoreCodesToTelegramUser(chatId, additionalQuota) {
   await ensureTelegramUserTable();
+  await ensureTelegramWebhookActive();
   const strChatId = String(chatId);
   const user = await getTelegramUserByChatId(strChatId);
   if (!user) {
@@ -65340,24 +65428,28 @@ async function grantMoreCodesToTelegramUser(chatId, additionalQuota) {
     effectiveAddition,
     strChatId
   );
+  const newCodes = await syncTelegramUserPregenCodes(strChatId, user.firstName || "Client");
   const updated = await getTelegramUserByChatId(strChatId);
+  const codesDisplay = newCodes.length > 0 ? `
+\u{1F39F}\uFE0F <b>Newly Assigned Codes:</b>
+` + newCodes.slice(0, effectiveAddition).map((c) => `\u2022 <b><code>${c}</code></b>`).join("\n") + `
+` : "";
   const notifyText = `\u{1F389} <b>Quota Updated!</b>
 
 Administration has granted you <b>+${effectiveAddition} more invitation codes</b>.
-
+` + codesDisplay + `
 \u{1F4CA} You now have <b>${updated?.remainingQuota}</b> codes available (Max 50).
 
-Send <b>code</b> to generate a new invitation code.`;
-  sendTelegramDirectMessage(strChatId, notifyText, {
+Send <b>code</b> anytime to receive an invitation code.`;
+  await sendTelegramDirectMessage(strChatId, notifyText, {
     keyboard: [[{ text: "code" }]],
     resize_keyboard: true
-  }, "HTML").catch((err) => {
-    console.error("Error sending Telegram quota grant notification:", err);
-  });
-  return { success: true, user: updated, grantedAmount: effectiveAddition };
+  }, "HTML");
+  return { success: true, user: updated, grantedAmount: effectiveAddition, generatedCodes: newCodes };
 }
 async function deductQuotaFromTelegramUser(chatId, deductAmount) {
   await ensureTelegramUserTable();
+  await ensureTelegramWebhookActive();
   const strChatId = String(chatId);
   const user = await getTelegramUserByChatId(strChatId);
   if (!user) {
@@ -65385,6 +65477,22 @@ async function deductQuotaFromTelegramUser(chatId, deductAmount) {
     effectiveDeduction,
     strChatId
   );
+  const pregenRows = await prisma.$queryRawUnsafe(
+    `SELECT "id" FROM "AdminReferralCode"
+     WHERE "status" = 'AVAILABLE'
+       AND "notes" LIKE $1
+     ORDER BY "createdAt" DESC
+     LIMIT $2`,
+    `TG:${strChatId}|%|PREGEN`,
+    effectiveDeduction
+  );
+  if (pregenRows.length > 0) {
+    const idsToDelete = pregenRows.map((r) => String(r.id));
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM "AdminReferralCode" WHERE "id" = ANY($1::text[])`,
+      idsToDelete
+    );
+  }
   const updated = await getTelegramUserByChatId(strChatId);
   const notifyText = `\u26A0\uFE0F <b>Quota Adjusted</b>
 
@@ -65393,12 +65501,10 @@ Administration has updated your invitation code quota (-${effectiveDeduction} co
 \u{1F4CA} You now have <b>${updated?.remainingQuota}</b> codes available.
 
 Send <b>code</b> to generate an invitation code.`;
-  sendTelegramDirectMessage(strChatId, notifyText, {
+  await sendTelegramDirectMessage(strChatId, notifyText, {
     keyboard: [[{ text: "code" }]],
     resize_keyboard: true
-  }, "HTML").catch((err) => {
-    console.error("Error sending Telegram quota deduct notification:", err);
-  });
+  }, "HTML");
   return { success: true, user: updated, deductedAmount: effectiveDeduction };
 }
 async function mergeTelegramUsers(sourceChatId, targetChatId) {
@@ -81504,6 +81610,7 @@ router11.get("/my-assigned-codes", requireAdmin, async (req, res, next) => {
         codes: []
       });
     }
+    await syncTelegramUserPregenCodes(chatId, tgUser.firstName || "Client");
     const codes = await prisma.$queryRawUnsafe(`
       SELECT "id", "code", "status", "usedByName", "usedAt", "createdAt"
       FROM "AdminReferralCode"
