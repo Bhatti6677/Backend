@@ -588,11 +588,87 @@ export async function notifyTelegramCodeUsed(
 }
 
 /**
+ * One-time reset of all Telegram accounts to 10 available codes and one-time broadcast notification.
+ * Guarded by SiteSetting 'telegram_codes_reset_to_10_v1' so it strictly executes only once.
+ */
+let oneTimeResetChecked = false;
+export async function ensureOneTimeTelegramResetTo10(): Promise<{ executed: boolean; notifiedCount: number }> {
+  if (oneTimeResetChecked) return { executed: false, notifiedCount: 0 };
+  await ensureTelegramUserTable();
+
+  const existingFlag = await prisma.siteSetting.findUnique({
+    where: { key: 'telegram_codes_reset_to_10_v1' },
+  });
+  if (existingFlag?.value === 'true') {
+    oneTimeResetChecked = true;
+    return { executed: false, notifiedCount: 0 };
+  }
+
+  // Mark as done immediately so concurrent requests never send duplicate messages
+  await prisma.siteSetting.upsert({
+    where: { key: 'telegram_codes_reset_to_10_v1' },
+    update: { value: 'true', category: 'SYSTEM' },
+    create: { key: 'telegram_codes_reset_to_10_v1', value: 'true', category: 'SYSTEM' },
+  });
+  oneTimeResetChecked = true;
+
+  // 1. Delete old unused AVAILABLE TG codes so every Telegram user starts with a clean slate of 10 codes
+  await prisma.$executeRawUnsafe(`
+    DELETE FROM "AdminReferralCode"
+    WHERE "status" = 'AVAILABLE'
+      AND "notes" LIKE 'TG:%'
+  `);
+
+  // 2. Reset every registered Telegram user's remainingQuota to 10
+  await prisma.$executeRawUnsafe(`
+    UPDATE "TelegramUser"
+    SET "remainingQuota" = 10,
+        "totalQuota" = "codesGenerated" + 10,
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "status" != 'MERGED'
+  `);
+
+  const users = await prisma.$queryRawUnsafe<TelegramUserRecord[]>(`
+    SELECT "id", "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota", "createdAt", "updatedAt"
+    FROM "TelegramUser"
+    WHERE "status" != 'MERGED'
+    ORDER BY "createdAt" DESC
+  `);
+
+  // 3. Pre-generate 10 fresh AVAILABLE codes for each user & send the one-time reset message on Telegram
+  const resetMessage =
+    `🔄 <b>Invitation Codes Reset!</b>\n\n` +
+    `Your invitation codes have been reset and administration has added a quota of <b>10 invitation codes</b> to your account.\n\n` +
+    `📊 You now have <b>10</b> codes available (Max 50).\n\n` +
+    `👉 You can start using the bot now! Send <b>code</b> anytime to receive an invitation code.`;
+
+  let notifiedCount = 0;
+  for (const u of users) {
+    await syncTelegramUserPregenCodes(u.chatId, u.firstName || 'Client').catch(() => []);
+    const sent = await sendTelegramDirectMessage(
+      u.chatId,
+      resetMessage,
+      {
+        keyboard: [[{ text: 'code' }]],
+        resize_keyboard: true,
+      },
+      'HTML'
+    );
+    if (sent) notifiedCount++;
+  }
+
+  return { executed: true, notifiedCount };
+}
+
+/**
  * Fetches all Telegram users for Admin Panel.
  */
 export async function getAllTelegramUsers(): Promise<TelegramUserRecord[]> {
   await ensureTelegramUserTable();
   ensureTelegramWebhookActive().catch(() => {});
+  await ensureOneTimeTelegramResetTo10().catch((err) => {
+    console.error('Error in ensureOneTimeTelegramResetTo10:', err);
+  });
   const rows = await prisma.$queryRawUnsafe<TelegramUserRecord[]>(`
     SELECT "id", "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota", "createdAt", "updatedAt"
     FROM "TelegramUser"
@@ -608,7 +684,7 @@ export async function getAllTelegramUsers(): Promise<TelegramUserRecord[]> {
 /**
  * Admin action: Grants additional referral codes to a Telegram user.
  * Immediately generates and assigns the new 6-letter codes to this user in AdminReferralCode,
- * and awaits sending the updated codes notification directly to the user's Telegram chat.
+ * and awaits sending the quota update notification (without listing the codes) to the user's Telegram chat.
  */
 export async function grantMoreCodesToTelegramUser(
   chatId: string,
@@ -652,18 +728,10 @@ export async function grantMoreCodesToTelegramUser(
   const newCodes = await syncTelegramUserPregenCodes(strChatId, user.firstName || 'Client');
   const updated = await getTelegramUserByChatId(strChatId);
 
-  const codesDisplay =
-    newCodes.length > 0
-      ? `\n🎟️ <b>Newly Assigned Codes:</b>\n` +
-        newCodes.slice(0, effectiveAddition).map((c) => `• <b><code>${c}</code></b>`).join('\n') +
-        `\n`
-      : '';
-
   const notifyText =
     `🎉 <b>Quota Updated!</b>\n\n` +
-    `Administration has granted you <b>+${effectiveAddition} more invitation codes</b>.\n` +
-    codesDisplay +
-    `\n📊 You now have <b>${updated?.remainingQuota}</b> codes available (Max 50).\n\n` +
+    `Administration has granted you <b>+${effectiveAddition} more invitation codes</b>.\n\n` +
+    `📊 You now have <b>${updated?.remainingQuota}</b> codes available (Max 50).\n\n` +
     `Send <b>code</b> anytime to receive an invitation code.`;
 
   await sendTelegramDirectMessage(strChatId, notifyText, {

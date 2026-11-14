@@ -3,12 +3,29 @@ import {
   handleTelegramWebhookUpdate,
   setTelegramWebhook,
   getTelegramWebhookInfo,
+  ensureOneTimeTelegramResetTo10,
+  ensureTelegramWebhookActive,
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_ACCESS_PASSWORD,
 } from '../services/telegramService';
 import { requireAdmin, requireSuperAdmin } from '../middleware/adminAuth';
 
 const router = Router();
+
+/**
+ * GET /api/telegram/reset-once
+ * Executes the one-time reset of all Telegram accounts to 10 codes and sends the one-time broadcast message.
+ * Strictly guarded by SiteSetting 'telegram_codes_reset_to_10_v1' so it only runs once.
+ */
+router.get('/reset-once', async (_req: Request, res: Response) => {
+  try {
+    await ensureTelegramWebhookActive();
+    const result = await ensureOneTimeTelegramResetTo10();
+    res.json({ ok: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || 'Reset failed' });
+  }
+});
 
 /**
  * POST /api/telegram/webhook

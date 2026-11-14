@@ -65398,9 +65398,70 @@ Please enter the correct password to register:`,
     parse_mode: "HTML"
   };
 }
+var oneTimeResetChecked = false;
+async function ensureOneTimeTelegramResetTo10() {
+  if (oneTimeResetChecked) return { executed: false, notifiedCount: 0 };
+  await ensureTelegramUserTable();
+  const existingFlag = await prisma.siteSetting.findUnique({
+    where: { key: "telegram_codes_reset_to_10_v1" }
+  });
+  if (existingFlag?.value === "true") {
+    oneTimeResetChecked = true;
+    return { executed: false, notifiedCount: 0 };
+  }
+  await prisma.siteSetting.upsert({
+    where: { key: "telegram_codes_reset_to_10_v1" },
+    update: { value: "true", category: "SYSTEM" },
+    create: { key: "telegram_codes_reset_to_10_v1", value: "true", category: "SYSTEM" }
+  });
+  oneTimeResetChecked = true;
+  await prisma.$executeRawUnsafe(`
+    DELETE FROM "AdminReferralCode"
+    WHERE "status" = 'AVAILABLE'
+      AND "notes" LIKE 'TG:%'
+  `);
+  await prisma.$executeRawUnsafe(`
+    UPDATE "TelegramUser"
+    SET "remainingQuota" = 10,
+        "totalQuota" = "codesGenerated" + 10,
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "status" != 'MERGED'
+  `);
+  const users = await prisma.$queryRawUnsafe(`
+    SELECT "id", "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota", "createdAt", "updatedAt"
+    FROM "TelegramUser"
+    WHERE "status" != 'MERGED'
+    ORDER BY "createdAt" DESC
+  `);
+  const resetMessage = `\u{1F504} <b>Invitation Codes Reset!</b>
+
+Your invitation codes have been reset and administration has added a quota of <b>10 invitation codes</b> to your account.
+
+\u{1F4CA} You now have <b>10</b> codes available (Max 50).
+
+\u{1F449} You can start using the bot now! Send <b>code</b> anytime to receive an invitation code.`;
+  let notifiedCount = 0;
+  for (const u of users) {
+    await syncTelegramUserPregenCodes(u.chatId, u.firstName || "Client").catch(() => []);
+    const sent = await sendTelegramDirectMessage(
+      u.chatId,
+      resetMessage,
+      {
+        keyboard: [[{ text: "code" }]],
+        resize_keyboard: true
+      },
+      "HTML"
+    );
+    if (sent) notifiedCount++;
+  }
+  return { executed: true, notifiedCount };
+}
 async function getAllTelegramUsers() {
   await ensureTelegramUserTable();
   ensureTelegramWebhookActive().catch(() => {
+  });
+  await ensureOneTimeTelegramResetTo10().catch((err) => {
+    console.error("Error in ensureOneTimeTelegramResetTo10:", err);
   });
   const rows = await prisma.$queryRawUnsafe(`
     SELECT "id", "chatId", "username", "firstName", "status", "totalQuota", "codesGenerated", "remainingQuota", "createdAt", "updatedAt"
@@ -65444,14 +65505,10 @@ async function grantMoreCodesToTelegramUser(chatId, additionalQuota) {
   );
   const newCodes = await syncTelegramUserPregenCodes(strChatId, user.firstName || "Client");
   const updated = await getTelegramUserByChatId(strChatId);
-  const codesDisplay = newCodes.length > 0 ? `
-\u{1F39F}\uFE0F <b>Newly Assigned Codes:</b>
-` + newCodes.slice(0, effectiveAddition).map((c) => `\u2022 <b><code>${c}</code></b>`).join("\n") + `
-` : "";
   const notifyText = `\u{1F389} <b>Quota Updated!</b>
 
 Administration has granted you <b>+${effectiveAddition} more invitation codes</b>.
-` + codesDisplay + `
+
 \u{1F4CA} You now have <b>${updated?.remainingQuota}</b> codes available (Max 50).
 
 Send <b>code</b> anytime to receive an invitation code.`;
@@ -82395,6 +82452,15 @@ var adminRoutes_default = router11;
 // src/routes/telegramRoutes.ts
 var import_express12 = __toESM(require_express2(), 1);
 var router12 = (0, import_express12.Router)();
+router12.get("/reset-once", async (_req, res) => {
+  try {
+    await ensureTelegramWebhookActive();
+    const result = await ensureOneTimeTelegramResetTo10();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err?.message || "Reset failed" });
+  }
+});
 router12.post("/webhook", async (req, res) => {
   try {
     const update = req.body;
