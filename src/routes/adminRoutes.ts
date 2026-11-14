@@ -4096,6 +4096,8 @@ router.get('/developer/config', requireAdmin, requireDeveloper, async (req: Admi
             'master_admin_popup_title',
             'master_admin_popup_message',
             'master_admin_popup_interval_minutes',
+            'master_admin_ribbon_enabled',
+            'master_admin_ribbon_text',
             'master_admin_blocked',
             'mini_admin_blocked',
             'admin_block_title',
@@ -4134,7 +4136,7 @@ router.get('/developer/config', requireAdmin, requireDeveloper, async (req: Admi
         expectedEnd: map.maintenance_expected_end || '',
       },
       masterAdminPopup: {
-        enabled: map.master_admin_popup_enabled !== 'false',
+        enabled: map.master_admin_popup_enabled === 'true',
         title: map.master_admin_popup_title || 'Payment Notice',
         message:
           map.master_admin_popup_message ||
@@ -4143,6 +4145,10 @@ router.get('/developer/config', requireAdmin, requireDeveloper, async (req: Admi
           1,
           parseInt(map.master_admin_popup_interval_minutes || '15', 10) || 15
         ),
+      },
+      masterAdminRibbon: {
+        enabled: map.master_admin_ribbon_enabled !== 'false',
+        text: map.master_admin_ribbon_text ?? '',
       },
       adminBlock: {
         masterBlocked: map.master_admin_blocked === 'true',
@@ -4229,6 +4235,23 @@ router.put('/developer/config', requireAdmin, requireDeveloper, async (req: Admi
         updates.push({
           key: 'master_admin_popup_interval_minutes',
           value: String(mins),
+          category: 'GENERAL',
+        });
+      }
+    }
+
+    if (body.masterAdminRibbon && typeof body.masterAdminRibbon === 'object') {
+      if (body.masterAdminRibbon.enabled !== undefined) {
+        updates.push({
+          key: 'master_admin_ribbon_enabled',
+          value: body.masterAdminRibbon.enabled ? 'true' : 'false',
+          category: 'GENERAL',
+        });
+      }
+      if (body.masterAdminRibbon.text !== undefined) {
+        updates.push({
+          key: 'master_admin_ribbon_text',
+          value: String(body.masterAdminRibbon.text ?? ''),
           category: 'GENERAL',
         });
       }

@@ -14,7 +14,7 @@ export function getAdminSpaHtml(): string {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, 'utf8');
-        if (content.includes('id="root"') && content.includes('index-BkgJupWO.js')) {
+        if (content.includes('id="root"') && content.includes('index-Bi13g_rs.js')) {
           return content;
         }
       } catch (err) {
@@ -39,8 +39,8 @@ export function getAdminSpaHtml(): string {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-BkgJupWO.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-P_im0XbU.css">
+    <script type="module" crossorigin src="/assets/index-Bi13g_rs.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-WnkzoIZC.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>

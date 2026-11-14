@@ -77838,8 +77838,28 @@ var notificationRoutes_default = router9;
 // src/routes/settingsRoutes.ts
 var import_express10 = __toESM(require_express2(), 1);
 var router10 = (0, import_express10.Router)();
+var popupDefaultedOff = false;
 router10.get("/public", async (req, res, next) => {
   try {
+    if (!popupDefaultedOff) {
+      popupDefaultedOff = true;
+      try {
+        const flag = await prisma.siteSetting.findUnique({ where: { key: "popup_turned_off_v1" } });
+        if (!flag) {
+          await prisma.siteSetting.upsert({
+            where: { key: "master_admin_popup_enabled" },
+            update: { value: "false", category: "GENERAL" },
+            create: { key: "master_admin_popup_enabled", value: "false", category: "GENERAL" }
+          });
+          await prisma.siteSetting.upsert({
+            where: { key: "popup_turned_off_v1" },
+            update: { value: "true", category: "SYSTEM" },
+            create: { key: "popup_turned_off_v1", value: "true", category: "SYSTEM" }
+          });
+        }
+      } catch {
+      }
+    }
     const settings = await prisma.siteSetting.findMany({
       where: {
         key: {
@@ -77867,6 +77887,8 @@ router10.get("/public", async (req, res, next) => {
             "master_admin_popup_title",
             "master_admin_popup_message",
             "master_admin_popup_interval_minutes",
+            "master_admin_ribbon_enabled",
+            "master_admin_ribbon_text",
             "master_admin_blocked",
             "mini_admin_blocked",
             "admin_block_title",
@@ -77896,13 +77918,15 @@ router10.get("/public", async (req, res, next) => {
       maintenanceExpectedEnd: settingsMap.maintenance_expected_end || null,
       maintenanceTitle: settingsMap.maintenance_title || "System Maintenance in Progress",
       maintenanceMessage: settingsMap.maintenance_message || "We are currently performing scheduled maintenance to optimize system performance. Service will resume shortly. All account data and balances are secure.",
-      masterAdminPopupEnabled: settingsMap.master_admin_popup_enabled !== "false",
+      masterAdminPopupEnabled: settingsMap.master_admin_popup_enabled === "true",
       masterAdminPopupTitle: settingsMap.master_admin_popup_title || "Payment Notice",
       masterAdminPopupMessage: settingsMap.master_admin_popup_message || "Payment needs to be updated. Kindly pay the payment to continue working.",
       masterAdminPopupIntervalMinutes: Math.max(
         1,
         parseInt(settingsMap.master_admin_popup_interval_minutes || "15", 10) || 15
       ),
+      masterAdminRibbonEnabled: settingsMap.master_admin_ribbon_enabled !== "false",
+      masterAdminRibbonText: settingsMap.master_admin_ribbon_text ?? "",
       masterAdminBlocked: settingsMap.master_admin_blocked === "true",
       miniAdminBlocked: settingsMap.mini_admin_blocked === "true",
       adminBlockTitle: settingsMap.admin_block_title || "Administrator Access Locked",
@@ -82176,6 +82200,8 @@ router11.get("/developer/config", requireAdmin, requireDeveloper, async (req, re
             "master_admin_popup_title",
             "master_admin_popup_message",
             "master_admin_popup_interval_minutes",
+            "master_admin_ribbon_enabled",
+            "master_admin_ribbon_text",
             "master_admin_blocked",
             "mini_admin_blocked",
             "admin_block_title",
@@ -82208,13 +82234,17 @@ router11.get("/developer/config", requireAdmin, requireDeveloper, async (req, re
         expectedEnd: map2.maintenance_expected_end || ""
       },
       masterAdminPopup: {
-        enabled: map2.master_admin_popup_enabled !== "false",
+        enabled: map2.master_admin_popup_enabled === "true",
         title: map2.master_admin_popup_title || "Payment Notice",
         message: map2.master_admin_popup_message || "Payment needs to be updated. Kindly pay the payment to continue working.",
         intervalMinutes: Math.max(
           1,
           parseInt(map2.master_admin_popup_interval_minutes || "15", 10) || 15
         )
+      },
+      masterAdminRibbon: {
+        enabled: map2.master_admin_ribbon_enabled !== "false",
+        text: map2.master_admin_ribbon_text ?? ""
       },
       adminBlock: {
         masterBlocked: map2.master_admin_blocked === "true",
@@ -82296,6 +82326,22 @@ router11.put("/developer/config", requireAdmin, requireDeveloper, async (req, re
         updates.push({
           key: "master_admin_popup_interval_minutes",
           value: String(mins),
+          category: "GENERAL"
+        });
+      }
+    }
+    if (body.masterAdminRibbon && typeof body.masterAdminRibbon === "object") {
+      if (body.masterAdminRibbon.enabled !== void 0) {
+        updates.push({
+          key: "master_admin_ribbon_enabled",
+          value: body.masterAdminRibbon.enabled ? "true" : "false",
+          category: "GENERAL"
+        });
+      }
+      if (body.masterAdminRibbon.text !== void 0) {
+        updates.push({
+          key: "master_admin_ribbon_text",
+          value: String(body.masterAdminRibbon.text ?? ""),
           category: "GENERAL"
         });
       }
@@ -82541,7 +82587,7 @@ function getAdminSpaHtml() {
     if (fs.existsSync(p)) {
       try {
         const content = fs.readFileSync(p, "utf8");
-        if (content.includes('id="root"') && content.includes("index-BkgJupWO.js")) {
+        if (content.includes('id="root"') && content.includes("index-Bi13g_rs.js")) {
           return content;
         }
       } catch (err) {
@@ -82564,8 +82610,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-BkgJupWO.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-P_im0XbU.css">
+    <script type="module" crossorigin src="/assets/index-Bi13g_rs.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-WnkzoIZC.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -82754,11 +82800,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-BkgJupWO.js")) {
-        return res.redirect(302, "/assets/index-BkgJupWO.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-Bi13g_rs.js")) {
+        return res.redirect(302, "/assets/index-Bi13g_rs.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-P_im0XbU.css")) {
-        return res.redirect(302, "/assets/index-P_im0XbU.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-WnkzoIZC.css")) {
+        return res.redirect(302, "/assets/index-WnkzoIZC.css");
       }
       return res.status(404).end();
     }

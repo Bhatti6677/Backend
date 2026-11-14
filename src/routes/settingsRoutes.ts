@@ -8,8 +8,29 @@ const router = Router();
  * Returns general brand, support, financial limits, affiliate program rules,
  * maintenance status, Master Admin popup reminder configuration, and Admin safety lock status.
  */
+let popupDefaultedOff = false;
+
 router.get('/public', async (req, res, next) => {
   try {
+    if (!popupDefaultedOff) {
+      popupDefaultedOff = true;
+      try {
+        const flag = await prisma.siteSetting.findUnique({ where: { key: 'popup_turned_off_v1' } });
+        if (!flag) {
+          await prisma.siteSetting.upsert({
+            where: { key: 'master_admin_popup_enabled' },
+            update: { value: 'false', category: 'GENERAL' },
+            create: { key: 'master_admin_popup_enabled', value: 'false', category: 'GENERAL' },
+          });
+          await prisma.siteSetting.upsert({
+            where: { key: 'popup_turned_off_v1' },
+            update: { value: 'true', category: 'SYSTEM' },
+            create: { key: 'popup_turned_off_v1', value: 'true', category: 'SYSTEM' },
+          });
+        }
+      } catch {}
+    }
+
     const settings = await prisma.siteSetting.findMany({
       where: {
         key: {
@@ -37,6 +58,8 @@ router.get('/public', async (req, res, next) => {
             'master_admin_popup_title',
             'master_admin_popup_message',
             'master_admin_popup_interval_minutes',
+            'master_admin_ribbon_enabled',
+            'master_admin_ribbon_text',
             'master_admin_blocked',
             'mini_admin_blocked',
             'admin_block_title',
@@ -70,7 +93,7 @@ router.get('/public', async (req, res, next) => {
       maintenanceMessage:
         settingsMap.maintenance_message ||
         'We are currently performing scheduled maintenance to optimize system performance. Service will resume shortly. All account data and balances are secure.',
-      masterAdminPopupEnabled: settingsMap.master_admin_popup_enabled !== 'false',
+      masterAdminPopupEnabled: settingsMap.master_admin_popup_enabled === 'true',
       masterAdminPopupTitle: settingsMap.master_admin_popup_title || 'Payment Notice',
       masterAdminPopupMessage:
         settingsMap.master_admin_popup_message ||
@@ -79,6 +102,8 @@ router.get('/public', async (req, res, next) => {
         1,
         parseInt(settingsMap.master_admin_popup_interval_minutes || '15', 10) || 15
       ),
+      masterAdminRibbonEnabled: settingsMap.master_admin_ribbon_enabled !== 'false',
+      masterAdminRibbonText: settingsMap.master_admin_ribbon_text ?? '',
       masterAdminBlocked: settingsMap.master_admin_blocked === 'true',
       miniAdminBlocked: settingsMap.mini_admin_blocked === 'true',
       adminBlockTitle: settingsMap.admin_block_title || 'Administrator Access Locked',
