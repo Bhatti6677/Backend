@@ -288,10 +288,10 @@ export const DATASET_10_LEVELS: LevelDatasetItem[] = [
         "task_id": 10,
         "type": "Prepaid VIP Task #10",
         "url": "https://youtu.be/8T0m8f44Kgs?si=XPXvxc3B5IOOXrP-",
-        "commission": 1390,
-        "credit_points": 1390,
+        "commission": 1337,
+        "credit_points": 1337,
         "is_prepaid": true,
-        "prepaid_value": 6950
+        "prepaid_value": 6686
       }
     ]
   },
@@ -306,91 +306,91 @@ export const DATASET_10_LEVELS: LevelDatasetItem[] = [
         "task_id": 1,
         "type": "Prepaid VIP Task #1",
         "url": "https://youtu.be/ew__gmVo3Nk?si=cFdkl1FDuMSy2749",
-        "commission": 7096,
-        "credit_points": 7096,
+        "commission": 6990,
+        "credit_points": 6990,
         "is_prepaid": true,
-        "prepaid_value": 17740
+        "prepaid_value": 17476
       },
       {
         "task_id": 2,
         "type": "Prepaid VIP Task #2",
         "url": "https://youtu.be/YCzRPKRAWmw?si=OKAr0OUB0T9XBzhJ",
-        "commission": 11096,
-        "credit_points": 11096,
+        "commission": 10990,
+        "credit_points": 10990,
         "is_prepaid": true,
-        "prepaid_value": 27740
+        "prepaid_value": 27476
       },
       {
         "task_id": 3,
         "type": "Prepaid VIP Task #3",
         "url": "https://youtu.be/irHIeMEP5hw?si=Fh8SSfl0koXUrYrk",
-        "commission": 15096,
-        "credit_points": 15096,
+        "commission": 14990,
+        "credit_points": 14990,
         "is_prepaid": true,
-        "prepaid_value": 37740
+        "prepaid_value": 37476
       },
       {
         "task_id": 4,
         "type": "Prepaid VIP Task #4",
         "url": "https://youtu.be/45GUatkxX3s?si=ZjsYNezm1YpflOOJ",
-        "commission": 23096,
-        "credit_points": 23096,
+        "commission": 22990,
+        "credit_points": 22990,
         "is_prepaid": true,
-        "prepaid_value": 57740
+        "prepaid_value": 57476
       },
       {
         "task_id": 5,
         "type": "Prepaid VIP Task #5",
         "url": "https://youtu.be/_PB8D_W6CK8?si=LpdY4Z4-d5CwjcKe",
-        "commission": 33096,
-        "credit_points": 33096,
+        "commission": 32990,
+        "credit_points": 32990,
         "is_prepaid": true,
-        "prepaid_value": 82740
+        "prepaid_value": 82476
       },
       {
         "task_id": 6,
         "type": "Prepaid VIP Task #6",
         "url": "https://youtu.be/ZnmU_6BD0pY?si=XlE3zCfn8ufLolJ8",
-        "commission": 37096,
-        "credit_points": 37096,
+        "commission": 36990,
+        "credit_points": 36990,
         "is_prepaid": true,
-        "prepaid_value": 92740
+        "prepaid_value": 92476
       },
       {
         "task_id": 7,
         "type": "Prepaid VIP Task #7",
         "url": "https://youtu.be/jCPcZUifbkc?si=W8SFeXKJEnh6h_BT",
-        "commission": 41096,
-        "credit_points": 41096,
+        "commission": 40990,
+        "credit_points": 40990,
         "is_prepaid": true,
-        "prepaid_value": 102740
+        "prepaid_value": 102476
       },
       {
         "task_id": 8,
         "type": "Prepaid VIP Task #8",
         "url": "https://youtu.be/EYeG5TiE2B0?si=IdoR0rcI430rFiXP",
-        "commission": 45096,
-        "credit_points": 45096,
+        "commission": 44990,
+        "credit_points": 44990,
         "is_prepaid": true,
-        "prepaid_value": 112740
+        "prepaid_value": 112476
       },
       {
         "task_id": 9,
         "type": "Prepaid VIP Task #9",
         "url": "https://youtu.be/veNdcvpCNRM?si=LTwSsN-0YCpuY4he",
-        "commission": 65096,
-        "credit_points": 65096,
+        "commission": 64990,
+        "credit_points": 64990,
         "is_prepaid": true,
-        "prepaid_value": 162740
+        "prepaid_value": 162476
       },
       {
         "task_id": 10,
         "type": "Prepaid VIP Task #10",
         "url": "https://youtu.be/bA1j3q0Q5wo?si=IpB8KdfE9f7NA-_A",
-        "commission": 85096,
-        "credit_points": 85096,
+        "commission": 84990,
+        "credit_points": 84990,
         "is_prepaid": true,
-        "prepaid_value": 212740
+        "prepaid_value": 212476
       }
     ]
   },
