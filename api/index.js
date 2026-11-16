@@ -80851,9 +80851,10 @@ router11.get("/withdrawals", requireAdmin, requireSuperAdmin, async (req, res, n
 router11.put("/withdrawals/:withdrawalId/review", requireAdmin, requireSuperAdmin, async (req, res, next) => {
   try {
     const withdrawalId = req.params.withdrawalId;
-    const { action, reviewNotes } = external_exports.object({
+    const { action, reviewNotes, payoutPercent } = external_exports.object({
       action: external_exports.enum(["APPROVE", "REJECT"]),
-      reviewNotes: external_exports.string().optional()
+      reviewNotes: external_exports.string().optional(),
+      payoutPercent: external_exports.union([external_exports.literal(10), external_exports.literal(100)]).optional()
     }).parse(req.body);
     const withdrawal = await prisma.withdrawalRequest.findUnique({
       where: { id: withdrawalId },
@@ -80866,10 +80867,13 @@ router11.put("/withdrawals/:withdrawalId/review", requireAdmin, requireSuperAdmi
     if (action === "APPROVE") {
       const isLevel2 = Boolean(withdrawal.notes?.includes("[LEVEL_2_WITHDRAWAL]"));
       if (isLevel2) {
+        const selectedPercent = payoutPercent === 100 ? 100 : 10;
+        const returnPercent = 100 - selectedPercent;
         const totalAmount = withdrawal.amount;
-        const payoutAmount = Math.round(totalAmount * 0.1);
+        const payoutAmount = selectedPercent === 100 ? totalAmount : Math.round(totalAmount * 0.1);
         const refundAmount = totalAmount - payoutAmount;
         const updated2 = await prisma.$transaction(async (tx) => {
+          const defaultReviewNote = selectedPercent === 100 ? `Level 2 approval: 100% (PKR ${payoutAmount.toLocaleString()}) approved for full payout` : `Level 2 approval: 10% (PKR ${payoutAmount.toLocaleString()}) approved for payout, 90% (PKR ${refundAmount.toLocaleString()}) returned to wallet`;
           const reqRec = await tx.withdrawalRequest.update({
             where: { id: withdrawalId },
             data: {
@@ -80878,39 +80882,41 @@ router11.put("/withdrawals/:withdrawalId/review", requireAdmin, requireSuperAdmi
               paymentStatus: "NOT_SENT",
               reviewerId: req.admin.id,
               reviewerName: req.admin.username,
-              reviewNotes: reviewNotes || `Level 2 approval: 10% (PKR ${payoutAmount.toLocaleString()}) approved for payout, 90% (PKR ${refundAmount.toLocaleString()}) returned to wallet`,
-              notes: `${withdrawal.notes || ""} | [L2_PROCESSED: payout=${payoutAmount}, refunded=${refundAmount}]`
+              reviewNotes: reviewNotes || defaultReviewNote,
+              notes: `${withdrawal.notes || ""} | [L2_PROCESSED: percent=${selectedPercent}%, payout=${payoutAmount}, refunded=${refundAmount}]`
             }
           });
-          await tx.wallet.update({
-            where: { userId: withdrawal.userId },
-            data: {
-              pendingBalance: { decrement: refundAmount },
-              availableBalance: { increment: refundAmount }
-            }
-          });
-          await tx.walletTransaction.create({
-            data: {
-              userId: withdrawal.userId,
-              transactionType: "WITHDRAWAL_PARTIAL_REFUND",
-              amount: refundAmount,
-              currency: "PKR",
-              status: "COMPLETED",
-              relatedEntityId: withdrawal.id,
-              actorId: req.admin.id,
-              actorName: req.admin.username,
-              reason: `90% account balance return for Level 2 withdrawal #${withdrawal.id.slice(-6)} (10% PKR ${payoutAmount.toLocaleString()} approved for payout)`,
-              notes: reviewNotes
-            }
-          });
+          if (refundAmount > 0) {
+            await tx.wallet.update({
+              where: { userId: withdrawal.userId },
+              data: {
+                pendingBalance: { decrement: refundAmount },
+                availableBalance: { increment: refundAmount }
+              }
+            });
+            await tx.walletTransaction.create({
+              data: {
+                userId: withdrawal.userId,
+                transactionType: "WITHDRAWAL_PARTIAL_REFUND",
+                amount: refundAmount,
+                currency: "PKR",
+                status: "COMPLETED",
+                relatedEntityId: withdrawal.id,
+                actorId: req.admin.id,
+                actorName: req.admin.username,
+                reason: `${returnPercent}% account balance return for Level 2 withdrawal #${withdrawal.id.slice(-6)} (${selectedPercent}% PKR ${payoutAmount.toLocaleString()} approved for payout)`,
+                notes: reviewNotes
+              }
+            });
+          }
           const l2Comment = reviewNotes?.trim() ? `
 
 Admin Comment: ${reviewNotes.trim()}` : "";
           await tx.notification.create({
             data: {
               userId: withdrawal.userId,
-              title: `Level 2 Withdrawal Approved! (10% Payout) \u2705`,
-              message: `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (10%) is approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) has been restored to your account balance.${l2Comment}`,
+              title: `Level 2 Withdrawal Approved! (${selectedPercent}% Payout) \u2705`,
+              message: selectedPercent === 100 ? `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (100%) is approved for payout.${l2Comment}` : `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (10%) is approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) has been restored to your account balance.${l2Comment}`,
               notificationType: "WITHDRAWAL_STATUS"
             }
           });
@@ -80922,12 +80928,12 @@ Admin Comment: ${reviewNotes.trim()}` : "";
           action: "WITHDRAWAL_APPROVED",
           entityType: "WithdrawalRequest",
           entityId: withdrawalId,
-          newState: { approvalStatus: "APPROVED", paymentStatus: "NOT_SENT", amount: payoutAmount },
-          reason: `Level 2 withdrawal: 10% PKR ${payoutAmount} payout approved, 90% PKR ${refundAmount} refunded`,
+          newState: { approvalStatus: "APPROVED", paymentStatus: "NOT_SENT", amount: payoutAmount, payoutPercent: selectedPercent },
+          reason: `Level 2 withdrawal: ${selectedPercent}% PKR ${payoutAmount} payout approved${refundAmount > 0 ? `, ${returnPercent}% PKR ${refundAmount} refunded` : ""}`,
           ipAddress: req.ip
         });
         return res.json({
-          message: `Level 2 withdrawal approved! PKR ${payoutAmount.toLocaleString()} (10%) approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) returned to user wallet.`,
+          message: selectedPercent === 100 ? `Level 2 withdrawal approved! PKR ${payoutAmount.toLocaleString()} (100%) approved for full payout.` : `Level 2 withdrawal approved! PKR ${payoutAmount.toLocaleString()} (10%) approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) returned to user wallet.`,
           withdrawal: updated2
         });
       }
@@ -82610,8 +82616,8 @@ function getAdminSpaHtml() {
         window.location.replace('/adminpanal');
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-DfAm6UWR.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CJSGFDke.css">
+    <script type="module" crossorigin src="/assets/index-nhOuX4Bt.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-QYa_9qSq.css">
   </head>
   <body class="bg-[#020712] text-slate-100 font-sans antialiased selection:bg-[#1459E8] selection:text-white min-h-screen">
     <div id="root"></div>
@@ -82800,11 +82806,11 @@ function createApp() {
   app2.use(import_express13.default.static(path4.resolve(process.cwd(), "public")));
   app2.use("/assets", (req, res, next) => {
     if (req.method === "GET" || req.method === "HEAD") {
-      if (req.path.endsWith(".js") && !req.path.includes("index-DfAm6UWR.js")) {
-        return res.redirect(302, "/assets/index-DfAm6UWR.js");
+      if (req.path.endsWith(".js") && !req.path.includes("index-nhOuX4Bt.js")) {
+        return res.redirect(302, "/assets/index-nhOuX4Bt.js");
       }
-      if (req.path.endsWith(".css") && !req.path.includes("index-CJSGFDke.css")) {
-        return res.redirect(302, "/assets/index-CJSGFDke.css");
+      if (req.path.endsWith(".css") && !req.path.includes("index-QYa_9qSq.css")) {
+        return res.redirect(302, "/assets/index-QYa_9qSq.css");
       }
       return res.status(404).end();
     }
