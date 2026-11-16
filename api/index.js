@@ -65066,7 +65066,7 @@ var webhookVerifiedInProcess = false;
 async function ensureTelegramWebhookActive() {
   if (webhookVerifiedInProcess) return;
   try {
-    const targetUrl = process.env.TELEGRAM_WEBHOOK_URL || "https://backend-bhatti6677.vercel.app/api/telegram/webhook";
+    const targetUrl = process.env.TELEGRAM_WEBHOOK_URL || "https://www.backenddostear.space/api/telegram/webhook";
     const info = await getTelegramWebhookInfo();
     if (info?.ok && info?.result?.url !== targetUrl) {
       await setTelegramWebhook(targetUrl);
@@ -82532,7 +82532,7 @@ router12.post("/webhook", async (req, res) => {
 router12.get("/setup", requireAdmin, requireSuperAdmin, async (req, res) => {
   try {
     const host = req.get("host") || "localhost:5050";
-    const protocol = req.protocol === "http" && !host.includes("vercel.app") ? "http" : "https";
+    const protocol = host.includes("localhost") ? "http" : "https";
     const webhookUrl = `${protocol}://${host}/api/telegram/webhook`;
     const result = await setTelegramWebhook(webhookUrl);
     res.json({

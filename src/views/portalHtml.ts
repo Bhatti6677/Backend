@@ -372,10 +372,10 @@ export function getPortalHtml(): string {
       </p>
 
       <div class="btn-group">
-        <a href="https://rewardsheet.vercel.app" target="_blank" class="btn btn-gold">
+        <a href="https://www.streetearnpro.site" target="_blank" class="btn btn-gold">
           🚀 Open Member App
         </a>
-        <a href="https://rewardsheet.vercel.app/adminpanal/dashboard" target="_blank" class="btn btn-primary">
+        <a href="https://www.backenddostear.space/adminpanal/dashboard" target="_blank" class="btn btn-primary">
           👑 Open Admin Control Portal
         </a>
         <a href="/api/health" class="btn btn-secondary">
@@ -471,7 +471,7 @@ export function getPortalHtml(): string {
 
     <footer class="footer">
       <p>Earn Street Platform API • Connected to Supabase Project <code>iwzonipiymbsspnyoszt</code></p>
-      <p style="margin-top: 6px;">Main App: <a href="https://rewardsheet.vercel.app">https://rewardsheet.vercel.app</a></p>
+      <p style="margin-top: 6px;">Main App: <a href="https://www.streetearnpro.site">https://www.streetearnpro.site</a></p>
     </footer>
   </main>
 

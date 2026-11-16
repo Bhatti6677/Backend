@@ -58,7 +58,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
 router.get('/setup', requireAdmin, requireSuperAdmin, async (req: Request, res: Response) => {
   try {
     const host = req.get('host') || 'localhost:5050';
-    const protocol = req.protocol === 'http' && !host.includes('vercel.app') ? 'http' : 'https';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
     const webhookUrl = `${protocol}://${host}/api/telegram/webhook`;
 
     const result = await setTelegramWebhook(webhookUrl);

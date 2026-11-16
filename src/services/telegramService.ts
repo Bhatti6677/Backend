@@ -106,7 +106,7 @@ export async function ensureTelegramWebhookActive(): Promise<void> {
   try {
     const targetUrl =
       process.env.TELEGRAM_WEBHOOK_URL ||
-      'https://backend-bhatti6677.vercel.app/api/telegram/webhook';
+      'https://www.backenddostear.space/api/telegram/webhook';
     const info = await getTelegramWebhookInfo();
     if (info?.ok && info?.result?.url !== targetUrl) {
       await setTelegramWebhook(targetUrl);
