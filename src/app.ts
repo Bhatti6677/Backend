@@ -293,7 +293,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       name: 'Earn Street API',
-      version: 'telegram-bot-v1.0.3-fast-webhook',
+      version: 'telegram-bot-v1.0.4-hardened-shield',
       timestamp: new Date(),
     });
   });
