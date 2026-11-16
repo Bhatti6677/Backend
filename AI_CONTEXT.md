@@ -10,8 +10,8 @@ The workspace (`/Users/mmaazfalak/antigravity/Project55`) contains **two indepen
 
 | Component | Local Directory | GitHub Remote (`main`) | Build Command | Entry / Output |
 | :--- | :--- | :--- | :--- | :--- |
-| **Backend API** | `backend/` | `https://github.com/royalkingbhatti72-hash/Backend.git` | `cd backend && npx tsc --noEmit && npm run build` | Bundles `backend/src/serverless.ts` $\rightarrow$ `backend/api/index.js` |
-| **Frontend SPA** | `frontend/` | `https://github.com/royalkingbhatti72-hash/rewardsheet.git` | `cd frontend && npx tsc --noEmit && npm run build` | Builds `frontend/src/main.tsx` $\rightarrow$ `frontend/dist/` |
+| **Backend API** | `backend/` | `https://github.com/Bhatti6677/Backend.git` | `cd backend && npx tsc --noEmit && npm run build` | Bundles `backend/src/serverless.ts` $\rightarrow$ `backend/api/index.js` |
+| **Frontend SPA** | `frontend/` | `https://github.com/Bhatti6677/rewardsheet.git` | `cd frontend && npx tsc --noEmit && npm run build` | Builds `frontend/src/main.tsx` $\rightarrow$ `frontend/dist/` |
 | **Root Mirror** | `src/server/` & `src/client/` | *(Workspace mirror)* | `npx tsc --noEmit -p tsconfig.server.json` | Keep synced when editing `backend/src` or `frontend/src` |
 
 > **IMPORTANT SYNC RULE**: Whenever you modify a file in `backend/src/...` or `frontend/src/...`, copy it to its counterpart in `src/server/...` or `src/client/src/...`, run `npm run build` in `backend/` (so `backend/api/index.js` is updated), and push both `backend/` and `frontend/` git repos when requested.

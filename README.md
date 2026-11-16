@@ -31,7 +31,7 @@ npm run dev
 
 ## ☁️ Vercel Deployment Settings
 
-1. Connect the repository `https://github.com/royalkingbhatti72-hash/Backend` to Vercel.
+1. Connect the repository `https://github.com/Bhatti6677/Backend` to Vercel.
 2. In **Project Settings** $\rightarrow$ **Deployment Protection**:
    * Set **Vercel Authentication** to **Disabled**.
 3. In **Project Settings** $\rightarrow$ **Environment Variables**, configure:
