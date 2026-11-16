@@ -7,6 +7,7 @@ import { config } from '../config';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { affiliateService } from '../services/affiliateService';
 import { validateAdminReferralCode, replenishAvailableCodesTo100 } from '../services/adminReferralService';
+import { authLimiter, referralValidationLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ function normalizePhone(phone: string): string {
  * GET /api/auth/validate-referral/:code
  * Public endpoint to check if an exclusive admin referral code is available
  */
-router.get('/validate-referral/:code', async (req: Request, res: Response) => {
+router.get('/validate-referral/:code', referralValidationLimiter, async (req: Request, res: Response) => {
   const code = (req.params.code as string || '').trim().toLowerCase();
   const isValid = await validateAdminReferralCode(code);
   res.json({ valid: isValid, code });
@@ -52,7 +53,7 @@ router.get('/validate-referral/:code', async (req: Request, res: Response) => {
 /**
  * POST /api/auth/register
  */
-router.post('/register', async (req: Request, res: Response, next) => {
+router.post('/register', authLimiter, async (req: Request, res: Response, next) => {
   try {
     const validated = registerSchema.parse(req.body);
     const normalizedPhone = normalizePhone(validated.phone);
@@ -105,17 +106,21 @@ router.post('/register', async (req: Request, res: Response, next) => {
         },
       });
 
-      // Claim the admin referral code immediately (case-insensitive)
-      await tx.$executeRawUnsafe(`
+      // Claim the admin referral code immediately (case-insensitive) with atomic row-count verification
+      const claimedCount = await tx.$executeRaw`
         UPDATE "AdminReferralCode"
         SET "status" = 'USED',
-            "usedById" = $1,
-            "usedByName" = $2,
-            "usedByPhone" = $3,
+            "usedById" = ${user.id},
+            "usedByName" = ${user.name},
+            "usedByPhone" = ${normalizedPhone},
             "usedAt" = CURRENT_TIMESTAMP,
             "updatedAt" = CURRENT_TIMESTAMP
-        WHERE LOWER("code") = LOWER($4) AND "status" = 'AVAILABLE'
-      `, user.id, user.name, normalizedPhone, trimmedRefCode);
+        WHERE LOWER("code") = LOWER(${trimmedRefCode}) AND "status" = 'AVAILABLE'
+      `;
+
+      if (claimedCount !== 1) {
+        throw new Error('REFERRAL_CODE_ALREADY_USED');
+      }
 
       // Create wallet with 100 initial credit points on joining
       const wallet = await tx.wallet.create({
@@ -165,7 +170,11 @@ router.post('/register', async (req: Request, res: Response, next) => {
     // Automatically generate 1 replacement 6-letter code so 100 available codes are always maintained
     await replenishAvailableCodesTo100();
 
-    const token = jwt.sign({ userId: result.id }, config.jwtSecret, { expiresIn: '7d' });
+    const token = jwt.sign(
+      { userId: result.id, pwdSig: result.passwordHash.slice(-8) },
+      config.jwtSecret,
+      { expiresIn: '7d', algorithm: 'HS256' }
+    );
 
     res.status(201).json({
       message: 'Registration successful! Welcome to Earn Street.',
@@ -179,7 +188,12 @@ router.post('/register', async (req: Request, res: Response, next) => {
         wallet: result.wallet,
       },
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message === 'REFERRAL_CODE_ALREADY_USED') {
+      return res.status(400).json({
+        error: 'This invitation code has already been used or expired. Please contact administration for a new 1-time invitation code.',
+      });
+    }
     next(err);
   }
 });
@@ -187,30 +201,8 @@ router.post('/register', async (req: Request, res: Response, next) => {
 /**
  * POST /api/auth/login
  */
-router.post('/login', async (req: Request, res: Response, next) => {
+router.post('/login', authLimiter, async (req: Request, res: Response, next) => {
   try {
-    const rawPhone = String(req.body?.phone || req.body?.username || '').trim();
-
-    // Check if user entered Administrator or Mini Admin credentials on the member login form
-    if (rawPhone && !rawPhone.match(/^[0-9+]{10,15}$/)) {
-      const adminMatch = await prisma.adminUser.findFirst({
-        where: {
-          OR: [
-            { username: { equals: rawPhone, mode: 'insensitive' } },
-            { email: { equals: rawPhone, mode: 'insensitive' } },
-          ],
-        },
-      });
-
-      if (adminMatch) {
-        return res.status(400).json({
-          error: 'Administrator credentials detected. Please log in at the Administrator Portal: /adminpanal',
-          isAdmin: true,
-          redirectUrl: '/adminpanal',
-        });
-      }
-    }
-
     const validated = loginSchema.parse(req.body);
     const normalizedPhone = normalizePhone(validated.phone);
 
@@ -232,7 +224,11 @@ router.post('/login', async (req: Request, res: Response, next) => {
       return res.status(401).json({ error: 'Invalid phone number or password' });
     }
 
-    const token = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: '7d' });
+    const token = jwt.sign(
+      { userId: user.id, pwdSig: user.passwordHash.slice(-8) },
+      config.jwtSecret,
+      { expiresIn: '7d', algorithm: 'HS256' }
+    );
 
     res.json({
       message: 'Login successful',

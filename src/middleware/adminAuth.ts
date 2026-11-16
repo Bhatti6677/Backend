@@ -92,7 +92,7 @@ export async function requireAdmin(req: AdminAuthRequest, res: Response, next: N
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, config.adminSecret) as {
+    const decoded = jwt.verify(token, config.adminSecret, { algorithms: ['HS256'] }) as {
       adminId: string;
       role: string;
       username?: string;

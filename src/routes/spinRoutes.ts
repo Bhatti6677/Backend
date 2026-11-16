@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { ensureOfficialSpinPrizes } from '../services/spinPrizeService';
+import { financialActionLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -99,7 +100,7 @@ router.get('/status', requireAuth, async (req: AuthRequest, res: Response, next)
  * POST /api/spin/play
  * Consumes 1 entitlement and resolves the reward strictly on the backend
  */
-router.post('/play', requireAuth, async (req: AuthRequest, res: Response, next) => {
+router.post('/play', financialActionLimiter, requireAuth, async (req: AuthRequest, res: Response, next) => {
   try {
     const userId = req.user!.id;
 
@@ -157,16 +158,37 @@ router.post('/play', requireAuth, async (req: AuthRequest, res: Response, next) 
 
     // Execute atomic transaction: decrement spin, record history, credit wallet if cash prize
     const spinResult = await prisma.$transaction(async (tx) => {
-      // 1. Decrement entitlement
-      await tx.userSpinEntitlement.update({
-        where: { id: entitlement.id },
-        data: {
-          remainingSpins: { decrement: 1 },
-          isEligible: entitlement.remainingSpins - 1 > 0,
-        },
-      });
+      // 1. Race-proof atomic entitlement decrement: only decrements if remainingSpins > 0
+        const decResult = await tx.userSpinEntitlement.updateMany({
+          where: {
+            id: entitlement.id,
+            userId,
+            isEligible: true,
+            remainingSpins: { gt: 0 },
+          },
+          data: {
+            remainingSpins: { decrement: 1 },
+          },
+        });
 
-      let transactionId: string | null = null;
+        if (decResult.count !== 1) {
+          throw new Error('SPIN_ALREADY_CONSUMED');
+        }
+
+        // Update eligibility flag if no spins remain
+        const refreshedEntitlement = await tx.userSpinEntitlement.findUnique({
+          where: { id: entitlement.id },
+          select: { remainingSpins: true },
+        });
+
+        if (refreshedEntitlement && refreshedEntitlement.remainingSpins <= 0) {
+          await tx.userSpinEntitlement.update({
+            where: { id: entitlement.id },
+            data: { isEligible: false },
+          });
+        }
+
+        let transactionId: string | null = null;
 
       // 2. If cash prize, credit wallet with immutable transaction
       if (selectedPrize.prizeType === 'CASH' && selectedPrize.monetaryValue > 0) {
@@ -228,9 +250,14 @@ router.post('/play', requireAuth, async (req: AuthRequest, res: Response, next) 
       message: `Congratulations! You won ${selectedPrize.name}!`,
       prize: selectedPrize,
       prizeIndex: prizeIndex >= 0 ? prizeIndex : 0,
-      remainingSpins: entitlement.remainingSpins - 1,
+      remainingSpins: Math.max(0, entitlement.remainingSpins - 1),
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message === 'SPIN_ALREADY_CONSUMED') {
+      return res.status(403).json({
+        error: 'This spin has already been used. Please refresh your page to see your current spin balance.',
+      });
+    }
     next(err);
   }
 });

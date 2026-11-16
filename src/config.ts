@@ -12,10 +12,19 @@ dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
 dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env.production') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
+const isProd = process.env.NODE_ENV === 'production';
+
+const jwtSecret = process.env.JWT_SECRET || (isProd ? '' : 'dev-local-jwt-secret-key-32charslong!');
+const adminSecret = process.env.ADMIN_SECRET || (isProd ? '' : 'dev-local-admin-secret-key-32charslong!');
+
+if (isProd && (!jwtSecret || !adminSecret)) {
+  console.warn('⚠️ CRITICAL WARNING: JWT_SECRET or ADMIN_SECRET is not configured in environment variables.');
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
-  jwtSecret: process.env.JWT_SECRET || 'royal-rewards-super-secret-jwt-key-2026',
-  adminSecret: process.env.ADMIN_SECRET || 'royal-rewards-admin-secret-key-2026',
+  jwtSecret: jwtSecret || 'dev-local-jwt-secret-key-32charslong!',
+  adminSecret: adminSecret || 'dev-local-admin-secret-key-32charslong!',
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigin: process.env.CORS_ORIGIN || '*',
 };

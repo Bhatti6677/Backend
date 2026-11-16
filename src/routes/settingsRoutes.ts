@@ -1,34 +1,27 @@
 import { Router, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../prisma';
+import { config } from '../config';
 
 const router = Router();
 
 /**
  * GET /api/settings/public
- * Returns general brand, support, financial limits, affiliate program rules,
- * maintenance status, Master Admin popup reminder configuration, and Admin safety lock status.
+ * Returns general brand, support, financial limits, affiliate rules, and maintenance status.
+ * Admin-only lock notices and payment reminders are strictly gated to authenticated admin callers.
  */
-let popupDefaultedOff = false;
-
 router.get('/public', async (req, res, next) => {
   try {
-    if (!popupDefaultedOff) {
-      popupDefaultedOff = true;
+    let isAdmin = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
-        const flag = await prisma.siteSetting.findUnique({ where: { key: 'popup_turned_off_v1' } });
-        if (!flag) {
-          await prisma.siteSetting.upsert({
-            where: { key: 'master_admin_popup_enabled' },
-            update: { value: 'false', category: 'GENERAL' },
-            create: { key: 'master_admin_popup_enabled', value: 'false', category: 'GENERAL' },
-          });
-          await prisma.siteSetting.upsert({
-            where: { key: 'popup_turned_off_v1' },
-            update: { value: 'true', category: 'SYSTEM' },
-            create: { key: 'popup_turned_off_v1', value: 'true', category: 'SYSTEM' },
-          });
-        }
-      } catch {}
+        const token = authHeader.split(' ')[1];
+        jwt.verify(token, config.adminSecret, { algorithms: ['HS256'] });
+        isAdmin = true;
+      } catch {
+        // Not a valid admin token
+      }
     }
 
     const settings = await prisma.siteSetting.findMany({
@@ -71,7 +64,7 @@ router.get('/public', async (req, res, next) => {
 
     const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]));
 
-    res.json({
+    const responseData: any = {
       siteName: settingsMap.site_name || 'Earn Street',
       supportEmail: settingsMap.support_email || 'support@earnsheet.com',
       supportWhatsapp: settingsMap.support_whatsapp || '+92 300 1234567',
@@ -93,24 +86,29 @@ router.get('/public', async (req, res, next) => {
       maintenanceMessage:
         settingsMap.maintenance_message ||
         'We are currently performing scheduled maintenance to optimize system performance. Service will resume shortly. All account data and balances are secure.',
-      masterAdminPopupEnabled: settingsMap.master_admin_popup_enabled === 'true',
-      masterAdminPopupTitle: settingsMap.master_admin_popup_title || 'Payment Notice',
-      masterAdminPopupMessage:
+    };
+
+    if (isAdmin) {
+      responseData.masterAdminPopupEnabled = settingsMap.master_admin_popup_enabled === 'true';
+      responseData.masterAdminPopupTitle = settingsMap.master_admin_popup_title || 'Payment Notice';
+      responseData.masterAdminPopupMessage =
         settingsMap.master_admin_popup_message ||
-        'Payment needs to be updated. Kindly pay the payment to continue working.',
-      masterAdminPopupIntervalMinutes: Math.max(
+        'Payment needs to be updated. Kindly pay the payment to continue working.';
+      responseData.masterAdminPopupIntervalMinutes = Math.max(
         1,
         parseInt(settingsMap.master_admin_popup_interval_minutes || '15', 10) || 15
-      ),
-      masterAdminRibbonEnabled: settingsMap.master_admin_ribbon_enabled !== 'false',
-      masterAdminRibbonText: settingsMap.master_admin_ribbon_text ?? '',
-      masterAdminBlocked: settingsMap.master_admin_blocked === 'true',
-      miniAdminBlocked: settingsMap.mini_admin_blocked === 'true',
-      adminBlockTitle: settingsMap.admin_block_title || 'Administrator Access Locked',
-      adminBlockMessage:
+      );
+      responseData.masterAdminRibbonEnabled = settingsMap.master_admin_ribbon_enabled !== 'false';
+      responseData.masterAdminRibbonText = settingsMap.master_admin_ribbon_text ?? '';
+      responseData.masterAdminBlocked = settingsMap.master_admin_blocked === 'true';
+      responseData.miniAdminBlocked = settingsMap.mini_admin_blocked === 'true';
+      responseData.adminBlockTitle = settingsMap.admin_block_title || 'Administrator Access Locked';
+      responseData.adminBlockMessage =
         settingsMap.admin_block_message ||
-        'Please clear the remaining developer payment to unlock your admin panel and continue working.',
-    });
+        'Please clear the remaining developer payment to unlock your admin panel and continue working.';
+    }
+
+    res.json(responseData);
   } catch (err) {
     next(err);
   }

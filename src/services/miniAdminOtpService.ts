@@ -71,8 +71,12 @@ export async function ensureDefaultMiniAdmin(): Promise<void> {
     });
 
     if (!existing) {
+      const defaultPass = process.env.DEFAULT_MINI_ADMIN_PASSWORD;
+      if (!defaultPass) {
+        return;
+      }
       const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('MiniAdmin@Royal2026!', salt);
+      const passwordHash = await bcrypt.hash(defaultPass, salt);
       const otpSecret = generateOtpSecret();
 
       await prisma.adminUser.create({
@@ -85,7 +89,7 @@ export async function ensureDefaultMiniAdmin(): Promise<void> {
           otpSecret,
         },
       });
-      console.log('✅ Default Mini Admin ensured in database: miniadmin / MiniAdmin@Royal2026!');
+      console.log('✅ Default Mini Admin ensured in database from environment configuration');
     }
   } catch (err) {
     console.error('Failed to ensure default mini admin account:', err);

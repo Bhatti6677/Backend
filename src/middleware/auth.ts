@@ -23,7 +23,10 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, config.jwtSecret) as { userId: string };
+    const decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as {
+      userId: string;
+      pwdSig?: string;
+    };
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -33,6 +36,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
         name: true,
         referralCode: true,
         accountStatus: true,
+        passwordHash: true,
       },
     });
 
@@ -44,7 +48,16 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
       return res.status(403).json({ error: 'Account suspended. Please contact Earn Street support.' });
     }
 
-    req.user = user;
+    // Invalidate token if password was changed after token issuance
+    if (decoded.pwdSig && user.passwordHash) {
+      const currentSig = user.passwordHash.slice(-8);
+      if (decoded.pwdSig !== currentSig) {
+        return res.status(401).json({ error: 'Unauthorized: Password was changed. Please log in again.' });
+      }
+    }
+
+    const { passwordHash: _unused, ...safeUser } = user;
+    req.user = safeUser;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });

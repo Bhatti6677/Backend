@@ -8,6 +8,7 @@ import {
   getLevelWithdrawalNotice,
 } from '../services/levelNoticeService';
 import { getWithdrawalEligibility } from '../services/withdrawalEligibilityService';
+import { financialActionLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -68,7 +69,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response, next) => {
  * POST /api/withdrawals
  * Submits withdrawal request with balance reservation
  */
-router.post('/', requireAuth, async (req: AuthRequest, res: Response, next) => {
+router.post('/', financialActionLimiter, requireAuth, async (req: AuthRequest, res: Response, next) => {
   try {
     const userId = req.user!.id;
     const validated = withdrawalSchema.parse(req.body);
@@ -125,7 +126,31 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response, next) => {
 
     // Execute atomic reservation
     const withdrawal = await prisma.$transaction(async (tx) => {
-      // 1. Create withdrawal request
+      // 1. Guard against concurrent duplicate pending withdrawals
+      const existingPending = await tx.withdrawalRequest.findFirst({
+        where: { userId, approvalStatus: 'PENDING' },
+      });
+      if (existingPending) {
+        throw new Error('DUPLICATE_PENDING_WITHDRAWAL');
+      }
+
+      // 2. Race-proof conditional wallet deduction: only succeeds if availableBalance >= validated.amount
+      const walletUpdate = await tx.wallet.updateMany({
+        where: {
+          userId,
+          availableBalance: { gte: validated.amount },
+        },
+        data: {
+          availableBalance: { decrement: validated.amount },
+          pendingBalance: { increment: validated.amount },
+        },
+      });
+
+      if (walletUpdate.count !== 1) {
+        throw new InsufficientBalanceError('Insufficient available balance to complete withdrawal request.');
+      }
+
+      // 3. Create withdrawal request
       const reqRecord = await tx.withdrawalRequest.create({
         data: {
           userId,
@@ -139,16 +164,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response, next) => {
         },
       });
 
-      // 2. Reserve funds (deduct available, add to pending)
-      await tx.wallet.update({
-        where: { userId },
-        data: {
-          availableBalance: { decrement: validated.amount },
-          pendingBalance: { increment: validated.amount },
-        },
-      });
-
-      // 3. Ledger record
+      // 4. Ledger record
       await tx.walletTransaction.create({
         data: {
           userId,
@@ -168,7 +184,12 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response, next) => {
       message: 'Withdrawal request submitted! Funds have been reserved pending review.',
       withdrawal,
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message === 'DUPLICATE_PENDING_WITHDRAWAL') {
+      return res.status(400).json({
+        error: 'You already have a withdrawal request pending review. Please wait for administration to process it before submitting another.',
+      });
+    }
     if (err instanceof InsufficientBalanceError) {
       return res.status(400).json({ error: err.message });
     }

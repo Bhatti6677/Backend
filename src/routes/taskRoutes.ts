@@ -329,6 +329,14 @@ router.post('/:taskId/unlock', requireAuth, async (req: AuthRequest, res: Respon
 
     // Balance requirement verified! Submit for admin review (zero balance deducted)
     const result = await prisma.$transaction(async (tx) => {
+      // Concurrency guard against duplicate pending submission
+      const existingPending = await tx.taskSubmission.findFirst({
+        where: { userId, taskId: task.id, status: 'PENDING' },
+      });
+      if (existingPending) {
+        throw new Error('TASK_ALREADY_PENDING');
+      }
+
       const unlockTx = await tx.taskUnlockTransaction.create({
         data: {
           userId,
@@ -395,7 +403,12 @@ router.post('/:taskId/unlock', requireAuth, async (req: AuthRequest, res: Respon
       },
       submission: result.submission,
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message === 'TASK_ALREADY_PENDING') {
+      return res.status(400).json({
+        error: 'A submission for this task is already awaiting admin verification.',
+      });
+    }
     if (err instanceof InsufficientBalanceError) {
       return res.status(400).json({ error: err.message });
     }
@@ -484,6 +497,14 @@ router.post('/:taskId/submit', requireAuth, async (req: AuthRequest, res: Respon
 
     // Record submission for admin review
     const submission = await prisma.$transaction(async (tx) => {
+      // Concurrency guard against duplicate pending submission
+      const existingPending = await tx.taskSubmission.findFirst({
+        where: { userId, taskId: task.id, status: 'PENDING' },
+      });
+      if (existingPending) {
+        throw new Error('TASK_ALREADY_PENDING');
+      }
+
       if (task.isPaid) {
         await tx.taskUnlockTransaction.create({
           data: {
@@ -547,7 +568,12 @@ router.post('/:taskId/submit', requireAuth, async (req: AuthRequest, res: Respon
       submission,
       userStatus: 'PENDING_VERIFICATION',
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message === 'TASK_ALREADY_PENDING') {
+      return res.status(400).json({
+        error: 'A submission for this task is already awaiting admin verification.',
+      });
+    }
     next(err);
   }
 });

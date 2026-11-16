@@ -14,23 +14,15 @@ dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
 dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env.production') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-// New Supabase Database (Standalone Primary Database — Disconnected from Old Supabase)
-export const NEW_SUPABASE_URL =
-  'postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true';
-export const NEW_SUPABASE_DIRECT_URL =
-  'postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres';
+// Database URLs loaded strictly from Environment Variables
+export const NEW_SUPABASE_URL = process.env.DATABASE_URL || '';
+export const NEW_SUPABASE_DIRECT_URL = process.env.DIRECT_URL || '';
 
-const FALLBACK_DATABASE_URL = NEW_SUPABASE_URL;
-const FALLBACK_DIRECT_URL = NEW_SUPABASE_DIRECT_URL;
+const dbUrl = process.env.DATABASE_URL;
 
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = FALLBACK_DATABASE_URL;
+if (!dbUrl) {
+  console.warn('⚠️ WARNING: DATABASE_URL is not configured in environment variables.');
 }
-if (!process.env.DIRECT_URL) {
-  process.env.DIRECT_URL = FALLBACK_DIRECT_URL;
-}
-
-const dbUrl = process.env.DATABASE_URL || FALLBACK_DATABASE_URL;
 
 // Disconnected from Old Supabase by default
 const DEFAULT_SECONDARY_URL = '';

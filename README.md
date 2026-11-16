@@ -34,11 +34,11 @@ npm run dev
 1. Connect the repository `https://github.com/royalkingbhatti72-hash/Backend` to Vercel.
 2. In **Project Settings** $\rightarrow$ **Deployment Protection**:
    * Set **Vercel Authentication** to **Disabled**.
-3. In **Project Settings** $\rightarrow$ **Environment Variables**, add:
-   * `DATABASE_URL`: `postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
-   * `DIRECT_URL`: `postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres`
-   * `JWT_SECRET`: `royal-rewards-super-secret-jwt-key-2026`
-   * `ADMIN_SECRET`: `royal-rewards-admin-secret-key-2026`
-   * `SUPABASE_URL`: `https://vzgjygtbdkezaerygjbp.supabase.co`
-   * `CORS_ORIGIN`: `*`
+3. In **Project Settings** $\rightarrow$ **Environment Variables**, configure:
+   * `DATABASE_URL`: `postgresql://postgres.[PROJECT_REF]:[YOUR_PASSWORD]@[HOST]:6543/postgres?pgbouncer=true`
+   * `DIRECT_URL`: `postgresql://postgres.[PROJECT_REF]:[YOUR_PASSWORD]@[HOST]:5432/postgres`
+   * `JWT_SECRET`: `[GENERATE_A_64_CHAR_RANDOM_SECRET]`
+   * `ADMIN_SECRET`: `[GENERATE_A_64_CHAR_RANDOM_SECRET]`
+   * `SUPABASE_URL`: `https://[PROJECT_REF].supabase.co`
+   * `CORS_ORIGIN`: `https://www.streetearnpro.site,https://www.backenddostear.space`
 

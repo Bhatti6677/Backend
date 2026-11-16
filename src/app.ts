@@ -24,6 +24,7 @@ import { config } from './config';
 import { prisma } from './prisma';
 import { ensureUserWithdrawalColumns } from './utils/ensureSchema';
 import { getAdminSpaHtml } from './views/adminHtml';
+import { generalApiLimiter } from './middleware/rateLimiter';
 
 export function createApp() {
   const app = express();
@@ -76,16 +77,50 @@ export function createApp() {
     next();
   });
 
-  // 1. Universal CORS middleware: Attach headers and handle preflight OPTIONS immediately
+  // 1. Strict CORS allowlist
+  const ALLOWED_ORIGINS = new Set([
+    'https://www.streetearnpro.site',
+    'https://streetearnpro.site',
+    'https://www.backenddostear.space',
+    'https://backenddostear.space',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:5000',
+  ]);
+
+  if (process.env.CORS_ORIGIN && process.env.CORS_ORIGIN !== '*') {
+    process.env.CORS_ORIGIN.split(',').forEach((o) => {
+      const trimmed = o.trim();
+      if (trimmed) ALLOWED_ORIGINS.add(trimmed);
+    });
+  }
+
+  function isOriginAllowed(origin?: string): boolean {
+    if (!origin) return true; // Direct same-origin / server-to-server / curl
+    if (ALLOWED_ORIGINS.has(origin)) return true;
+    if (process.env.NODE_ENV === 'development') return true;
+    return false;
+  }
+
   app.use((req, res, next) => {
-    const origin = (req.headers.origin as string) || '*';
-    res.setHeader('Access-Control-Allow-Origin', origin);
+    const origin = req.headers.origin as string | undefined;
+
+    if (origin && isOriginAllowed(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key, X-Telegram-Bot-Api-Secret-Token'
+    );
     res.setHeader('Access-Control-Max-Age', '86400');
 
     if (req.method === 'OPTIONS') {
+      if (origin && !isOriginAllowed(origin)) {
+        return res.status(403).json({ error: 'CORS origin not allowed' });
+      }
       return res.status(204).end();
     }
     next();
@@ -94,17 +129,28 @@ export function createApp() {
   // 2. Standard cors middleware for thorough compliance
   app.use(cors({
     origin: (origin, callback) => {
-      callback(null, true);
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Blocked by CORS policy'));
+      }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Api-Key'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'X-Api-Key',
+      'X-Telegram-Bot-Api-Secret-Token',
+    ],
   }));
 
-
-
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Enforce 256KB request payload cap against denial-of-service
+  app.use(express.json({ limit: '256kb' }));
+  app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
   if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('dev'));
@@ -205,6 +251,14 @@ export function createApp() {
       await ensureUserWithdrawalColumns(prisma);
     }
     next();
+  });
+
+  // General Rate Limiting across API endpoints (exempting health checks and telegram webhook)
+  app.use('/api', (req, res, next) => {
+    if (req.path === '/health' || req.path === '/' || req.path === '/telegram/webhook') {
+      return next();
+    }
+    generalApiLimiter(req, res, next);
   });
 
   // API Routes

@@ -2,9 +2,9 @@ import { prisma } from '../prisma';
 import { generateAdditionalCodes } from './adminReferralService';
 
 export const TELEGRAM_BOT_TOKEN =
-  process.env.TELEGRAM_BOT_TOKEN || '9295985286:AAHb0EQFD-OMsd5bfrNgaPMTfkUDm4-Gph8';
+  process.env.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_ACCESS_PASSWORD =
-  process.env.TELEGRAM_ACCESS_PASSWORD || '9989GHYRT89';
+  process.env.TELEGRAM_ACCESS_PASSWORD || '';
 
 const TG_API_BASE = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
@@ -122,14 +122,19 @@ export async function ensureTelegramWebhookActive(): Promise<void> {
  */
 export async function setTelegramWebhook(webhookUrl: string): Promise<any> {
   try {
+    const payload: any = {
+      url: webhookUrl,
+      drop_pending_updates: false,
+      allowed_updates: ['message'],
+    };
+    if (process.env.TELEGRAM_WEBHOOK_SECRET) {
+      payload.secret_token = process.env.TELEGRAM_WEBHOOK_SECRET;
+    }
+
     const res = await fetch(`${TG_API_BASE}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: webhookUrl,
-        drop_pending_updates: false,
-        allowed_updates: ['message'],
-      }),
+      body: JSON.stringify(payload),
     });
     return await res.json();
   } catch (err: any) {

@@ -2023,7 +2023,7 @@ var require_safer = __commonJS({
   "node_modules/safer-buffer/safer.js"(exports, module) {
     "use strict";
     var buffer = __require("buffer");
-    var Buffer2 = buffer.Buffer;
+    var Buffer3 = buffer.Buffer;
     var safer = {};
     var key;
     for (key in buffer) {
@@ -2032,12 +2032,12 @@ var require_safer = __commonJS({
       safer[key] = buffer[key];
     }
     var Safer = safer.Buffer = {};
-    for (key in Buffer2) {
-      if (!Buffer2.hasOwnProperty(key)) continue;
+    for (key in Buffer3) {
+      if (!Buffer3.hasOwnProperty(key)) continue;
       if (key === "allocUnsafe" || key === "allocUnsafeSlow") continue;
-      Safer[key] = Buffer2[key];
+      Safer[key] = Buffer3[key];
     }
-    safer.Buffer.prototype = Buffer2.prototype;
+    safer.Buffer.prototype = Buffer3.prototype;
     if (!Safer.from || Safer.from === Uint8Array.from) {
       Safer.from = function(value, encodingOrOffset, length) {
         if (typeof value === "number") {
@@ -2046,7 +2046,7 @@ var require_safer = __commonJS({
         if (value && typeof value.length === "undefined") {
           throw new TypeError("The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object. Received type " + typeof value);
         }
-        return Buffer2(value, encodingOrOffset, length);
+        return Buffer3(value, encodingOrOffset, length);
       };
     }
     if (!Safer.alloc) {
@@ -2057,7 +2057,7 @@ var require_safer = __commonJS({
         if (size < 0 || size >= 2 * (1 << 30)) {
           throw new RangeError('The value "' + size + '" is invalid for option "size"');
         }
-        var buf = Buffer2(size);
+        var buf = Buffer3(size);
         if (!fill || fill.length === 0) {
           buf.fill(0);
         } else if (typeof encoding === "string") {
@@ -2152,7 +2152,7 @@ var require_merge_exports = __commonJS({
 var require_internal = __commonJS({
   "node_modules/iconv-lite/encodings/internal.js"(exports, module) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     module.exports = {
       // Encodings
       utf8: { type: "_internal", bomAware: true },
@@ -2176,7 +2176,7 @@ var require_internal = __commonJS({
       } else if (this.enc === "cesu8") {
         this.enc = "utf8";
         this.encoder = InternalEncoderCesu8;
-        if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
+        if (Buffer3.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
           this.defaultCharUnicode = iconv.defaultCharUnicode;
         }
@@ -2189,8 +2189,8 @@ var require_internal = __commonJS({
       this.decoder = new StringDecoder(codec2.enc);
     }
     InternalDecoder.prototype.write = function(buf) {
-      if (!Buffer2.isBuffer(buf)) {
-        buf = Buffer2.from(buf);
+      if (!Buffer3.isBuffer(buf)) {
+        buf = Buffer3.from(buf);
       }
       return this.decoder.write(buf);
     };
@@ -2201,7 +2201,7 @@ var require_internal = __commonJS({
       this.enc = codec2.enc;
     }
     InternalEncoder.prototype.write = function(str) {
-      return Buffer2.from(str, this.enc);
+      return Buffer3.from(str, this.enc);
     };
     InternalEncoder.prototype.end = function() {
     };
@@ -2213,15 +2213,15 @@ var require_internal = __commonJS({
       var completeQuads = str.length - str.length % 4;
       this.prevStr = str.slice(completeQuads);
       str = str.slice(0, completeQuads);
-      return Buffer2.from(str, "base64");
+      return Buffer3.from(str, "base64");
     };
     InternalEncoderBase64.prototype.end = function() {
-      return Buffer2.from(this.prevStr, "base64");
+      return Buffer3.from(this.prevStr, "base64");
     };
     function InternalEncoderCesu8(options, codec2) {
     }
     InternalEncoderCesu8.prototype.write = function(str) {
-      var buf = Buffer2.alloc(str.length * 3);
+      var buf = Buffer3.alloc(str.length * 3);
       var bufIdx = 0;
       for (var i = 0; i < str.length; i++) {
         var charCode = str.charCodeAt(i);
@@ -2317,13 +2317,13 @@ var require_internal = __commonJS({
           str = str.slice(0, str.length - 1);
         }
       }
-      return Buffer2.from(str, this.enc);
+      return Buffer3.from(str, this.enc);
     };
     InternalEncoderUtf8.prototype.end = function() {
       if (this.highSurrogate) {
         var str = this.highSurrogate;
         this.highSurrogate = "";
-        return Buffer2.from(str, this.enc);
+        return Buffer3.from(str, this.enc);
       }
     };
   }
@@ -2333,7 +2333,7 @@ var require_internal = __commonJS({
 var require_utf32 = __commonJS({
   "node_modules/iconv-lite/encodings/utf32.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports._utf32 = Utf32Codec;
     function Utf32Codec(codecOptions, iconv) {
       this.iconv = iconv;
@@ -2351,8 +2351,8 @@ var require_utf32 = __commonJS({
       this.highSurrogate = 0;
     }
     Utf32Encoder.prototype.write = function(str) {
-      var src = Buffer2.from(str, "ucs2");
-      var dst = Buffer2.alloc(src.length * 2 + 4);
+      var src = Buffer3.from(str, "ucs2");
+      var dst = Buffer3.alloc(src.length * 2 + 4);
       var write32 = this.isLE ? dst.writeUInt32LE : dst.writeUInt32BE;
       var offset = 0;
       for (var i = 0; i < src.length; i += 2) {
@@ -2388,7 +2388,7 @@ var require_utf32 = __commonJS({
       if (!this.highSurrogate) {
         return;
       }
-      var buf = Buffer2.alloc(4);
+      var buf = Buffer3.alloc(4);
       if (this.isLE) {
         buf.writeUInt32LE(this.highSurrogate, 0);
       } else {
@@ -2408,7 +2408,7 @@ var require_utf32 = __commonJS({
       }
       var i = 0;
       var codepoint = 0;
-      var dst = Buffer2.alloc(src.length + 4);
+      var dst = Buffer3.alloc(src.length + 4);
       var offset = 0;
       var isLE = this.isLE;
       var overflow = this.overflow;
@@ -2568,7 +2568,7 @@ var require_utf32 = __commonJS({
 var require_utf16 = __commonJS({
   "node_modules/iconv-lite/encodings/utf16.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports.utf16be = Utf16BECodec;
     function Utf16BECodec() {
     }
@@ -2578,7 +2578,7 @@ var require_utf16 = __commonJS({
     function Utf16BEEncoder() {
     }
     Utf16BEEncoder.prototype.write = function(str) {
-      var buf = Buffer2.from(str, "ucs2");
+      var buf = Buffer3.from(str, "ucs2");
       for (var i = 0; i < buf.length; i += 2) {
         var tmp = buf[i];
         buf[i] = buf[i + 1];
@@ -2595,7 +2595,7 @@ var require_utf16 = __commonJS({
       if (buf.length == 0) {
         return "";
       }
-      var buf2 = Buffer2.alloc(buf.length + 1);
+      var buf2 = Buffer3.alloc(buf.length + 1);
       var i = 0;
       var j = 0;
       if (this.overflowByte !== -1) {
@@ -2711,7 +2711,7 @@ var require_utf16 = __commonJS({
 var require_utf7 = __commonJS({
   "node_modules/iconv-lite/encodings/utf7.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports.utf7 = Utf7Codec;
     exports.unicode11utf7 = "utf7";
     function Utf7Codec(codecOptions, iconv) {
@@ -2725,7 +2725,7 @@ var require_utf7 = __commonJS({
       this.iconv = codec2.iconv;
     }
     Utf7Encoder.prototype.write = function(str) {
-      return Buffer2.from(str.replace(nonDirectChars, function(chunk) {
+      return Buffer3.from(str.replace(nonDirectChars, function(chunk) {
         return "+" + (chunk === "+" ? "" : this.iconv.encode(chunk, "utf16-be").toString("base64").replace(/=+$/, "")) + "-";
       }.bind(this)));
     };
@@ -2763,7 +2763,7 @@ var require_utf7 = __commonJS({
               res += "+";
             } else {
               var b64str = base64Accum + this.iconv.decode(buf.slice(lastI, i2), "ascii");
-              res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
+              res += this.iconv.decode(Buffer3.from(b64str, "base64"), "utf16-be");
             }
             if (buf[i2] != minusChar) {
               i2--;
@@ -2781,7 +2781,7 @@ var require_utf7 = __commonJS({
         var canBeDecoded = b64str.length - b64str.length % 8;
         base64Accum = b64str.slice(canBeDecoded);
         b64str = b64str.slice(0, canBeDecoded);
-        res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
+        res += this.iconv.decode(Buffer3.from(b64str, "base64"), "utf16-be");
       }
       this.inBase64 = inBase64;
       this.base64Accum = base64Accum;
@@ -2790,7 +2790,7 @@ var require_utf7 = __commonJS({
     Utf7Decoder.prototype.end = function() {
       var res = "";
       if (this.inBase64 && this.base64Accum.length > 0) {
-        res = this.iconv.decode(Buffer2.from(this.base64Accum, "base64"), "utf16-be");
+        res = this.iconv.decode(Buffer3.from(this.base64Accum, "base64"), "utf16-be");
       }
       this.inBase64 = false;
       this.base64Accum = "";
@@ -2806,14 +2806,14 @@ var require_utf7 = __commonJS({
     function Utf7IMAPEncoder(options, codec2) {
       this.iconv = codec2.iconv;
       this.inBase64 = false;
-      this.base64Accum = Buffer2.alloc(6);
+      this.base64Accum = Buffer3.alloc(6);
       this.base64AccumIdx = 0;
     }
     Utf7IMAPEncoder.prototype.write = function(str) {
       var inBase64 = this.inBase64;
       var base64Accum = this.base64Accum;
       var base64AccumIdx = this.base64AccumIdx;
-      var buf = Buffer2.alloc(str.length * 5 + 10);
+      var buf = Buffer3.alloc(str.length * 5 + 10);
       var bufIdx = 0;
       for (var i2 = 0; i2 < str.length; i2++) {
         var uChar = str.charCodeAt(i2);
@@ -2852,7 +2852,7 @@ var require_utf7 = __commonJS({
       return buf.slice(0, bufIdx);
     };
     Utf7IMAPEncoder.prototype.end = function() {
-      var buf = Buffer2.alloc(10);
+      var buf = Buffer3.alloc(10);
       var bufIdx = 0;
       if (this.inBase64) {
         if (this.base64AccumIdx > 0) {
@@ -2889,7 +2889,7 @@ var require_utf7 = __commonJS({
               res += "&";
             } else {
               var b64str = base64Accum + this.iconv.decode(buf.slice(lastI, i2), "ascii").replace(/,/g, "/");
-              res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
+              res += this.iconv.decode(Buffer3.from(b64str, "base64"), "utf16-be");
             }
             if (buf[i2] != minusChar) {
               i2--;
@@ -2907,7 +2907,7 @@ var require_utf7 = __commonJS({
         var canBeDecoded = b64str.length - b64str.length % 8;
         base64Accum = b64str.slice(canBeDecoded);
         b64str = b64str.slice(0, canBeDecoded);
-        res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
+        res += this.iconv.decode(Buffer3.from(b64str, "base64"), "utf16-be");
       }
       this.inBase64 = inBase64;
       this.base64Accum = base64Accum;
@@ -2916,7 +2916,7 @@ var require_utf7 = __commonJS({
     Utf7IMAPDecoder.prototype.end = function() {
       var res = "";
       if (this.inBase64 && this.base64Accum.length > 0) {
-        res = this.iconv.decode(Buffer2.from(this.base64Accum, "base64"), "utf16-be");
+        res = this.iconv.decode(Buffer3.from(this.base64Accum, "base64"), "utf16-be");
       }
       this.inBase64 = false;
       this.base64Accum = "";
@@ -2929,7 +2929,7 @@ var require_utf7 = __commonJS({
 var require_sbcs_codec = __commonJS({
   "node_modules/iconv-lite/encodings/sbcs-codec.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports._sbcs = SBCSCodec;
     function SBCSCodec(codecOptions, iconv) {
       if (!codecOptions) {
@@ -2945,8 +2945,8 @@ var require_sbcs_codec = __commonJS({
         }
         codecOptions.chars = asciiString + codecOptions.chars;
       }
-      this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv.defaultCharSingleByte.charCodeAt(0));
+      this.decodeBuf = Buffer3.from(codecOptions.chars, "ucs2");
+      var encodeBuf = Buffer3.alloc(65536, iconv.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -2958,7 +2958,7 @@ var require_sbcs_codec = __commonJS({
       this.encodeBuf = codec2.encodeBuf;
     }
     SBCSEncoder.prototype.write = function(str) {
-      var buf = Buffer2.alloc(str.length);
+      var buf = Buffer3.alloc(str.length);
       for (var i = 0; i < str.length; i++) {
         buf[i] = this.encodeBuf[str.charCodeAt(i)];
       }
@@ -2971,7 +2971,7 @@ var require_sbcs_codec = __commonJS({
     }
     SBCSDecoder.prototype.write = function(buf) {
       var decodeBuf = this.decodeBuf;
-      var newBuf = Buffer2.alloc(buf.length * 2);
+      var newBuf = Buffer3.alloc(buf.length * 2);
       var idx1 = 0;
       var idx2 = 0;
       for (var i = 0; i < buf.length; i++) {
@@ -3601,7 +3601,7 @@ var require_sbcs_data_generated = __commonJS({
 var require_dbcs_codec = __commonJS({
   "node_modules/iconv-lite/encodings/dbcs-codec.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports._dbcs = DBCSCodec;
     var UNASSIGNED = -1;
     var GB18030_CODE = -2;
@@ -3837,7 +3837,7 @@ var require_dbcs_codec = __commonJS({
       this.gb18030 = codec2.gb18030;
     }
     DBCSEncoder.prototype.write = function(str) {
-      var newBuf = Buffer2.alloc(str.length * (this.gb18030 ? 4 : 3));
+      var newBuf = Buffer3.alloc(str.length * (this.gb18030 ? 4 : 3));
       var leadSurrogate = this.leadSurrogate;
       var seqObj = this.seqObj;
       var nextChar = -1;
@@ -3941,7 +3941,7 @@ var require_dbcs_codec = __commonJS({
       if (this.leadSurrogate === -1 && this.seqObj === void 0) {
         return;
       }
-      var newBuf = Buffer2.alloc(10);
+      var newBuf = Buffer3.alloc(10);
       var j = 0;
       if (this.seqObj) {
         var dbcsCode = this.seqObj[DEF_CHAR];
@@ -3972,7 +3972,7 @@ var require_dbcs_codec = __commonJS({
       this.gb18030 = codec2.gb18030;
     }
     DBCSDecoder.prototype.write = function(buf) {
-      var newBuf = Buffer2.alloc(buf.length * 2);
+      var newBuf = Buffer3.alloc(buf.length * 2);
       var nodeIdx = this.nodeIdx;
       var prevBytes = this.prevBytes;
       var prevOffset = this.prevBytes.length;
@@ -5581,7 +5581,7 @@ var require_encodings = __commonJS({
 var require_streams = __commonJS({
   "node_modules/iconv-lite/lib/streams.js"(exports, module) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     module.exports = function(streamModule) {
       var Transform = streamModule.Transform;
       function IconvLiteEncoderStream(conv, options) {
@@ -5621,7 +5621,7 @@ var require_streams = __commonJS({
           chunks.push(chunk);
         });
         this.on("end", function() {
-          cb(null, Buffer2.concat(chunks));
+          cb(null, Buffer3.concat(chunks));
         });
         return this;
       };
@@ -5635,7 +5635,7 @@ var require_streams = __commonJS({
         constructor: { value: IconvLiteDecoderStream }
       });
       IconvLiteDecoderStream.prototype._transform = function(chunk, encoding, done) {
-        if (!Buffer2.isBuffer(chunk) && !(chunk instanceof Uint8Array)) {
+        if (!Buffer3.isBuffer(chunk) && !(chunk instanceof Uint8Array)) {
           return done(new Error("Iconv decoding stream needs buffers as its input."));
         }
         try {
@@ -5678,7 +5678,7 @@ var require_streams = __commonJS({
 var require_lib = __commonJS({
   "node_modules/iconv-lite/lib/index.js"(exports, module) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     var bomHandling = require_bom_handling();
     var mergeModules = require_merge_exports();
     module.exports.encodings = null;
@@ -5689,7 +5689,7 @@ var require_lib = __commonJS({
       var encoder = module.exports.getEncoder(encoding, options);
       var res = encoder.write(str);
       var trail = encoder.end();
-      return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
+      return trail && trail.length > 0 ? Buffer3.concat([res, trail]) : res;
     };
     module.exports.decode = function decode3(buf, encoding, options) {
       if (typeof buf === "string") {
@@ -5697,7 +5697,7 @@ var require_lib = __commonJS({
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
           module.exports.skipDecodeWarning = true;
         }
-        buf = Buffer2.from("" + (buf || ""), "binary");
+        buf = Buffer3.from("" + (buf || ""), "binary");
       }
       var decoder = module.exports.getDecoder(encoding, options);
       var res = decoder.write(buf);
@@ -15992,23 +15992,187 @@ var require_type_is = __commonJS({
   }
 });
 
-// node_modules/body-parser/lib/utils.js
-var require_utils = __commonJS({
-  "node_modules/body-parser/lib/utils.js"(exports, module) {
+// node_modules/body-parser/lib/read.js
+var require_read = __commonJS({
+  "node_modules/body-parser/lib/read.js"(exports, module) {
     "use strict";
-    var bytes = require_bytes();
+    var createError = require_http_errors();
+    var getBody = require_raw_body();
+    var iconv = require_lib();
+    var onFinished = require_on_finished();
+    var zlib = __require("node:zlib");
+    var hasBody = require_type_is().hasBody;
     var contentType = require_dist2();
-    var typeis = require_type_is();
-    module.exports = {
-      getCharset,
-      normalizeOptions,
-      passthrough
-    };
+    module.exports = read;
+    var hasZstandardSupport = "createZstdDecompress" in zlib;
+    function read(req, res, next, parse3, debug, options) {
+      if (onFinished.isFinished(req)) {
+        debug("body already parsed");
+        next();
+        return;
+      }
+      if (!("body" in req)) {
+        req.body = void 0;
+      }
+      if (!hasBody(req)) {
+        debug("skip empty body");
+        next();
+        return;
+      }
+      debug("content-type %j", req.headers["content-type"]);
+      if (!options.shouldParse(req)) {
+        debug("skip parsing");
+        next();
+        return;
+      }
+      let encoding = null;
+      if (options?.skipCharset !== true) {
+        encoding = getCharset(req) || options.defaultCharset;
+        if (!!options?.isValidCharset && !options.isValidCharset(encoding)) {
+          debug("invalid charset");
+          next(createError(415, 'unsupported charset "' + encoding.toUpperCase() + '"', {
+            charset: encoding,
+            type: "charset.unsupported"
+          }));
+          return;
+        }
+      }
+      let length;
+      let stream;
+      const verify = options.verify;
+      if (verify && encoding !== null && !iconv.encodingExists(encoding)) {
+        return next(createError(415, 'unsupported charset "' + encoding.toUpperCase() + '"', {
+          charset: encoding.toLowerCase(),
+          type: "charset.unsupported"
+        }));
+      }
+      try {
+        const contentEncoding = (req.headers["content-encoding"] || "identity").toLowerCase();
+        debug('content-encoding "%s"', contentEncoding);
+        if (options.inflate === false && contentEncoding !== "identity") {
+          throw createError(415, "content encoding unsupported", {
+            encoding: contentEncoding,
+            type: "encoding.unsupported"
+          });
+        }
+        if (contentEncoding === "identity") {
+          length = req.headers["content-length"];
+          stream = req;
+        } else {
+          stream = createDecompressionStream(contentEncoding, debug);
+          req.pipe(stream);
+        }
+      } catch (err) {
+        return next(err);
+      }
+      const rawBodyOptions = {
+        length,
+        encoding: verify ? null : encoding,
+        limit: options.limit
+      };
+      debug("read body");
+      getBody(stream, rawBodyOptions, function(error62, body) {
+        if (error62) {
+          let _error;
+          if (error62.type === "encoding.unsupported") {
+            _error = createError(415, 'unsupported charset "' + encoding.toUpperCase() + '"', {
+              charset: encoding.toLowerCase(),
+              type: "charset.unsupported"
+            });
+          } else {
+            _error = createError(400, error62);
+          }
+          if (stream !== req) {
+            req.unpipe();
+            stream.destroy();
+          }
+          dump(req, function onfinished() {
+            next(createError(400, _error));
+          });
+          return;
+        }
+        if (stream !== req) {
+          req.unpipe(stream);
+          stream.on("error", () => {
+          });
+          stream.destroy();
+          req.resume();
+        }
+        if (verify) {
+          try {
+            debug("verify body");
+            verify(req, res, body, encoding);
+          } catch (err) {
+            next(createError(403, err, {
+              body,
+              type: err.type || "entity.verify.failed"
+            }));
+            return;
+          }
+        }
+        let str = body;
+        try {
+          debug("parse body");
+          str = typeof body !== "string" && encoding !== null ? iconv.decode(body, encoding) : body;
+          req.body = parse3(str, encoding);
+        } catch (err) {
+          next(createError(400, err, {
+            body: str,
+            type: err.type || "entity.parse.failed"
+          }));
+          return;
+        }
+        next();
+      });
+    }
+    function createDecompressionStream(encoding, debug) {
+      switch (encoding) {
+        case "deflate":
+          debug("inflate body");
+          return zlib.createInflate();
+        case "gzip":
+          debug("gunzip body");
+          return zlib.createGunzip();
+        case "br":
+          debug("brotli decompress body");
+          return zlib.createBrotliDecompress();
+        case "zstd":
+          if (hasZstandardSupport) {
+            debug("zstd decompress body");
+            return zlib.createZstdDecompress();
+          }
+      }
+      throw createError(415, 'unsupported content encoding "' + encoding + '"', {
+        encoding,
+        type: "encoding.unsupported"
+      });
+    }
+    function dump(req, callback) {
+      if (onFinished.isFinished(req)) {
+        callback(null);
+      } else {
+        onFinished(req, callback);
+        req.resume();
+      }
+    }
     function getCharset(req) {
       const header = req.headers["content-type"];
       if (!header) return void 0;
       return contentType.parse(header).parameters.charset?.toLowerCase();
     }
+  }
+});
+
+// node_modules/body-parser/lib/utils.js
+var require_utils = __commonJS({
+  "node_modules/body-parser/lib/utils.js"(exports, module) {
+    "use strict";
+    var bytes = require_bytes();
+    var typeis = require_type_is();
+    module.exports = {
+      normalizeOptions,
+      passthrough
+    };
     function typeChecker(type) {
       return function checkType(req) {
         return Boolean(typeis(req, type));
@@ -16044,164 +16208,6 @@ var require_utils = __commonJS({
   }
 });
 
-// node_modules/body-parser/lib/read.js
-var require_read = __commonJS({
-  "node_modules/body-parser/lib/read.js"(exports, module) {
-    "use strict";
-    var createError = require_http_errors();
-    var getBody = require_raw_body();
-    var iconv = require_lib();
-    var onFinished = require_on_finished();
-    var zlib = __require("node:zlib");
-    var hasBody = require_type_is().hasBody;
-    var { getCharset } = require_utils();
-    module.exports = read;
-    function read(req, res, next, parse3, debug, options) {
-      if (onFinished.isFinished(req)) {
-        debug("body already parsed");
-        next();
-        return;
-      }
-      if (!("body" in req)) {
-        req.body = void 0;
-      }
-      if (!hasBody(req)) {
-        debug("skip empty body");
-        next();
-        return;
-      }
-      debug("content-type %j", req.headers["content-type"]);
-      if (!options.shouldParse(req)) {
-        debug("skip parsing");
-        next();
-        return;
-      }
-      let encoding = null;
-      if (options?.skipCharset !== true) {
-        encoding = getCharset(req) || options.defaultCharset;
-        if (!!options?.isValidCharset && !options.isValidCharset(encoding)) {
-          debug("invalid charset");
-          next(createError(415, 'unsupported charset "' + encoding.toUpperCase() + '"', {
-            charset: encoding,
-            type: "charset.unsupported"
-          }));
-          return;
-        }
-      }
-      let length;
-      const opts = options;
-      let stream;
-      const verify = opts.verify;
-      try {
-        stream = contentstream(req, debug, opts.inflate);
-        length = stream.length;
-        stream.length = void 0;
-      } catch (err) {
-        return next(err);
-      }
-      opts.length = length;
-      opts.encoding = verify ? null : encoding;
-      if (opts.encoding === null && encoding !== null && !iconv.encodingExists(encoding)) {
-        return next(createError(415, 'unsupported charset "' + encoding.toUpperCase() + '"', {
-          charset: encoding.toLowerCase(),
-          type: "charset.unsupported"
-        }));
-      }
-      debug("read body");
-      getBody(stream, opts, function(error62, body) {
-        if (error62) {
-          let _error;
-          if (error62.type === "encoding.unsupported") {
-            _error = createError(415, 'unsupported charset "' + encoding.toUpperCase() + '"', {
-              charset: encoding.toLowerCase(),
-              type: "charset.unsupported"
-            });
-          } else {
-            _error = createError(400, error62);
-          }
-          if (stream !== req) {
-            req.unpipe();
-            stream.destroy();
-          }
-          dump(req, function onfinished() {
-            next(createError(400, _error));
-          });
-          return;
-        }
-        if (verify) {
-          try {
-            debug("verify body");
-            verify(req, res, body, encoding);
-          } catch (err) {
-            next(createError(403, err, {
-              body,
-              type: err.type || "entity.verify.failed"
-            }));
-            return;
-          }
-        }
-        let str = body;
-        try {
-          debug("parse body");
-          str = typeof body !== "string" && encoding !== null ? iconv.decode(body, encoding) : body;
-          req.body = parse3(str, encoding);
-        } catch (err) {
-          next(createError(400, err, {
-            body: str,
-            type: err.type || "entity.parse.failed"
-          }));
-          return;
-        }
-        next();
-      });
-    }
-    function contentstream(req, debug, inflate) {
-      const encoding = (req.headers["content-encoding"] || "identity").toLowerCase();
-      const length = req.headers["content-length"];
-      debug('content-encoding "%s"', encoding);
-      if (inflate === false && encoding !== "identity") {
-        throw createError(415, "content encoding unsupported", {
-          encoding,
-          type: "encoding.unsupported"
-        });
-      }
-      if (encoding === "identity") {
-        req.length = length;
-        return req;
-      }
-      const stream = createDecompressionStream(encoding, debug);
-      req.pipe(stream);
-      return stream;
-    }
-    function createDecompressionStream(encoding, debug) {
-      switch (encoding) {
-        case "deflate":
-          debug("inflate body");
-          return zlib.createInflate();
-        case "gzip":
-          debug("gunzip body");
-          return zlib.createGunzip();
-        case "br":
-          debug("brotli decompress body");
-          return zlib.createBrotliDecompress();
-        default:
-          throw createError(415, 'unsupported content encoding "' + encoding + '"', {
-            encoding,
-            type: "encoding.unsupported"
-          });
-      }
-    }
-    function dump(req, callback) {
-      if (onFinished.isFinished(req)) {
-        callback(null);
-      } else {
-        onFinished(req, callback);
-        req.resume();
-      }
-    }
-  }
-});
-
 // node_modules/body-parser/lib/types/json.js
 var require_json = __commonJS({
   "node_modules/body-parser/lib/types/json.js"(exports, module) {
@@ -16210,7 +16216,7 @@ var require_json = __commonJS({
     var read = require_read();
     var { normalizeOptions } = require_utils();
     module.exports = json2;
-    var FIRST_CHAR_REGEXP = /^[\x20\x09\x0a\x0d]*([^\x20\x09\x0a\x0d])/;
+    var FIRST_NON_WHITESPACE_REGEXP = /^[\x20\x09\x0a\x0d]*([^\x20\x09\x0a\x0d]|$)/;
     var JSON_SYNTAX_CHAR = "#";
     var JSON_SYNTAX_REGEXP = /#+/g;
     function json2(options) {
@@ -16233,10 +16239,12 @@ var require_json = __commonJS({
           if (body.length === 0) {
             return {};
           }
-          const first = firstchar(body);
-          if (first !== "{" && first !== "[") {
-            debug("strict violation");
-            throw createStrictSyntaxError(body, first);
+          if (body[0] !== "{" && body[0] !== "[") {
+            const first = firstNonWhitespaceChar(body);
+            if (first !== "{" && first !== "[") {
+              debug("strict violation");
+              throw createStrictSyntaxError(body, first);
+            }
           }
           try {
             debug("parse json");
@@ -16282,9 +16290,9 @@ var require_json = __commonJS({
         });
       }
     }
-    function firstchar(str) {
-      const match = FIRST_CHAR_REGEXP.exec(str);
-      return match ? match[1] : void 0;
+    function firstNonWhitespaceChar(str) {
+      const match = FIRST_NON_WHITESPACE_REGEXP.exec(str);
+      return match && match[1] ? match[1] : void 0;
     }
     function normalizeJsonSyntaxError(error62, obj) {
       const keys = Object.getOwnPropertyNames(error62);
@@ -20497,7 +20505,7 @@ var require_utils3 = __commonJS({
     var proxyaddr = require_proxy_addr();
     var qs = require_lib2();
     var querystring = __require("node:querystring");
-    var { Buffer: Buffer2 } = __require("node:buffer");
+    var { Buffer: Buffer3 } = __require("node:buffer");
     exports.methods = METHODS.map((method) => method.toLowerCase());
     exports.etag = createETagGenerator({ weak: false });
     exports.wetag = createETagGenerator({ weak: true });
@@ -20601,7 +20609,7 @@ var require_utils3 = __commonJS({
     };
     function createETagGenerator(options) {
       return function generateETag(body, encoding) {
-        var buf = !Buffer2.isBuffer(body) ? Buffer2.from(body, encoding) : body;
+        var buf = !Buffer3.isBuffer(body) ? Buffer3.from(body, encoding) : body;
         return etag(buf, options);
       };
     }
@@ -22684,7 +22692,7 @@ var require_request = __commonJS({
   "node_modules/express/lib/request.js"(exports, module) {
     "use strict";
     var accepts = require_accepts();
-    var isIP = __require("node:net").isIP;
+    var isIP2 = __require("node:net").isIP;
     var typeis = require_type_is();
     var http = __require("node:http");
     var fresh = require_fresh();
@@ -22774,7 +22782,7 @@ var require_request = __commonJS({
       var hostname3 = this.hostname;
       if (!hostname3) return [];
       var offset = this.app.get("subdomain offset");
-      var subdomains2 = !isIP(hostname3) ? hostname3.split(".").reverse() : [hostname3];
+      var subdomains2 = !isIP2(hostname3) ? hostname3.split(".").reverse() : [hostname3];
       return subdomains2.slice(offset);
     });
     defineGetter(req, "path", function path6() {
@@ -23881,7 +23889,7 @@ var require_response = __commonJS({
     var resolve = path6.resolve;
     var basename = path6.basename;
     var vary = require_vary();
-    var { Buffer: Buffer2 } = __require("node:buffer");
+    var { Buffer: Buffer3 } = __require("node:buffer");
     var res = Object.create(http.ServerResponse.prototype);
     module.exports = res;
     res.status = function status(code) {
@@ -23941,12 +23949,12 @@ var require_response = __commonJS({
       var generateETag = !this.get("ETag") && typeof etagFn === "function";
       var len;
       if (chunk !== void 0) {
-        if (Buffer2.isBuffer(chunk)) {
+        if (Buffer3.isBuffer(chunk)) {
           len = chunk.length;
         } else if (!generateETag && chunk.length < 1e3) {
-          len = Buffer2.byteLength(chunk, encoding);
+          len = Buffer3.byteLength(chunk, encoding);
         } else {
-          chunk = Buffer2.from(chunk, encoding);
+          chunk = Buffer3.from(chunk, encoding);
           encoding = void 0;
           len = chunk.length;
         }
@@ -24211,7 +24219,7 @@ var require_response = __commonJS({
         }
       });
       this.status(status);
-      this.set("Content-Length", Buffer2.byteLength(body));
+      this.set("Content-Length", Buffer3.byteLength(body));
       if (this.req.method === "HEAD") {
         this.end();
       } else {
@@ -24760,33 +24768,33 @@ var require_lib3 = __commonJS({
 var require_safe_buffer = __commonJS({
   "node_modules/basic-auth/node_modules/safe-buffer/index.js"(exports, module) {
     var buffer = __require("buffer");
-    var Buffer2 = buffer.Buffer;
+    var Buffer3 = buffer.Buffer;
     function copyProps(src, dst) {
       for (var key in src) {
         dst[key] = src[key];
       }
     }
-    if (Buffer2.from && Buffer2.alloc && Buffer2.allocUnsafe && Buffer2.allocUnsafeSlow) {
+    if (Buffer3.from && Buffer3.alloc && Buffer3.allocUnsafe && Buffer3.allocUnsafeSlow) {
       module.exports = buffer;
     } else {
       copyProps(buffer, exports);
       exports.Buffer = SafeBuffer;
     }
     function SafeBuffer(arg, encodingOrOffset, length) {
-      return Buffer2(arg, encodingOrOffset, length);
+      return Buffer3(arg, encodingOrOffset, length);
     }
-    copyProps(Buffer2, SafeBuffer);
+    copyProps(Buffer3, SafeBuffer);
     SafeBuffer.from = function(arg, encodingOrOffset, length) {
       if (typeof arg === "number") {
         throw new TypeError("Argument must not be a number");
       }
-      return Buffer2(arg, encodingOrOffset, length);
+      return Buffer3(arg, encodingOrOffset, length);
     };
     SafeBuffer.alloc = function(size, fill, encoding) {
       if (typeof size !== "number") {
         throw new TypeError("Argument must be a number");
       }
-      var buf = Buffer2(size);
+      var buf = Buffer3(size);
       if (fill !== void 0) {
         if (typeof encoding === "string") {
           buf.fill(fill, encoding);
@@ -24802,7 +24810,7 @@ var require_safe_buffer = __commonJS({
       if (typeof size !== "number") {
         throw new TypeError("Argument must be a number");
       }
-      return Buffer2(size);
+      return Buffer3(size);
     };
     SafeBuffer.allocUnsafeSlow = function(size) {
       if (typeof size !== "number") {
@@ -24817,7 +24825,7 @@ var require_safe_buffer = __commonJS({
 var require_basic_auth = __commonJS({
   "node_modules/basic-auth/index.js"(exports, module) {
     "use strict";
-    var Buffer2 = require_safe_buffer().Buffer;
+    var Buffer3 = require_safe_buffer().Buffer;
     module.exports = auth;
     module.exports.parse = parse3;
     var CREDENTIALS_REGEXP = /^ *(?:[Bb][Aa][Ss][Ii][Cc]) +([A-Za-z0-9._~+/-]+=*) *$/;
@@ -24833,7 +24841,7 @@ var require_basic_auth = __commonJS({
       return parse3(header);
     }
     function decodeBase642(str) {
-      return Buffer2.from(str, "base64").toString();
+      return Buffer3.from(str, "base64").toString();
     }
     function getAuthorization(req) {
       if (!req.headers || typeof req.headers !== "object") {
@@ -25648,34 +25656,34 @@ var require_morgan = __commonJS({
 var require_safe_buffer2 = __commonJS({
   "node_modules/safe-buffer/index.js"(exports, module) {
     var buffer = __require("buffer");
-    var Buffer2 = buffer.Buffer;
+    var Buffer3 = buffer.Buffer;
     function copyProps(src, dst) {
       for (var key in src) {
         dst[key] = src[key];
       }
     }
-    if (Buffer2.from && Buffer2.alloc && Buffer2.allocUnsafe && Buffer2.allocUnsafeSlow) {
+    if (Buffer3.from && Buffer3.alloc && Buffer3.allocUnsafe && Buffer3.allocUnsafeSlow) {
       module.exports = buffer;
     } else {
       copyProps(buffer, exports);
       exports.Buffer = SafeBuffer;
     }
     function SafeBuffer(arg, encodingOrOffset, length) {
-      return Buffer2(arg, encodingOrOffset, length);
+      return Buffer3(arg, encodingOrOffset, length);
     }
-    SafeBuffer.prototype = Object.create(Buffer2.prototype);
-    copyProps(Buffer2, SafeBuffer);
+    SafeBuffer.prototype = Object.create(Buffer3.prototype);
+    copyProps(Buffer3, SafeBuffer);
     SafeBuffer.from = function(arg, encodingOrOffset, length) {
       if (typeof arg === "number") {
         throw new TypeError("Argument must not be a number");
       }
-      return Buffer2(arg, encodingOrOffset, length);
+      return Buffer3(arg, encodingOrOffset, length);
     };
     SafeBuffer.alloc = function(size, fill, encoding) {
       if (typeof size !== "number") {
         throw new TypeError("Argument must be a number");
       }
-      var buf = Buffer2(size);
+      var buf = Buffer3(size);
       if (fill !== void 0) {
         if (typeof encoding === "string") {
           buf.fill(fill, encoding);
@@ -25691,7 +25699,7 @@ var require_safe_buffer2 = __commonJS({
       if (typeof size !== "number") {
         throw new TypeError("Argument must be a number");
       }
-      return Buffer2(size);
+      return Buffer3(size);
     };
     SafeBuffer.allocUnsafeSlow = function(size) {
       if (typeof size !== "number") {
@@ -25705,7 +25713,7 @@ var require_safe_buffer2 = __commonJS({
 // node_modules/jws/lib/data-stream.js
 var require_data_stream = __commonJS({
   "node_modules/jws/lib/data-stream.js"(exports, module) {
-    var Buffer2 = require_safe_buffer2().Buffer;
+    var Buffer3 = require_safe_buffer2().Buffer;
     var Stream = __require("stream");
     var util = __require("util");
     function DataStream(data) {
@@ -25713,11 +25721,11 @@ var require_data_stream = __commonJS({
       this.writable = true;
       this.readable = true;
       if (!data) {
-        this.buffer = Buffer2.alloc(0);
+        this.buffer = Buffer3.alloc(0);
         return this;
       }
       if (typeof data.pipe === "function") {
-        this.buffer = Buffer2.alloc(0);
+        this.buffer = Buffer3.alloc(0);
         data.pipe(this);
         return this;
       }
@@ -25735,7 +25743,7 @@ var require_data_stream = __commonJS({
     }
     util.inherits(DataStream, Stream);
     DataStream.prototype.write = function write(data) {
-      this.buffer = Buffer2.concat([this.buffer, Buffer2.from(data)]);
+      this.buffer = Buffer3.concat([this.buffer, Buffer3.from(data)]);
       this.emit("data", data);
     };
     DataStream.prototype.end = function end(data) {
@@ -25778,7 +25786,7 @@ var require_param_bytes_for_alg = __commonJS({
 var require_ecdsa_sig_formatter = __commonJS({
   "node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js"(exports, module) {
     "use strict";
-    var Buffer2 = require_safe_buffer2().Buffer;
+    var Buffer3 = require_safe_buffer2().Buffer;
     var getParamBytesForAlg = require_param_bytes_for_alg();
     var MAX_OCTET = 128;
     var CLASS_UNIVERSAL = 0;
@@ -25791,10 +25799,10 @@ var require_ecdsa_sig_formatter = __commonJS({
       return base643.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
     }
     function signatureAsBuffer(signature) {
-      if (Buffer2.isBuffer(signature)) {
+      if (Buffer3.isBuffer(signature)) {
         return signature;
       } else if ("string" === typeof signature) {
-        return Buffer2.from(signature, "base64");
+        return Buffer3.from(signature, "base64");
       }
       throw new TypeError("ECDSA signature must be a Base64 string or a Buffer");
     }
@@ -25842,7 +25850,7 @@ var require_ecdsa_sig_formatter = __commonJS({
         throw new Error('Expected to consume entire buffer, but "' + (inputLength - offset) + '" bytes remain');
       }
       var rPadding = paramBytes - rLength, sPadding = paramBytes - sLength;
-      var dst = Buffer2.allocUnsafe(rPadding + rLength + sPadding + sLength);
+      var dst = Buffer3.allocUnsafe(rPadding + rLength + sPadding + sLength);
       for (offset = 0; offset < rPadding; ++offset) {
         dst[offset] = 0;
       }
@@ -25880,7 +25888,7 @@ var require_ecdsa_sig_formatter = __commonJS({
       var sLength = paramBytes - sPadding;
       var rsBytes = 1 + 1 + rLength + 1 + 1 + sLength;
       var shortLength = rsBytes < MAX_OCTET;
-      var dst = Buffer2.allocUnsafe((shortLength ? 2 : 3) + rsBytes);
+      var dst = Buffer3.allocUnsafe((shortLength ? 2 : 3) + rsBytes);
       var offset = 0;
       dst[offset++] = ENCODED_TAG_SEQ;
       if (shortLength) {
@@ -25918,11 +25926,11 @@ var require_ecdsa_sig_formatter = __commonJS({
 var require_buffer_equal_constant_time = __commonJS({
   "node_modules/buffer-equal-constant-time/index.js"(exports, module) {
     "use strict";
-    var Buffer2 = __require("buffer").Buffer;
+    var Buffer3 = __require("buffer").Buffer;
     var SlowBuffer = __require("buffer").SlowBuffer;
     module.exports = bufferEq;
     function bufferEq(a, b) {
-      if (!Buffer2.isBuffer(a) || !Buffer2.isBuffer(b)) {
+      if (!Buffer3.isBuffer(a) || !Buffer3.isBuffer(b)) {
         return false;
       }
       if (a.length !== b.length) {
@@ -25935,14 +25943,14 @@ var require_buffer_equal_constant_time = __commonJS({
       return c === 0;
     }
     bufferEq.install = function() {
-      Buffer2.prototype.equal = SlowBuffer.prototype.equal = function equal(that) {
+      Buffer3.prototype.equal = SlowBuffer.prototype.equal = function equal(that) {
         return bufferEq(this, that);
       };
     };
-    var origBufEqual = Buffer2.prototype.equal;
+    var origBufEqual = Buffer3.prototype.equal;
     var origSlowBufEqual = SlowBuffer.prototype.equal;
     bufferEq.restore = function() {
-      Buffer2.prototype.equal = origBufEqual;
+      Buffer3.prototype.equal = origBufEqual;
       SlowBuffer.prototype.equal = origSlowBufEqual;
     };
   }
@@ -25951,7 +25959,7 @@ var require_buffer_equal_constant_time = __commonJS({
 // node_modules/jwa/index.js
 var require_jwa = __commonJS({
   "node_modules/jwa/index.js"(exports, module) {
-    var Buffer2 = require_safe_buffer2().Buffer;
+    var Buffer3 = require_safe_buffer2().Buffer;
     var crypto3 = __require("crypto");
     var formatEcdsa = require_ecdsa_sig_formatter();
     var util = __require("util");
@@ -25965,7 +25973,7 @@ var require_jwa = __commonJS({
       MSG_INVALID_SECRET += "or a KeyObject";
     }
     function checkIsPublicKey(key) {
-      if (Buffer2.isBuffer(key)) {
+      if (Buffer3.isBuffer(key)) {
         return;
       }
       if (typeof key === "string") {
@@ -25988,7 +25996,7 @@ var require_jwa = __commonJS({
       }
     }
     function checkIsPrivateKey(key) {
-      if (Buffer2.isBuffer(key)) {
+      if (Buffer3.isBuffer(key)) {
         return;
       }
       if (typeof key === "string") {
@@ -26000,7 +26008,7 @@ var require_jwa = __commonJS({
       throw typeError(MSG_INVALID_SIGNER_KEY);
     }
     function checkIsSecretKey(key) {
-      if (Buffer2.isBuffer(key)) {
+      if (Buffer3.isBuffer(key)) {
         return;
       }
       if (typeof key === "string") {
@@ -26038,7 +26046,7 @@ var require_jwa = __commonJS({
       return new TypeError(errMsg);
     }
     function bufferOrString(obj) {
-      return Buffer2.isBuffer(obj) || typeof obj === "string";
+      return Buffer3.isBuffer(obj) || typeof obj === "string";
     }
     function normalizeInput(thing) {
       if (!bufferOrString(thing))
@@ -26069,7 +26077,7 @@ var require_jwa = __commonJS({
     function createHmacVerifier(bits) {
       return function verify(thing, signature, secret) {
         var computedSig = createHmacSigner(bits)(thing, secret);
-        return timingSafeEqual(Buffer2.from(signature), Buffer2.from(computedSig));
+        return timingSafeEqual(Buffer3.from(signature), Buffer3.from(computedSig));
       };
     }
     function createKeySigner(bits) {
@@ -26175,11 +26183,11 @@ var require_jwa = __commonJS({
 // node_modules/jws/lib/tostring.js
 var require_tostring = __commonJS({
   "node_modules/jws/lib/tostring.js"(exports, module) {
-    var Buffer2 = __require("buffer").Buffer;
+    var Buffer3 = __require("buffer").Buffer;
     module.exports = function toString(obj) {
       if (typeof obj === "string")
         return obj;
-      if (typeof obj === "number" || Buffer2.isBuffer(obj))
+      if (typeof obj === "number" || Buffer3.isBuffer(obj))
         return obj.toString();
       return JSON.stringify(obj);
     };
@@ -26189,14 +26197,14 @@ var require_tostring = __commonJS({
 // node_modules/jws/lib/sign-stream.js
 var require_sign_stream = __commonJS({
   "node_modules/jws/lib/sign-stream.js"(exports, module) {
-    var Buffer2 = require_safe_buffer2().Buffer;
+    var Buffer3 = require_safe_buffer2().Buffer;
     var DataStream = require_data_stream();
     var jwa = require_jwa();
     var Stream = __require("stream");
     var toString = require_tostring();
     var util = __require("util");
     function base64url3(string4, encoding) {
-      return Buffer2.from(string4, encoding).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+      return Buffer3.from(string4, encoding).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
     }
     function jwsSecuredInput(header, payload, encoding) {
       encoding = encoding || "utf8";
@@ -26264,7 +26272,7 @@ var require_sign_stream = __commonJS({
 // node_modules/jws/lib/verify-stream.js
 var require_verify_stream = __commonJS({
   "node_modules/jws/lib/verify-stream.js"(exports, module) {
-    var Buffer2 = require_safe_buffer2().Buffer;
+    var Buffer3 = require_safe_buffer2().Buffer;
     var DataStream = require_data_stream();
     var jwa = require_jwa();
     var Stream = __require("stream");
@@ -26285,7 +26293,7 @@ var require_verify_stream = __commonJS({
     }
     function headerFromJWS(jwsSig) {
       var encodedHeader = jwsSig.split(".", 1)[0];
-      return safeJsonParse(Buffer2.from(encodedHeader, "base64").toString("binary"));
+      return safeJsonParse(Buffer3.from(encodedHeader, "base64").toString("binary"));
     }
     function securedInputFromJWS(jwsSig) {
       return jwsSig.split(".", 2).join(".");
@@ -26296,7 +26304,7 @@ var require_verify_stream = __commonJS({
     function payloadFromJWS(jwsSig, encoding) {
       encoding = encoding || "utf8";
       var payload = jwsSig.split(".")[1];
-      return Buffer2.from(payload, "base64").toString(encoding);
+      return Buffer3.from(payload, "base64").toString(encoding);
     }
     function isValidJws(string4) {
       return JWS_REGEX.test(string4) && !!headerFromJWS(string4);
@@ -26413,9 +26421,9 @@ var require_jws = __commonJS({
 var require_decode = __commonJS({
   "node_modules/jsonwebtoken/decode.js"(exports, module) {
     var jws = require_jws();
-    module.exports = function(jwt6, options) {
+    module.exports = function(jwt7, options) {
       options = options || {};
-      var decoded = jws.decode(jwt6, options);
+      var decoded = jws.decode(jwt7, options);
       if (!decoded) {
         return null;
       }
@@ -26646,7 +26654,7 @@ var require_parse_options = __commonJS({
     "use strict";
     var looseOption = Object.freeze({ loose: true });
     var emptyOpts = Object.freeze({});
-    var parseOptions = (options) => {
+    var parseOptions2 = (options) => {
       if (!options) {
         return emptyOpts;
       }
@@ -26655,7 +26663,7 @@ var require_parse_options = __commonJS({
       }
       return options;
     };
-    module.exports = parseOptions;
+    module.exports = parseOptions2;
   }
 });
 
@@ -26691,7 +26699,7 @@ var require_semver = __commonJS({
     var debug = require_debug2();
     var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants();
     var { safeRe: re, t } = require_re();
-    var parseOptions = require_parse_options();
+    var parseOptions2 = require_parse_options();
     var { compareIdentifiers } = require_identifiers();
     var isPrereleaseIdentifier = (prerelease, identifier) => {
       const identifiers = identifier.split(".");
@@ -26707,7 +26715,7 @@ var require_semver = __commonJS({
     };
     var SemVer = class _SemVer {
       constructor(version4, options) {
-        options = parseOptions(options);
+        options = parseOptions2(options);
         if (version4 instanceof _SemVer) {
           if (version4.loose === !!options.loose && version4.includePrerelease === !!options.includePrerelease) {
             return version4;
@@ -27441,7 +27449,7 @@ var require_range2 = __commonJS({
     var SPACE_CHARACTERS = /\s+/g;
     var Range = class _Range {
       constructor(range, options) {
-        options = parseOptions(options);
+        options = parseOptions2(options);
         if (range instanceof _Range) {
           if (range.loose === !!options.loose && range.includePrerelease === !!options.includePrerelease) {
             return range;
@@ -27581,7 +27589,7 @@ var require_range2 = __commonJS({
     module.exports = Range;
     var LRU = require_lrucache();
     var cache = new LRU();
-    var parseOptions = require_parse_options();
+    var parseOptions2 = require_parse_options();
     var Comparator = require_comparator();
     var debug = require_debug2();
     var SemVer = require_semver();
@@ -27829,7 +27837,7 @@ var require_comparator = __commonJS({
         return ANY;
       }
       constructor(comp, options) {
-        options = parseOptions(options);
+        options = parseOptions2(options);
         if (comp instanceof _Comparator) {
           if (comp.loose === !!options.loose) {
             return comp;
@@ -27897,7 +27905,7 @@ var require_comparator = __commonJS({
           }
           return new Range(this.value, options).test(comp.semver);
         }
-        options = parseOptions(options);
+        options = parseOptions2(options);
         if (options.includePrerelease && (this.value === "<0.0.0-0" || comp.value === "<0.0.0-0")) {
           return false;
         }
@@ -27923,7 +27931,7 @@ var require_comparator = __commonJS({
       }
     };
     module.exports = Comparator;
-    var parseOptions = require_parse_options();
+    var parseOptions2 = require_parse_options();
     var { safeRe: re, t } = require_re();
     var cmp = require_cmp();
     var debug = require_debug2();
@@ -29457,6 +29465,2340 @@ var require_jsonwebtoken = __commonJS({
   }
 });
 
+// node_modules/ip-address/dist/address-error.js
+var require_address_error = __commonJS({
+  "node_modules/ip-address/dist/address-error.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.AddressError = void 0;
+    var AddressError = class extends Error {
+      constructor(message, parseMessage) {
+        super(message);
+        this.name = "AddressError";
+        this.parseMessage = parseMessage;
+      }
+    };
+    exports.AddressError = AddressError;
+  }
+});
+
+// node_modules/ip-address/dist/common.js
+var require_common2 = __commonJS({
+  "node_modules/ip-address/dist/common.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.isInSubnet = isInSubnet;
+    exports.isHostInSubnet = isHostInSubnet;
+    exports.isGloballyReachable = isGloballyReachable;
+    exports.offsetBigInt = offsetBigInt;
+    exports.isCorrect = isCorrect;
+    exports.prefixLengthFromMask = prefixLengthFromMask;
+    exports.assertByteArray = assertByteArray;
+    exports.numberToPaddedHex = numberToPaddedHex;
+    exports.stringToPaddedHex = stringToPaddedHex;
+    exports.testBit = testBit;
+    var address_error_1 = require_address_error();
+    function isInSubnet(address) {
+      if (this.subnetMask < address.subnetMask) {
+        return false;
+      }
+      return isHostInSubnet.call(this, address);
+    }
+    function isHostInSubnet(address) {
+      if (this.binaryZeroPad().length !== address.binaryZeroPad().length) {
+        return false;
+      }
+      return this.mask(address.subnetMask) === address.mask();
+    }
+    function isGloballyReachable(entries) {
+      let best = null;
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        if (entry.reachable !== null && isHostInSubnet.call(this, entry.subnet) && (best === null || entry.subnet.subnetMask > best.subnet.subnetMask)) {
+          best = entry;
+        }
+      }
+      return best === null ? true : best.reachable;
+    }
+    function offsetBigInt(value, n, bits, family) {
+      if (typeof n === "number" && !Number.isSafeInteger(n)) {
+        throw new address_error_1.AddressError(`${family} offset must be an integer`);
+      }
+      if (typeof n !== "number" && typeof n !== "bigint") {
+        throw new address_error_1.AddressError(`${family} offset must be an integer`);
+      }
+      const result = value + BigInt(n);
+      if (result < BigInt(0) || result > (BigInt(1) << BigInt(bits)) - BigInt(1)) {
+        throw new address_error_1.AddressError(`${family} offset leaves the address space`);
+      }
+      return result;
+    }
+    function isCorrect(defaultBits) {
+      return function isCorrectForm() {
+        if (this.addressMinusSuffix !== this.correctForm()) {
+          return false;
+        }
+        if (this.subnetMask === defaultBits && !this.parsedSubnet) {
+          return true;
+        }
+        return this.parsedSubnet === String(this.subnetMask);
+      };
+    }
+    function prefixLengthFromMask(value, totalBits) {
+      const binary = value.toString(2).padStart(totalBits, "0");
+      if (binary.length > totalBits) {
+        throw new address_error_1.AddressError("Invalid subnet mask.");
+      }
+      const firstZero = binary.indexOf("0");
+      if (firstZero === -1) {
+        return totalBits;
+      }
+      if (binary.slice(firstZero).includes("1")) {
+        throw new address_error_1.AddressError("Invalid subnet mask.");
+      }
+      return firstZero;
+    }
+    function assertByteArray(bytes, byteCount, family, minimum) {
+      if (bytes.length !== byteCount) {
+        throw new address_error_1.AddressError(`${family} addresses require exactly ${byteCount} bytes`);
+      }
+      for (let i = 0; i < bytes.length; i++) {
+        if (!Number.isInteger(bytes[i]) || bytes[i] < minimum || bytes[i] > 255) {
+          throw new address_error_1.AddressError(`All bytes must be integers between ${minimum} and 255`);
+        }
+      }
+    }
+    function numberToPaddedHex(number4) {
+      return number4.toString(16).padStart(2, "0");
+    }
+    function stringToPaddedHex(numberString) {
+      return numberToPaddedHex(parseInt(numberString, 10));
+    }
+    function testBit(binaryValue, position) {
+      const { length } = binaryValue;
+      if (position >= length) {
+        return false;
+      }
+      const positionInString = length - position - 1;
+      return binaryValue.substring(positionInString, positionInString + 1) === "1";
+    }
+  }
+});
+
+// node_modules/ip-address/dist/v4/constants.js
+var require_constants2 = __commonJS({
+  "node_modules/ip-address/dist/v4/constants.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.SPECIAL_PURPOSE = exports.RE_SUBNET_STRING = exports.RE_ADDRESS = exports.GROUPS = exports.BITS = void 0;
+    exports.BITS = 32;
+    exports.GROUPS = 4;
+    exports.RE_ADDRESS = /^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$/g;
+    exports.RE_SUBNET_STRING = /\/\d{1,2}$/;
+    exports.SPECIAL_PURPOSE = [
+      ["0.0.0.0/8", "This network", false],
+      ["0.0.0.0/32", "This host on this network", false],
+      ["10.0.0.0/8", "Private-Use", false],
+      ["100.64.0.0/10", "Shared Address Space", false],
+      ["127.0.0.0/8", "Loopback", false],
+      ["169.254.0.0/16", "Link Local", false],
+      ["172.16.0.0/12", "Private-Use", false],
+      ["192.0.0.0/24", "IETF Protocol Assignments", false],
+      ["192.0.0.0/29", "IPv4 Service Continuity Prefix", false],
+      ["192.0.0.8/32", "IPv4 dummy address", false],
+      ["192.0.0.9/32", "Port Control Protocol Anycast", true],
+      ["192.0.0.10/32", "Traversal Using Relays around NAT Anycast", true],
+      ["192.0.0.170/32", "NAT64/DNS64 Discovery", false],
+      ["192.0.0.171/32", "NAT64/DNS64 Discovery", false],
+      ["192.0.2.0/24", "Documentation (TEST-NET-1)", false],
+      ["192.31.196.0/24", "AS112-v4", true],
+      ["192.52.193.0/24", "AMT", true],
+      ["192.88.99.0/24", "Deprecated (6to4 Relay Anycast)", null],
+      ["192.88.99.2/32", "6a44-relay anycast address", false],
+      ["192.168.0.0/16", "Private-Use", false],
+      ["192.175.48.0/24", "Direct Delegation AS112 Service", true],
+      ["198.18.0.0/15", "Benchmarking", false],
+      ["198.51.100.0/24", "Documentation (TEST-NET-2)", false],
+      ["203.0.113.0/24", "Documentation (TEST-NET-3)", false],
+      ["240.0.0.0/4", "Reserved", false],
+      ["255.255.255.255/32", "Limited Broadcast", false]
+    ];
+  }
+});
+
+// node_modules/ip-address/dist/ipv4.js
+var require_ipv4 = __commonJS({
+  "node_modules/ip-address/dist/ipv4.js"(exports) {
+    "use strict";
+    var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault2 = exports && exports.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar2 = exports && exports.__importStar || function(mod) {
+      if (mod && mod.__esModule) return mod;
+      var result = {};
+      if (mod != null) {
+        for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding2(result, mod, k);
+      }
+      __setModuleDefault2(result, mod);
+      return result;
+    };
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.Address4 = void 0;
+    var common = __importStar2(require_common2());
+    var constants = __importStar2(require_constants2());
+    var address_error_1 = require_address_error();
+    var isCorrect4 = common.isCorrect(constants.BITS);
+    var Address4 = class _Address4 {
+      constructor(address) {
+        this.addressMinusSuffix = "";
+        this.groups = constants.GROUPS;
+        this.parsedAddress = [];
+        this.parsedSubnet = "";
+        this.subnet = "/32";
+        this.subnetMask = 32;
+        this.v4 = true;
+        this.isCorrect = isCorrect4;
+        this.isInSubnet = common.isInSubnet;
+        this.isHostInSubnet = common.isHostInSubnet;
+        this.address = address;
+        const subnet = constants.RE_SUBNET_STRING.exec(address);
+        if (subnet) {
+          this.parsedSubnet = subnet[0].replace("/", "");
+          this.subnetMask = parseInt(this.parsedSubnet, 10);
+          this.subnet = `/${this.subnetMask}`;
+          if (this.subnetMask < 0 || this.subnetMask > constants.BITS) {
+            throw new address_error_1.AddressError("Invalid subnet mask.");
+          }
+          address = address.replace(constants.RE_SUBNET_STRING, "");
+        }
+        const longest = constants.GROUPS * 4 - 1;
+        if (address.length > longest) {
+          throw new address_error_1.AddressError(`IPv4 addresses are at most ${longest} characters.`);
+        }
+        this.addressMinusSuffix = address;
+        this.parsedAddress = this.parse(address);
+      }
+      /**
+       * Returns true if the given string is a valid IPv4 address (with optional
+       * CIDR subnet), false otherwise. Host bits in the subnet portion are
+       * allowed (e.g. `192.168.1.5/24` is valid); for strict network-address
+       * validation compare `correctForm()` to `startAddress().correctForm()`,
+       * or use `networkForm()`.
+       */
+      static isValid(address) {
+        try {
+          new _Address4(address);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      /**
+       * Parses an IPv4 address string into its four octet groups and stores the
+       * result on `this.parsedAddress`. Called automatically by the constructor;
+       * you typically don't need to call it directly. Throws `AddressError` if
+       * the input is not a valid IPv4 address.
+       */
+      parse(address) {
+        const groups = address.split(".");
+        if (groups.some((group) => /^0\d/.test(group))) {
+          throw new address_error_1.AddressError("IPv4 addresses can't have leading zeroes.");
+        }
+        if (!address.match(constants.RE_ADDRESS)) {
+          throw new address_error_1.AddressError("Invalid IPv4 address.");
+        }
+        return groups;
+      }
+      /**
+       * Returns the address in correct form: octets joined with `.` and any
+       * leading zeros stripped (e.g. `192.168.1.1`). For IPv4 this matches the
+       * canonical dotted-decimal representation.
+       */
+      correctForm() {
+        return this.parsedAddress.map((part) => parseInt(part, 10)).join(".");
+      }
+      /**
+       * Construct an `Address4` from an address and a dotted-decimal subnet
+       * mask given as separate strings (e.g. as returned by Node's
+       * `os.networkInterfaces()`). Throws `AddressError` if the mask is
+       * non-contiguous (e.g. `255.0.255.0`).
+       * @example
+       * var address = Address4.fromAddressAndMask('192.168.1.1', '255.255.255.0');
+       * address.subnetMask; // 24
+       */
+      static fromAddressAndMask(address, mask) {
+        const bits = common.prefixLengthFromMask(new _Address4(mask).bigInt(), constants.BITS);
+        return new _Address4(`${address}/${bits}`);
+      }
+      /**
+       * Construct an `Address4` from an address and a Cisco-style wildcard mask
+       * given as separate strings (e.g. `0.0.0.255` for a `/24`). The wildcard
+       * mask is the bitwise inverse of the subnet mask. Throws `AddressError`
+       * if the mask is non-contiguous (e.g. `0.255.0.255`).
+       * @example
+       * var address = Address4.fromAddressAndWildcardMask('10.0.0.1', '0.0.0.255');
+       * address.subnetMask; // 24
+       */
+      static fromAddressAndWildcardMask(address, wildcardMask) {
+        const wildcard = new _Address4(wildcardMask).bigInt();
+        const allOnes = (BigInt(1) << BigInt(constants.BITS)) - BigInt(1);
+        const mask = wildcard ^ allOnes;
+        const bits = common.prefixLengthFromMask(mask, constants.BITS);
+        return new _Address4(`${address}/${bits}`);
+      }
+      /**
+       * Construct an `Address4` from a wildcard pattern with trailing `*`
+       * octets. The number of trailing wildcards determines the prefix
+       * length: each `*` represents 8 bits.
+       *
+       * Only trailing whole-octet wildcards are supported. Partial-octet
+       * wildcards (e.g. `192.168.0.1*`) and interior wildcards (e.g.
+       * `192.*.0.1`) throw `AddressError`.
+       * @example
+       * Address4.fromWildcard('192.168.0.*').subnet;   // '/24'
+       * Address4.fromWildcard('192.168.*.*').subnet;   // '/16'
+       * Address4.fromWildcard('*.*.*.*').subnet;       // '/0'
+       */
+      static fromWildcard(input2) {
+        const groups = input2.split(".");
+        if (groups.length !== constants.GROUPS) {
+          throw new address_error_1.AddressError("Wildcard pattern must have 4 octets");
+        }
+        let firstWildcard = -1;
+        for (let i = 0; i < groups.length; i++) {
+          if (groups[i] === "*") {
+            if (firstWildcard === -1) {
+              firstWildcard = i;
+            }
+          } else if (firstWildcard !== -1) {
+            throw new address_error_1.AddressError("Wildcard `*` must only appear in trailing octets (e.g. `192.168.0.*`)");
+          }
+        }
+        const trailing = firstWildcard === -1 ? 0 : groups.length - firstWildcard;
+        const replaced = groups.map((g) => g === "*" ? "0" : g);
+        const subnetBits = constants.BITS - trailing * 8;
+        return new _Address4(`${replaced.join(".")}/${subnetBits}`);
+      }
+      /**
+       * Converts a hex string to an IPv4 address object. Accepts 8 hex digits
+       * with optional `:` separators (e.g. `'7f000001'` or `'7f:00:00:01'`).
+       * Throws `AddressError` for any other length or for non-hex characters.
+       * @param {string} hex - a hex string to convert
+       * @returns {Address4}
+       */
+      static fromHex(hex3) {
+        const stripped = hex3.replace(/:/g, "");
+        if (!/^[0-9a-fA-F]{8}$/.test(stripped)) {
+          throw new address_error_1.AddressError("IPv4 hex must be exactly 8 hex digits");
+        }
+        const groups = [];
+        for (let i = 0; i < 8; i += 2) {
+          groups.push(parseInt(stripped.slice(i, i + 2), 16));
+        }
+        return new _Address4(groups.join("."));
+      }
+      /**
+       * Converts an integer into a IPv4 address object. The integer must be a
+       * non-negative safe integer in the range `[0, 2**32 - 1]`; otherwise
+       * `AddressError` is thrown.
+       * @param {integer} integer - a number to convert
+       * @returns {Address4}
+       */
+      static fromInteger(integer2) {
+        if (!Number.isInteger(integer2) || integer2 < 0 || integer2 > 4294967295) {
+          throw new address_error_1.AddressError("IPv4 integer must be in the range 0 to 2**32 - 1");
+        }
+        return _Address4.fromHex(integer2.toString(16).padStart(8, "0"));
+      }
+      /**
+       * Return an address from in-addr.arpa form: the four octets reversed, with
+       * or without the `.in-addr.arpa` suffix and root dot, in any case. Throws
+       * `AddressError` unless the reversed labels form a valid IPv4 address, so
+       * `fromArpa(x.reverseForm())` round-trips {@link reverseForm}.
+       * @param {string} arpaFormAddress - an 'in-addr.arpa' form ipv4 address
+       * @returns {Adress4}
+       * @example
+       * var address = Address4.fromArpa('42.2.0.192.in-addr.arpa.')
+       * address.correctForm(); // '192.0.2.42'
+       */
+      static fromArpa(arpaFormAddress) {
+        const longest = constants.GROUPS * 4 - 1 + "/32".length + ".in-addr.arpa.".length;
+        if (arpaFormAddress.length > longest) {
+          throw new address_error_1.AddressError(`in-addr.arpa names are at most ${longest} characters.`);
+        }
+        const leader = arpaFormAddress.replace(/(\.in-addr\.arpa)?\.?$/i, "");
+        const address = leader.split(".").reverse().join(".");
+        return new _Address4(address);
+      }
+      /**
+       * Converts an IPv4 address object to a hex string
+       * @returns {String}
+       */
+      toHex() {
+        return this.parsedAddress.map((part) => common.stringToPaddedHex(part)).join(":");
+      }
+      /**
+       * Converts an IPv4 address object to an array of bytes.
+       *
+       * To get a Node.js `Buffer`, wrap the result: `Buffer.from(address.toArray())`.
+       * @returns {Array}
+       */
+      toArray() {
+        return this.parsedAddress.map((part) => parseInt(part, 10));
+      }
+      /**
+       * Converts an IPv4 address object to an IPv6 address group
+       * @returns {String}
+       */
+      toGroup6() {
+        const output2 = [];
+        let i;
+        for (i = 0; i < constants.GROUPS; i += 2) {
+          output2.push(`${common.stringToPaddedHex(this.parsedAddress[i])}${common.stringToPaddedHex(this.parsedAddress[i + 1])}`);
+        }
+        return output2.join(":");
+      }
+      /**
+       * Returns the address as a `bigint`
+       * @returns {bigint}
+       */
+      bigInt() {
+        return BigInt(`0x${this.parsedAddress.map((n) => common.stringToPaddedHex(n)).join("")}`);
+      }
+      /**
+       * Helper function getting start address.
+       * @returns {bigint}
+       */
+      _startAddress() {
+        return BigInt(`0b${this.mask() + "0".repeat(constants.BITS - this.subnetMask)}`);
+      }
+      /**
+       * The first address in the range given by this address' subnet.
+       * Often referred to as the Network Address.
+       * @returns {Address4}
+       */
+      startAddress() {
+        return _Address4.fromBigInt(this._startAddress());
+      }
+      /**
+       * The first host address in the range given by this address's subnet ie
+       * the first address after the Network Address
+       * @returns {Address4}
+       */
+      startAddressExclusive() {
+        const adjust = BigInt("1");
+        return _Address4.fromBigInt(this._startAddress() + adjust);
+      }
+      /**
+       * Returns the address `n` addresses after this one (or before, when `n` is
+       * negative), keeping this address's subnet mask. Throws `AddressError` when
+       * the result would fall outside the IPv4 address space or `n` is not an
+       * integer.
+       * @param {number | bigint} n
+       * @returns {Address4}
+       * @example
+       * new Address4('10.0.0.0/24').offset(1).correctForm(); // '10.0.0.1'
+       */
+      offset(n) {
+        return _Address4.fromBigInt(common.offsetBigInt(this.bigInt(), n, constants.BITS, "IPv4")).withSubnetMask(this.subnetMask);
+      }
+      /**
+       * Returns the network that follows this address's network: the address after
+       * {@link endAddress}, with the same subnet mask. Throws `AddressError` when
+       * this network is the last one in the address space.
+       * @returns {Address4}
+       * @example
+       * new Address4('10.0.0.0/24').nextNetwork().networkForm(); // '10.0.1.0/24'
+       */
+      nextNetwork() {
+        return _Address4.fromBigInt(common.offsetBigInt(this._endAddress(), 1, constants.BITS, "IPv4")).withSubnetMask(this.subnetMask);
+      }
+      withSubnetMask(subnetMask) {
+        return new _Address4(`${this.correctForm()}/${subnetMask}`);
+      }
+      /**
+       * Helper function getting end address.
+       * @returns {bigint}
+       */
+      _endAddress() {
+        return BigInt(`0b${this.mask() + "1".repeat(constants.BITS - this.subnetMask)}`);
+      }
+      /**
+       * The last address in the range given by this address' subnet
+       * Often referred to as the Broadcast
+       * @returns {Address4}
+       */
+      endAddress() {
+        return _Address4.fromBigInt(this._endAddress());
+      }
+      /**
+       * The last host address in the range given by this address's subnet ie
+       * the last address prior to the Broadcast Address
+       * @returns {Address4}
+       */
+      endAddressExclusive() {
+        const adjust = BigInt("1");
+        return _Address4.fromBigInt(this._endAddress() - adjust);
+      }
+      /**
+       * The dotted-decimal form of the subnet mask, e.g. `255.255.240.0` for
+       * a `/20`. Returns an `Address4`; call `.correctForm()` for the string.
+       * @returns {Address4}
+       */
+      subnetMaskAddress() {
+        return _Address4.fromBigInt(BigInt(`0b${"1".repeat(this.subnetMask)}${"0".repeat(constants.BITS - this.subnetMask)}`));
+      }
+      /**
+       * The Cisco-style wildcard mask, e.g. `0.0.0.255` for a `/24`. This is
+       * the bitwise inverse of `subnetMaskAddress()`. Returns an `Address4`;
+       * call `.correctForm()` for the string.
+       * @returns {Address4}
+       */
+      wildcardMask() {
+        return _Address4.fromBigInt(BigInt(`0b${"0".repeat(this.subnetMask)}${"1".repeat(constants.BITS - this.subnetMask)}`));
+      }
+      /**
+       * The network address in CIDR string form, e.g. `192.168.1.0/24` for
+       * `192.168.1.5/24`. For an address with no explicit subnet the prefix is
+       * `/32`, e.g. `networkForm()` on `192.168.1.5` returns `192.168.1.5/32`.
+       * @returns {string}
+       */
+      networkForm() {
+        return `${this.startAddress().correctForm()}/${this.subnetMask}`;
+      }
+      /**
+       * Converts a BigInt to a v4 address object. The value must be in the
+       * range `[0, 2**32 - 1]`; otherwise `AddressError` is thrown.
+       * @param {bigint} bigInt - a BigInt to convert
+       * @returns {Address4}
+       */
+      static fromBigInt(bigInt) {
+        if (bigInt < BigInt(0) || bigInt > BigInt(4294967295)) {
+          throw new address_error_1.AddressError("IPv4 BigInt must be in the range 0 to 2**32 - 1");
+        }
+        return _Address4.fromHex(bigInt.toString(16).padStart(8, "0"));
+      }
+      /**
+       * Convert a byte array to an Address4 object. Throws `AddressError` unless
+       * given exactly 4 integers from 0 to 255. Signed bytes are rejected, so
+       * this differs from `Address6.fromByteArray`, which folds them; the two
+       * contracts converge on this stricter form in the next major version.
+       *
+       * To convert from a Node.js `Buffer`, spread it: `Address4.fromByteArray([...buf])`.
+       * @param {Array<number>} bytes - an array of 4 bytes (0-255)
+       * @returns {Address4}
+       */
+      static fromByteArray(bytes) {
+        common.assertByteArray(bytes, 4, "IPv4", 0);
+        return this.fromUnsignedByteArray(bytes);
+      }
+      /**
+       * Convert an unsigned byte array to an Address4 object. Throws
+       * `AddressError` unless given exactly 4 bytes, and rejects values outside
+       * 0 to 255 when parsing the resulting address.
+       *
+       * To convert from a Node.js `Buffer`, spread it:
+       * `Address4.fromUnsignedByteArray([...buf])`.
+       * @param {Array<number>} bytes - an array of 4 unsigned bytes (0-255)
+       * @returns {Address4}
+       */
+      static fromUnsignedByteArray(bytes) {
+        if (bytes.length !== 4) {
+          throw new address_error_1.AddressError("IPv4 addresses require exactly 4 bytes");
+        }
+        const address = bytes.join(".");
+        return new _Address4(address);
+      }
+      /**
+       * Returns the first n bits of the address, defaulting to the
+       * subnet mask
+       * @returns {String}
+       */
+      mask(mask) {
+        if (mask === void 0) {
+          mask = this.subnetMask;
+        }
+        return this.getBitsBase2(0, mask);
+      }
+      /**
+       * Returns the bits in the given range as a base-2 string
+       * @returns {string}
+       */
+      getBitsBase2(start, end) {
+        return this.binaryZeroPad().slice(start, end);
+      }
+      /**
+       * Return the reversed in-addr.arpa form of the address, e.g.
+       * `42.2.0.192.in-addr.arpa.` for `192.0.2.42`.
+       * @param {Object} options
+       * @param {boolean} options.omitSuffix - omit the "in-addr.arpa" suffix
+       * @returns {String}
+       */
+      reverseForm(options) {
+        if (!options) {
+          options = {};
+        }
+        const reversed = this.correctForm().split(".").reverse().join(".");
+        if (options.omitSuffix) {
+          return reversed;
+        }
+        return `${reversed}.in-addr.arpa.`;
+      }
+      /**
+       * Returns true if the given address is a multicast address
+       * @returns {boolean}
+       */
+      isMulticast() {
+        return this.isHostInSubnet(MULTICAST_V4);
+      }
+      /**
+       * Returns true if the address is in one of the [RFC 1918](https://datatracker.ietf.org/doc/html/rfc1918) private address ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`).
+       * @returns {boolean}
+       */
+      isPrivate() {
+        return PRIVATE_V4.some((subnet) => this.isHostInSubnet(subnet));
+      }
+      /**
+       * Returns true if the address is in the loopback range `127.0.0.0/8` ([RFC 1122](https://datatracker.ietf.org/doc/html/rfc1122)).
+       * @returns {boolean}
+       */
+      isLoopback() {
+        return this.isHostInSubnet(LOOPBACK_V4);
+      }
+      /**
+       * Returns true if the address is in the link-local range `169.254.0.0/16` ([RFC 3927](https://datatracker.ietf.org/doc/html/rfc3927)).
+       * @returns {boolean}
+       */
+      isLinkLocal() {
+        return this.isHostInSubnet(LINK_LOCAL_V4);
+      }
+      /**
+       * Returns true if the address is the unspecified address `0.0.0.0`.
+       * @returns {boolean}
+       */
+      isUnspecified() {
+        return this.isHostInSubnet(UNSPECIFIED_V4);
+      }
+      /**
+       * Returns true if the address is the limited broadcast address `255.255.255.255` ([RFC 919](https://datatracker.ietf.org/doc/html/rfc919)).
+       * @returns {boolean}
+       */
+      isBroadcast() {
+        return this.isHostInSubnet(BROADCAST_V4);
+      }
+      /**
+       * Returns true if the address is in the carrier-grade NAT range `100.64.0.0/10` ([RFC 6598](https://datatracker.ietf.org/doc/html/rfc6598)).
+       * @returns {boolean}
+       */
+      isCGNAT() {
+        return this.isHostInSubnet(CGNAT_V4);
+      }
+      /**
+       * Returns true if the address is in one of the documentation ranges
+       * `192.0.2.0/24`, `198.51.100.0/24`, or `203.0.113.0/24` ([RFC 5737](https://datatracker.ietf.org/doc/html/rfc5737)).
+       * @returns {boolean}
+       */
+      isDocumentation() {
+        return DOCUMENTATION_V4.some((subnet) => this.isHostInSubnet(subnet));
+      }
+      /**
+       * Returns true if the address is in the benchmarking range `198.18.0.0/15` ([RFC 2544](https://datatracker.ietf.org/doc/html/rfc2544)).
+       * @returns {boolean}
+       */
+      isBenchmarking() {
+        return this.isHostInSubnet(BENCHMARKING_V4);
+      }
+      /**
+       * Returns true if the address is in the reserved range `240.0.0.0/4` ([RFC 1112](https://datatracker.ietf.org/doc/html/rfc1112)),
+       * which includes the limited broadcast address.
+       * @returns {boolean}
+       */
+      isReserved() {
+        return this.isHostInSubnet(RESERVED_V4);
+      }
+      /**
+       * Returns true if the address is globally reachable: not multicast, and not
+       * in any block the [IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/)
+       * marks as not globally reachable. That covers everything the individual
+       * classifiers name (private, loopback, link-local, CGNAT, unspecified,
+       * broadcast, documentation, benchmarking, reserved) and the blocks they do
+       * not, such as `0.0.0.0/8` and the IETF protocol assignments in
+       * `192.0.0.0/24`. This is the single predicate to use where a request must
+       * not reach an internal or special-purpose destination; see SECURITY.md.
+       * @returns {boolean}
+       */
+      isGlobal() {
+        return !this.isMulticast() && common.isGloballyReachable.call(this, SPECIAL_PURPOSE_V4);
+      }
+      /**
+       * Returns a zero-padded base-2 string representation of the address
+       * @returns {string}
+       */
+      binaryZeroPad() {
+        if (this._binaryZeroPad === void 0) {
+          this._binaryZeroPad = this.bigInt().toString(2).padStart(constants.BITS, "0");
+        }
+        return this._binaryZeroPad;
+      }
+      /**
+       * Groups an IPv4 address for inclusion at the end of an IPv6 address.
+       *
+       * Returns an HTML fragment: each half of the address is wrapped in a
+       * `<span>` carrying the group classes an address-inspector UI hovers on.
+       * The address content is HTML-escaped; anything you concatenate around it
+       * is your responsibility.
+       * @returns {String}
+       */
+      groupForV6() {
+        const segments = this.parsedAddress;
+        return this.correctForm().replace(constants.RE_ADDRESS, `<span class="hover-group group-v4 group-6">${segments.slice(0, 2).join(".")}</span>.<span class="hover-group group-v4 group-7">${segments.slice(2, 4).join(".")}</span>`);
+      }
+    };
+    exports.Address4 = Address4;
+    var MULTICAST_V4 = new Address4("224.0.0.0/4");
+    var PRIVATE_V4 = [
+      new Address4("10.0.0.0/8"),
+      new Address4("172.16.0.0/12"),
+      new Address4("192.168.0.0/16")
+    ];
+    var LOOPBACK_V4 = new Address4("127.0.0.0/8");
+    var LINK_LOCAL_V4 = new Address4("169.254.0.0/16");
+    var UNSPECIFIED_V4 = new Address4("0.0.0.0/32");
+    var BROADCAST_V4 = new Address4("255.255.255.255/32");
+    var CGNAT_V4 = new Address4("100.64.0.0/10");
+    var DOCUMENTATION_V4 = [
+      new Address4("192.0.2.0/24"),
+      new Address4("198.51.100.0/24"),
+      new Address4("203.0.113.0/24")
+    ];
+    var BENCHMARKING_V4 = new Address4("198.18.0.0/15");
+    var RESERVED_V4 = new Address4("240.0.0.0/4");
+    var SPECIAL_PURPOSE_V4 = constants.SPECIAL_PURPOSE.map(([cidr, , reachable]) => ({
+      subnet: new Address4(cidr),
+      reachable
+    }));
+  }
+});
+
+// node_modules/ip-address/dist/v6/constants.js
+var require_constants3 = __commonJS({
+  "node_modules/ip-address/dist/v6/constants.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.SPECIAL_PURPOSE = exports.RE_URL_WITH_PORT = exports.RE_URL = exports.RE_ZONE_STRING = exports.RE_SUBNET_STRING = exports.RE_BAD_ADDRESS = exports.RE_BAD_CHARACTERS = exports.TYPES = exports.SCOPES = exports.GROUPS = exports.BITS = void 0;
+    exports.BITS = 128;
+    exports.GROUPS = 8;
+    exports.SCOPES = {
+      0: "Reserved",
+      1: "Interface local",
+      2: "Link local",
+      4: "Admin local",
+      5: "Site local",
+      8: "Organization local",
+      14: "Global",
+      15: "Reserved"
+    };
+    exports.TYPES = {
+      "ff01::1/128": "Multicast (All nodes on this interface)",
+      "ff01::2/128": "Multicast (All routers on this interface)",
+      "ff02::1/128": "Multicast (All nodes on this link)",
+      "ff02::2/128": "Multicast (All routers on this link)",
+      "ff05::2/128": "Multicast (All routers in this site)",
+      "ff02::5/128": "Multicast (OSPFv3 AllSPF routers)",
+      "ff02::6/128": "Multicast (OSPFv3 AllDR routers)",
+      "ff02::9/128": "Multicast (RIP routers)",
+      "ff02::a/128": "Multicast (EIGRP routers)",
+      "ff02::d/128": "Multicast (PIM routers)",
+      "ff02::16/128": "Multicast (MLDv2 reports)",
+      "ff01::fb/128": "Multicast (mDNSv6)",
+      "ff02::fb/128": "Multicast (mDNSv6)",
+      "ff05::fb/128": "Multicast (mDNSv6)",
+      "ff02::1:2/128": "Multicast (All DHCP servers and relay agents on this link)",
+      "ff05::1:2/128": "Multicast (All DHCP servers and relay agents in this site)",
+      "ff02::1:3/128": "Multicast (All DHCP servers on this link)",
+      "ff05::1:3/128": "Multicast (All DHCP servers in this site)",
+      "::/128": "Unspecified",
+      "::1/128": "Loopback",
+      "::ffff:0:0/96": "IPv4-mapped",
+      "ff00::/8": "Multicast",
+      "fe80::/10": "Link-local unicast",
+      "fc00::/7": "Unique local",
+      "2001::/32": "Teredo",
+      "2001:2::/48": "Benchmarking",
+      "2002::/16": "6to4",
+      "2001:db8::/32": "Documentation",
+      "3fff::/20": "Documentation",
+      "100::/64": "Discard-only",
+      "fec0::/10": "Site-local unicast (deprecated)",
+      "::/96": "IPv4-compatible (deprecated)",
+      "64:ff9b::/96": "NAT64 (well-known)",
+      "64:ff9b:1::/48": "NAT64 (local-use)"
+    };
+    exports.RE_BAD_CHARACTERS = /([^0-9a-f:/%])/gi;
+    exports.RE_BAD_ADDRESS = /([0-9a-f]{5,}|:{3,}|[^:]:$|^:[^:]|\/$)/gi;
+    exports.RE_SUBNET_STRING = /\/\d{1,3}(?=%|$)/;
+    exports.RE_ZONE_STRING = /%.*$/;
+    exports.RE_URL = /^(?:\[([0-9a-f:.]+)\]|([0-9a-f:.]+))(?:[/?#].*)?$/i;
+    exports.RE_URL_WITH_PORT = /^\[([0-9a-f:.]+)\]:([0-9]{1,5})(?:[/?#].*)?$/i;
+    exports.SPECIAL_PURPOSE = [
+      ["::1/128", "Loopback Address", false],
+      ["::/128", "Unspecified Address", false],
+      ["::ffff:0:0/96", "IPv4-mapped Address", false],
+      ["64:ff9b::/96", "IPv4-IPv6 Translat.", true],
+      ["64:ff9b:1::/48", "IPv4-IPv6 Translat.", false],
+      ["100::/64", "Discard-Only Address Block", false],
+      ["100:0:0:1::/64", "Dummy IPv6 Prefix", false],
+      ["2001::/23", "IETF Protocol Assignments", false],
+      ["2001::/32", "TEREDO", false],
+      ["2001:1::1/128", "Port Control Protocol Anycast", true],
+      ["2001:1::2/128", "Traversal Using Relays around NAT Anycast", true],
+      ["2001:1::3/128", "DNS-SD Service Registration Protocol Anycast", true],
+      ["2001:2::/48", "Benchmarking", false],
+      ["2001:3::/32", "AMT", true],
+      ["2001:4:112::/48", "AS112-v6", true],
+      ["2001:10::/28", "Deprecated (previously ORCHID)", null],
+      ["2001:20::/28", "ORCHIDv2", true],
+      ["2001:30::/28", "Drone Remote ID Protocol Entity Tags (DETs) Prefix", true],
+      ["2001:db8::/32", "Documentation", false],
+      ["2002::/16", "6to4", false],
+      ["2620:4f:8000::/48", "Direct Delegation AS112 Service", true],
+      ["3fff::/20", "Documentation", false],
+      ["5f00::/16", "Segment Routing (SRv6) SIDs", false],
+      ["fc00::/7", "Unique-Local", false],
+      ["fe80::/10", "Link-Local Unicast", false]
+    ];
+  }
+});
+
+// node_modules/ip-address/dist/v6/helpers.js
+var require_helpers = __commonJS({
+  "node_modules/ip-address/dist/v6/helpers.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.escapeHtml = escapeHtml2;
+    exports.spanAllZeroes = spanAllZeroes;
+    exports.spanAll = spanAll;
+    exports.spanLeadingZeroes = spanLeadingZeroes;
+    exports.simpleGroup = simpleGroup;
+    function escapeHtml2(s) {
+      return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+    function spanAllZeroes(s) {
+      return escapeHtml2(s).replace(/(0+)/g, '<span class="zero">$1</span>');
+    }
+    function spanAll(s, offset = 0) {
+      const letters = s.split("");
+      return letters.map((n, i) => `<span class="digit value-${escapeHtml2(n)} position-${i + offset}">${spanAllZeroes(n)}</span>`).join("");
+    }
+    function spanLeadingZeroesSimple(group) {
+      return escapeHtml2(group).replace(/^(0+)/, '<span class="zero">$1</span>');
+    }
+    function spanLeadingZeroes(address) {
+      const groups = address.split(":");
+      return groups.map((g) => spanLeadingZeroesSimple(g)).join(":");
+    }
+    function simpleGroup(addressString, offset = 0) {
+      const groups = addressString.split(":");
+      return groups.map((g, i) => {
+        if (/group-v4/.test(g)) {
+          return g;
+        }
+        return `<span class="hover-group group-${i + offset}">${spanLeadingZeroesSimple(g)}</span>`;
+      });
+    }
+  }
+});
+
+// node_modules/ip-address/dist/v6/regular-expressions.js
+var require_regular_expressions = __commonJS({
+  "node_modules/ip-address/dist/v6/regular-expressions.js"(exports) {
+    "use strict";
+    var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault2 = exports && exports.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar2 = exports && exports.__importStar || function(mod) {
+      if (mod && mod.__esModule) return mod;
+      var result = {};
+      if (mod != null) {
+        for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding2(result, mod, k);
+      }
+      __setModuleDefault2(result, mod);
+      return result;
+    };
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ADDRESS_BOUNDARY = void 0;
+    exports.groupPossibilities = groupPossibilities;
+    exports.padGroup = padGroup;
+    exports.simpleRegularExpression = simpleRegularExpression;
+    exports.possibleElisions = possibleElisions;
+    var v6 = __importStar2(require_constants3());
+    function groupPossibilities(possibilities) {
+      return `(${possibilities.join("|")})`;
+    }
+    function padGroup(group) {
+      if (group.length < 4) {
+        return `0{0,${4 - group.length}}${group}`;
+      }
+      return group;
+    }
+    exports.ADDRESS_BOUNDARY = "[^A-Fa-f0-9:]";
+    function simpleRegularExpression(groups) {
+      const zeroIndexes = [];
+      groups.forEach((group, i) => {
+        const groupInteger = parseInt(group, 16);
+        if (groupInteger === 0) {
+          zeroIndexes.push(i);
+        }
+      });
+      const possibilities = zeroIndexes.map((zeroIndex) => groups.map((group, i) => {
+        if (i === zeroIndex) {
+          const elision = i === 0 || i === v6.GROUPS - 1 ? ":" : "";
+          return groupPossibilities([padGroup(group), elision]);
+        }
+        return padGroup(group);
+      }).join(":"));
+      possibilities.push(groups.map(padGroup).join(":"));
+      return groupPossibilities(possibilities);
+    }
+    function possibleElisions(elidedGroups, moreLeft, moreRight) {
+      const left = moreLeft ? "" : ":";
+      const right = moreRight ? "" : ":";
+      const possibilities = [];
+      if (!moreLeft && !moreRight) {
+        possibilities.push("::");
+      }
+      if (moreLeft && moreRight) {
+        possibilities.push("");
+      }
+      if (moreRight && !moreLeft || !moreRight && moreLeft) {
+        possibilities.push(":");
+      }
+      possibilities.push(`${left}(:0{1,4}){1,${elidedGroups - 1}}`);
+      possibilities.push(`(0{1,4}:){1,${elidedGroups - 1}}${right}`);
+      possibilities.push(`(0{1,4}:){${elidedGroups - 1}}0{1,4}`);
+      for (let groups = 1; groups < elidedGroups - 1; groups++) {
+        for (let position = 1; position < elidedGroups - groups; position++) {
+          possibilities.push(`(0{1,4}:){${position}}:(0{1,4}:){${elidedGroups - position - groups - 1}}0{1,4}`);
+        }
+      }
+      return groupPossibilities(possibilities);
+    }
+  }
+});
+
+// node_modules/ip-address/dist/ipv6.js
+var require_ipv6 = __commonJS({
+  "node_modules/ip-address/dist/ipv6.js"(exports) {
+    "use strict";
+    var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault2 = exports && exports.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar2 = exports && exports.__importStar || function(mod) {
+      if (mod && mod.__esModule) return mod;
+      var result = {};
+      if (mod != null) {
+        for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding2(result, mod, k);
+      }
+      __setModuleDefault2(result, mod);
+      return result;
+    };
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.Address6 = void 0;
+    var common = __importStar2(require_common2());
+    var constants4 = __importStar2(require_constants2());
+    var constants6 = __importStar2(require_constants3());
+    var helpers = __importStar2(require_helpers());
+    var ipv4_1 = require_ipv4();
+    var regular_expressions_1 = require_regular_expressions();
+    var address_error_1 = require_address_error();
+    var common_1 = require_common2();
+    var isCorrect6 = common.isCorrect(constants6.BITS);
+    function assert2(condition) {
+      if (!condition) {
+        throw new Error("Assertion failed.");
+      }
+    }
+    function addCommas(number4) {
+      const r = /(\d+)(\d{3})/;
+      while (r.test(number4)) {
+        number4 = number4.replace(r, "$1,$2");
+      }
+      return number4;
+    }
+    function spanLeadingZeroes4(n) {
+      n = n.replace(/^(0{1,})([1-9]+)$/, '<span class="parse-error">$1</span>$2');
+      n = n.replace(/^(0{1,})(0)$/, '<span class="parse-error">$1</span>$2');
+      return n;
+    }
+    function compact(address, slice) {
+      const s1 = [];
+      const s2 = [];
+      let i;
+      for (i = 0; i < address.length; i++) {
+        if (i < slice[0]) {
+          s1.push(address[i]);
+        } else if (i > slice[1]) {
+          s2.push(address[i]);
+        }
+      }
+      return s1.concat(["compact"]).concat(s2);
+    }
+    function paddedHex(octet) {
+      return parseInt(octet, 16).toString(16).padStart(4, "0");
+    }
+    function unsignByte(b) {
+      return b & 255;
+    }
+    var Address62 = class _Address6 {
+      constructor(address, optionalGroups) {
+        this.addressMinusSuffix = "";
+        this.parsedSubnet = "";
+        this.subnet = "/128";
+        this.subnetMask = 128;
+        this.v4 = false;
+        this.zone = "";
+        this.isInSubnet = common.isInSubnet;
+        this.isHostInSubnet = common.isHostInSubnet;
+        this.isCorrect = isCorrect6;
+        if (optionalGroups === void 0) {
+          this.groups = constants6.GROUPS;
+        } else {
+          this.groups = optionalGroups;
+        }
+        this.address = address;
+        const subnet = constants6.RE_SUBNET_STRING.exec(address);
+        if (subnet) {
+          this.parsedSubnet = subnet[0].replace("/", "");
+          this.subnetMask = parseInt(this.parsedSubnet, 10);
+          this.subnet = `/${this.subnetMask}`;
+          if (Number.isNaN(this.subnetMask) || this.subnetMask < 0 || this.subnetMask > constants6.BITS) {
+            throw new address_error_1.AddressError("Invalid subnet mask.");
+          }
+          address = address.replace(constants6.RE_SUBNET_STRING, "");
+        }
+        if (/\//.test(address)) {
+          throw new address_error_1.AddressError("Invalid subnet mask.");
+        }
+        const zoneStart = address.indexOf("%");
+        if (zoneStart !== -1 && /^.*$/.test(address.slice(zoneStart))) {
+          this.zone = address.slice(zoneStart);
+          address = address.slice(0, zoneStart);
+        }
+        const longest = this.groups * 5 + 5;
+        if (address.length > longest) {
+          throw new address_error_1.AddressError(`IPv6 addresses are at most ${longest} characters.`);
+        }
+        this.addressMinusSuffix = address;
+        this.parsedAddress = this.parse(this.addressMinusSuffix);
+      }
+      /**
+       * Returns true if the given string is a valid IPv6 address (with optional
+       * CIDR subnet and zone identifier), false otherwise. Host bits in the
+       * subnet portion are allowed (e.g. `2001:db8::1/32` is valid); for strict
+       * network-address validation compare `correctForm()` to
+       * `startAddress().correctForm()`, or use `networkForm()`.
+       */
+      static isValid(address) {
+        try {
+          new _Address6(address);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      /**
+       * Convert a BigInt to a v6 address object. The value must be in the
+       * range `[0, 2**128 - 1]`; otherwise `AddressError` is thrown.
+       * @param {bigint} bigInt - a BigInt to convert
+       * @returns {Address6}
+       * @example
+       * var bigInt = BigInt('1000000000000');
+       * var address = Address6.fromBigInt(bigInt);
+       * address.correctForm(); // '::e8:d4a5:1000'
+       */
+      static fromBigInt(bigInt) {
+        if (bigInt < BigInt(0) || bigInt > (BigInt(1) << BigInt(constants6.BITS)) - BigInt(1)) {
+          throw new address_error_1.AddressError("IPv6 BigInt must be in the range 0 to 2**128 - 1");
+        }
+        const hex3 = bigInt.toString(16).padStart(32, "0");
+        const groups = [];
+        for (let i = 0; i < constants6.GROUPS; i++) {
+          groups.push(hex3.slice(i * 4, (i + 1) * 4));
+        }
+        return new _Address6(groups.join(":"));
+      }
+      /**
+       * Parse a URL (with optional bracketed host and port) into an address and
+       * port. Returns either `{ address, port }` on success or
+       * `{ error, address: null, port: null }` if the URL could not be parsed.
+       * Ports are returned as numbers (or `null` if absent or out of range).
+       * @example
+       * var addressAndPort = Address6.fromURL('http://[ffff::]:8080/foo/');
+       * addressAndPort.address.correctForm(); // 'ffff::'
+       * addressAndPort.port; // 8080
+       */
+      static fromURL(url2) {
+        var _a3;
+        let host;
+        let port = null;
+        let result;
+        let error62;
+        const stripped = url2.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+        if (stripped.indexOf("[") !== -1 && stripped.indexOf("]:") !== -1) {
+          error62 = "failed to parse address with port";
+          result = constants6.RE_URL_WITH_PORT.exec(stripped);
+          if (result === null) {
+            return { error: error62, address: null, port: null };
+          }
+          host = result[1];
+          port = result[2];
+        } else {
+          error62 = "failed to parse address from URL";
+          result = constants6.RE_URL.exec(stripped);
+          if (result === null) {
+            return { error: error62, address: null, port: null };
+          }
+          host = (_a3 = result[1]) !== null && _a3 !== void 0 ? _a3 : result[2];
+        }
+        if (port) {
+          port = parseInt(port, 10);
+          if (port < 0 || port > 65535) {
+            port = null;
+          }
+        } else {
+          port = null;
+        }
+        let address;
+        try {
+          address = new _Address6(host);
+        } catch {
+          return { error: error62, address: null, port: null };
+        }
+        return { address, port };
+      }
+      /**
+       * Construct an `Address6` from an address and a hex subnet mask given as
+       * separate strings (e.g. as returned by Node's `os.networkInterfaces()`).
+       * Throws `AddressError` if the mask is non-contiguous (e.g.
+       * `ffff::ffff`).
+       * @example
+       * var address = Address6.fromAddressAndMask('fe80::1', 'ffff:ffff:ffff:ffff::');
+       * address.subnetMask; // 64
+       */
+      static fromAddressAndMask(address, mask) {
+        const bits = common.prefixLengthFromMask(new _Address6(mask).bigInt(), constants6.BITS);
+        return new _Address6(`${address}/${bits}`);
+      }
+      /**
+       * Construct an `Address6` from an address and a Cisco-style wildcard mask
+       * given as separate strings (e.g. `::ffff:ffff:ffff:ffff` for a `/64`).
+       * The wildcard mask is the bitwise inverse of the subnet mask. Throws
+       * `AddressError` if the mask is non-contiguous.
+       * @example
+       * var address = Address6.fromAddressAndWildcardMask('fe80::1', '::ffff:ffff:ffff:ffff');
+       * address.subnetMask; // 64
+       */
+      static fromAddressAndWildcardMask(address, wildcardMask) {
+        const wildcard = new _Address6(wildcardMask).bigInt();
+        const allOnes = (BigInt(1) << BigInt(constants6.BITS)) - BigInt(1);
+        const mask = wildcard ^ allOnes;
+        const bits = common.prefixLengthFromMask(mask, constants6.BITS);
+        return new _Address6(`${address}/${bits}`);
+      }
+      /**
+       * Construct an `Address6` from a wildcard pattern with trailing `*`
+       * groups. The number of trailing wildcards determines the prefix
+       * length: each `*` represents 16 bits. `::` is expanded to zero groups
+       * (not wildcards) before evaluating trailing wildcards.
+       *
+       * Only trailing whole-group wildcards are supported. Partial-group
+       * wildcards (e.g. `2001:db8::0*`) and interior wildcards (e.g.
+       * `*::1`) throw `AddressError`.
+       * @example
+       * Address6.fromWildcard('2001:db8:*:*:*:*:*:*').subnet;  // '/32'
+       * Address6.fromWildcard('2001:db8::*').subnet;           // '/112'
+       * Address6.fromWildcard('*:*:*:*:*:*:*:*').subnet;       // '/0'
+       */
+      static fromWildcard(input2) {
+        if (input2.includes("%") || input2.includes("/")) {
+          throw new address_error_1.AddressError("Wildcard pattern must not include a zone or CIDR suffix");
+        }
+        const halves = input2.split("::");
+        if (halves.length > 2) {
+          throw new address_error_1.AddressError("Wildcard pattern cannot contain more than one '::'");
+        }
+        let groups;
+        if (halves.length === 2) {
+          const left = halves[0] === "" ? [] : halves[0].split(":");
+          const right = halves[1] === "" ? [] : halves[1].split(":");
+          const remaining = constants6.GROUPS - left.length - right.length;
+          if (remaining < 1) {
+            throw new address_error_1.AddressError("Wildcard pattern with '::' has too many groups");
+          }
+          groups = [...left, ...new Array(remaining).fill("0"), ...right];
+        } else {
+          groups = input2.split(":");
+        }
+        if (groups.length !== constants6.GROUPS) {
+          throw new address_error_1.AddressError("Wildcard pattern must have 8 groups");
+        }
+        let firstWildcard = -1;
+        for (let i = 0; i < groups.length; i++) {
+          if (groups[i] === "*") {
+            if (firstWildcard === -1) {
+              firstWildcard = i;
+            }
+          } else if (firstWildcard !== -1) {
+            throw new address_error_1.AddressError("Wildcard `*` must only appear in trailing groups (e.g. `2001:db8:*:*:*:*:*:*`)");
+          }
+        }
+        const trailing = firstWildcard === -1 ? 0 : groups.length - firstWildcard;
+        const replaced = groups.map((g) => g === "*" ? "0" : g);
+        const subnetBits = constants6.BITS - trailing * 16;
+        return new _Address6(`${replaced.join(":")}/${subnetBits}`);
+      }
+      /**
+       * Create an IPv6-mapped address given an IPv4 address
+       * @param {string} address - An IPv4 address string
+       * @returns {Address6}
+       * @example
+       * var address = Address6.fromAddress4('192.168.0.1');
+       * address.correctForm(); // '::ffff:c0a8:1'
+       * address.to4in6(); // '::ffff:192.168.0.1'
+       */
+      static fromAddress4(address) {
+        const address4 = new ipv4_1.Address4(address);
+        const mask6 = constants6.BITS - (constants4.BITS - address4.subnetMask);
+        return new _Address6(`::ffff:${address4.correctForm()}/${mask6}`);
+      }
+      /**
+       * Return an address from ip6.arpa form. A full 32-nibble name gives a /128
+       * address; a shorter name, as used for a delegated reverse zone, gives the
+       * network it covers, with a subnet mask of four bits per nibble, so
+       * `fromArpa(x.reverseForm())` round-trips {@link reverseForm} for any prefix.
+       * @param {string} arpaFormAddress - an 'ip6.arpa' form address
+       * @returns {Adress6}
+       * @example
+       * var address = Address6.fromArpa(e.f.f.f.3.c.2.6.f.f.f.e.6.6.8.e.1.0.6.7.9.4.e.c.0.0.0.0.1.0.0.2.ip6.arpa.)
+       * address.correctForm(); // '2001:0:ce49:7601:e866:efff:62c3:fffe'
+       * Address6.fromArpa('8.b.d.0.1.0.0.2.ip6.arpa.').networkForm(); // '2001:db8::/32'
+       */
+      static fromArpa(arpaFormAddress) {
+        const nibbles = arpaFormAddress.replace(/(\.ip6\.arpa)?\.?$/i, "");
+        if (!/^[0-9a-f](\.[0-9a-f]){0,31}$/i.test(nibbles)) {
+          throw new address_error_1.AddressError("Invalid 'ip6.arpa' form.");
+        }
+        const reversed = nibbles.split(".").reverse();
+        const subnetMask = reversed.length * 4;
+        const hex3 = reversed.join("").padEnd(32, "0");
+        const groups = [];
+        for (let i = 0; i < constants6.GROUPS; i++) {
+          groups.push(hex3.slice(i * 4, (i + 1) * 4));
+        }
+        return new _Address6(`${groups.join(":")}/${subnetMask}`);
+      }
+      /**
+       * Return the Microsoft UNC transcription of the address
+       * @returns {String} the Microsoft UNC transcription of the address
+       */
+      microsoftTranscription() {
+        return `${this.correctForm().replace(/:/g, "-")}.ipv6-literal.net`;
+      }
+      /**
+       * Return the first n bits of the address, defaulting to the subnet mask
+       * @param {number} [mask=subnet] - the number of bits to mask
+       * @returns {String} the first n bits of the address as a string
+       */
+      mask(mask = this.subnetMask) {
+        return this.getBitsBase2(0, mask);
+      }
+      /**
+       * Return the number of possible subnets of a given size in the address
+       * @param {number} [subnetSize=128] - the subnet size
+       * @returns {String}
+       */
+      // TODO: probably useful to have a numeric version of this too
+      possibleSubnets(subnetSize = 128) {
+        const availableBits = constants6.BITS - this.subnetMask;
+        const subnetBits = Math.abs(subnetSize - constants6.BITS);
+        const subnetPowers = availableBits - subnetBits;
+        if (subnetPowers < 0) {
+          return "0";
+        }
+        return addCommas((BigInt("2") ** BigInt(subnetPowers)).toString(10));
+      }
+      /**
+       * Helper function getting start address.
+       * @returns {bigint}
+       */
+      _startAddress() {
+        return BigInt(`0b${this.mask() + "0".repeat(constants6.BITS - this.subnetMask)}`);
+      }
+      /**
+       * The first address in the range given by this address' subnet
+       * Often referred to as the Network Address.
+       * @returns {Address6}
+       */
+      startAddress() {
+        return _Address6.fromBigInt(this._startAddress());
+      }
+      /**
+       * The first host address in the range given by this address's subnet ie
+       * the first address after the Network Address
+       * @returns {Address6}
+       */
+      startAddressExclusive() {
+        const adjust = BigInt("1");
+        return _Address6.fromBigInt(this._startAddress() + adjust);
+      }
+      /**
+       * Helper function getting end address.
+       * @returns {bigint}
+       */
+      _endAddress() {
+        return BigInt(`0b${this.mask() + "1".repeat(constants6.BITS - this.subnetMask)}`);
+      }
+      /**
+       * The last address in the range given by this address's subnet. IPv6 has
+       * no broadcast address, so this is an ordinary assignable address (in a
+       * 64-bit-interface-identifier subnet it falls inside the reserved
+       * subnet-anycast block of [RFC 2526](https://datatracker.ietf.org/doc/html/rfc2526)).
+       * @returns {Address6}
+       */
+      endAddress() {
+        return _Address6.fromBigInt(this._endAddress());
+      }
+      /**
+       * The address one before {@link endAddress}. This is the IPv6 counterpart
+       * of the IPv4 method that skips the broadcast address; IPv6 has no broadcast,
+       * so it drops exactly one address and does not model the 128 reserved
+       * subnet-anycast identifiers of [RFC 2526](https://datatracker.ietf.org/doc/html/rfc2526).
+       * @returns {Address6}
+       */
+      endAddressExclusive() {
+        const adjust = BigInt("1");
+        return _Address6.fromBigInt(this._endAddress() - adjust);
+      }
+      /**
+       * Returns the address `n` addresses after this one (or before, when `n` is
+       * negative), keeping this address's subnet mask. Throws `AddressError` when
+       * the result would fall outside the IPv6 address space or `n` is not an
+       * integer.
+       * @param {number | bigint} n
+       * @returns {Address6}
+       * @example
+       * new Address6('2001:db8::/64').offset(1).correctForm(); // '2001:db8::1'
+       */
+      offset(n) {
+        return _Address6.fromBigInt(common.offsetBigInt(this.bigInt(), n, constants6.BITS, "IPv6")).withSubnetMask(this.subnetMask);
+      }
+      /**
+       * Returns the network that follows this address's network: the address after
+       * {@link endAddress}, with the same subnet mask. Throws `AddressError` when
+       * this network is the last one in the address space.
+       * @returns {Address6}
+       * @example
+       * new Address6('2001:db8::/64').nextNetwork().networkForm(); // '2001:db8:0:1::/64'
+       */
+      nextNetwork() {
+        return _Address6.fromBigInt(common.offsetBigInt(this._endAddress(), 1, constants6.BITS, "IPv6")).withSubnetMask(this.subnetMask);
+      }
+      withSubnetMask(subnetMask) {
+        return new _Address6(`${this.correctForm()}/${subnetMask}`);
+      }
+      /**
+       * The hex form of the subnet mask, e.g. `ffff:ffff:ffff:ffff::` for a
+       * `/64`. Returns an `Address6`; call `.correctForm()` for the string.
+       * @returns {Address6}
+       */
+      subnetMaskAddress() {
+        return _Address6.fromBigInt(BigInt(`0b${"1".repeat(this.subnetMask)}${"0".repeat(constants6.BITS - this.subnetMask)}`));
+      }
+      /**
+       * The Cisco-style wildcard mask, e.g. `::ffff:ffff:ffff:ffff` for a
+       * `/64`. This is the bitwise inverse of `subnetMaskAddress()`. Returns
+       * an `Address6`; call `.correctForm()` for the string.
+       * @returns {Address6}
+       */
+      wildcardMask() {
+        return _Address6.fromBigInt(BigInt(`0b${"0".repeat(this.subnetMask)}${"1".repeat(constants6.BITS - this.subnetMask)}`));
+      }
+      /**
+       * The network address in CIDR string form, e.g. `2001:db8::/32` for
+       * `2001:db8::1/32`. For an address with no explicit subnet the prefix
+       * is `/128`, e.g. `networkForm()` on `2001:db8::1` returns
+       * `2001:db8::1/128`.
+       * @returns {string}
+       */
+      networkForm() {
+        return `${this.startAddress().correctForm()}/${this.subnetMask}`;
+      }
+      /**
+       * Return the scope of the address. The 4-bit scope field
+       * ([RFC 4291 §2.7](https://datatracker.ietf.org/doc/html/rfc4291#section-2.7))
+       * is only defined for multicast addresses; for unicast addresses the scope
+       * is derived from the address type per
+       * [RFC 4007 §6](https://datatracker.ietf.org/doc/html/rfc4007#section-6).
+       * @returns {String}
+       */
+      getScope() {
+        const type = this.getType();
+        if (type === "Multicast" || type.startsWith("Multicast ")) {
+          const scope = constants6.SCOPES[parseInt(this.getBits(12, 16).toString(10), 10)];
+          return scope || "Unknown";
+        }
+        if (type === "Link-local unicast" || type === "Loopback") {
+          return "Link local";
+        }
+        if (type === "Unspecified") {
+          return "Unknown";
+        }
+        return "Global";
+      }
+      /**
+       * Return the type of the address
+       * @returns {String}
+       */
+      getType() {
+        for (let i = 0; i < TYPE_SUBNETS.length; i++) {
+          const entry = TYPE_SUBNETS[i];
+          if (this.isHostInSubnet(entry[0])) {
+            return entry[1];
+          }
+        }
+        return "Global unicast";
+      }
+      /**
+       * Return the bits in the given range as a BigInt
+       * @returns {bigint}
+       */
+      getBits(start, end) {
+        return BigInt(`0b${this.getBitsBase2(start, end)}`);
+      }
+      /**
+       * Return the bits in the given range as a base-2 string
+       * @returns {String}
+       */
+      getBitsBase2(start, end) {
+        return this.binaryZeroPad().slice(start, end);
+      }
+      /**
+       * Return the bits in the given range as a base-16 string
+       * @returns {String}
+       */
+      getBitsBase16(start, end) {
+        const length = end - start;
+        if (length % 4 !== 0) {
+          throw new Error("Length of bits to retrieve must be divisible by four");
+        }
+        return this.getBits(start, end).toString(16).padStart(length / 4, "0");
+      }
+      /**
+       * Return the bits that are set past the subnet mask length
+       * @returns {String}
+       */
+      getBitsPastSubnet() {
+        return this.getBitsBase2(this.subnetMask, constants6.BITS);
+      }
+      /**
+       * Return the reversed ip6.arpa form of the address
+       * @param {Object} options
+       * @param {boolean} options.omitSuffix - omit the "ip6.arpa" suffix
+       * @returns {String}
+       */
+      reverseForm(options) {
+        if (!options) {
+          options = {};
+        }
+        const characters = Math.floor(this.subnetMask / 4);
+        const reversed = this.canonicalForm().replace(/:/g, "").split("").slice(0, characters).reverse().join(".");
+        if (characters > 0) {
+          if (options.omitSuffix) {
+            return reversed;
+          }
+          return `${reversed}.ip6.arpa.`;
+        }
+        if (options.omitSuffix) {
+          return "";
+        }
+        return "ip6.arpa.";
+      }
+      /**
+       * Returns the address in correct form, per
+       * [RFC 5952](https://datatracker.ietf.org/doc/html/rfc5952): leading zeros
+       * stripped, the longest run of zero groups collapsed to `::`, and hex digits
+       * lowercased (e.g. `2001:db8::1`). This is the recommended form for display.
+       */
+      correctForm() {
+        let i;
+        let groups = [];
+        let zeroCounter = 0;
+        const zeroes = [];
+        for (i = 0; i < this.parsedAddress.length; i++) {
+          const value = parseInt(this.parsedAddress[i], 16);
+          if (value === 0) {
+            zeroCounter++;
+          }
+          if (value !== 0 && zeroCounter > 0) {
+            if (zeroCounter > 1) {
+              zeroes.push([i - zeroCounter, i - 1]);
+            }
+            zeroCounter = 0;
+          }
+        }
+        if (zeroCounter > 1) {
+          zeroes.push([this.parsedAddress.length - zeroCounter, this.parsedAddress.length - 1]);
+        }
+        const zeroLengths = zeroes.map((n) => n[1] - n[0] + 1);
+        if (zeroes.length > 0) {
+          const index = zeroLengths.indexOf(Math.max(...zeroLengths));
+          groups = compact(this.parsedAddress, zeroes[index]);
+        } else {
+          groups = this.parsedAddress;
+        }
+        for (i = 0; i < groups.length; i++) {
+          if (groups[i] !== "compact") {
+            groups[i] = parseInt(groups[i], 16).toString(16);
+          }
+        }
+        let correct = groups.join(":");
+        correct = correct.replace(/^compact$/, "::");
+        correct = correct.replace(/(^compact)|(compact$)/, ":");
+        correct = correct.replace(/compact/, "");
+        return correct;
+      }
+      /**
+       * Return a zero-padded base-2 string representation of the address
+       * @returns {String}
+       * @example
+       * var address = new Address6('2001:4860:4001:803::1011');
+       * address.binaryZeroPad();
+       * // '0010000000000001010010000110000001000000000000010000100000000011
+       * //  0000000000000000000000000000000000000000000000000001000000010001'
+       */
+      binaryZeroPad() {
+        if (this._binaryZeroPad === void 0) {
+          this._binaryZeroPad = this.bigInt().toString(2).padStart(constants6.BITS, "0");
+        }
+        return this._binaryZeroPad;
+      }
+      /**
+       * Parses a v4-in-v6 string (e.g. `::ffff:192.168.0.1`) by extracting the
+       * trailing IPv4 address into `this.address4` / `this.parsedAddress4` and
+       * returning the address with the v4 portion converted to two v6 groups.
+       * Used internally by `parse()`.
+       */
+      // TODO: Improve the semantics of this helper function
+      parse4in6(address) {
+        if (address.indexOf(".") === -1) {
+          return address;
+        }
+        const groups = address.split(":");
+        const lastGroup = groups.slice(-1)[0];
+        const v4Octets = lastGroup.split(".");
+        if (v4Octets.length === constants4.GROUPS && v4Octets.every((octet) => /^\d{1,3}$/.test(octet))) {
+          if (v4Octets.some((octet) => /^0\d/.test(octet))) {
+            const highlighted = v4Octets.map(spanLeadingZeroes4).join(".");
+            const prefix = groups.slice(0, -1).map(helpers.escapeHtml).join(":");
+            const separator = groups.length > 1 ? ":" : "";
+            throw new address_error_1.AddressError("IPv4 addresses can't have leading zeroes.", `${prefix}${separator}${highlighted}`);
+          }
+        }
+        const address4 = lastGroup.match(constants4.RE_ADDRESS);
+        if (address4) {
+          this.parsedAddress4 = address4[0];
+          const v4Suffix = this.subnetMask >= 96 ? `/${this.subnetMask - 96}` : "";
+          this.address4 = new ipv4_1.Address4(`${this.parsedAddress4}${v4Suffix}`);
+          this.v4 = true;
+          groups[groups.length - 1] = this.address4.toGroup6();
+          address = groups.join(":");
+        }
+        return address;
+      }
+      /**
+       * Parses an IPv6 address string into its 8 hexadecimal groups (expanding
+       * any `::` elision and any trailing v4-in-v6 portion) and stores the result
+       * on `this.parsedAddress`. Called automatically by the constructor; you
+       * typically don't need to call it directly. Throws `AddressError` if the
+       * input is malformed.
+       */
+      // TODO: Make private?
+      parse(address) {
+        address = this.parse4in6(address);
+        const badCharacters = address.match(constants6.RE_BAD_CHARACTERS);
+        if (badCharacters) {
+          throw new address_error_1.AddressError(`Bad character${badCharacters.length > 1 ? "s" : ""} detected in address: ${badCharacters.join("")}`, address.replace(constants6.RE_BAD_CHARACTERS, (character) => `<span class="parse-error">${helpers.escapeHtml(character)}</span>`));
+        }
+        const badAddress = address.match(constants6.RE_BAD_ADDRESS);
+        if (badAddress) {
+          throw new address_error_1.AddressError(`Address failed regex: ${badAddress.join("")}`, address.replace(constants6.RE_BAD_ADDRESS, '<span class="parse-error">$1</span>'));
+        }
+        let groups = [];
+        const halves = address.split("::");
+        if (halves.length === 2) {
+          let first = halves[0].split(":");
+          let last = halves[1].split(":");
+          if (first.length === 1 && first[0] === "") {
+            first = [];
+          }
+          if (last.length === 1 && last[0] === "") {
+            last = [];
+          }
+          const remaining = this.groups - (first.length + last.length);
+          if (!remaining) {
+            throw new address_error_1.AddressError("Error parsing groups");
+          }
+          this.elidedGroups = remaining;
+          this.elisionBegin = first.length;
+          this.elisionEnd = first.length + this.elidedGroups;
+          groups = groups.concat(first);
+          for (let i = 0; i < remaining; i++) {
+            groups.push("0");
+          }
+          groups = groups.concat(last);
+        } else if (halves.length === 1) {
+          groups = address.split(":");
+          this.elidedGroups = 0;
+        } else {
+          throw new address_error_1.AddressError("Too many :: groups found");
+        }
+        groups = groups.map((group) => parseInt(group, 16).toString(16));
+        if (groups.length !== this.groups) {
+          throw new address_error_1.AddressError("Incorrect number of groups found");
+        }
+        return groups;
+      }
+      /**
+       * Returns the canonical (fully expanded) form of the address: all 8 groups,
+       * each padded to 4 hex digits, with no `::` collapsing
+       * (e.g. `2001:0db8:0000:0000:0000:0000:0000:0001`). Useful for sorting and
+       * byte-exact comparison.
+       */
+      canonicalForm() {
+        return this.parsedAddress.map(paddedHex).join(":");
+      }
+      /**
+       * Return the decimal form of the address
+       * @returns {String}
+       */
+      decimal() {
+        return this.parsedAddress.map((n) => parseInt(n, 16).toString(10).padStart(5, "0")).join(":");
+      }
+      /**
+       * Return the address as a BigInt
+       * @returns {bigint}
+       */
+      bigInt() {
+        return BigInt(`0x${this.parsedAddress.map(paddedHex).join("")}`);
+      }
+      /**
+       * Return the last two groups of this address as an IPv4 address string.
+       * If this address carries a CIDR prefix that covers the trailing 32 bits
+       * (i.e. `subnetMask >= 96`), the resulting `Address4` inherits the
+       * corresponding v4 prefix (`subnetMask - 96`); otherwise it defaults to
+       * `/32`.
+       * @returns {Address4}
+       * @example
+       * var address = new Address6('2001:4860:4001::1825:bf11');
+       * address.to4().correctForm(); // '24.37.191.17'
+       */
+      to4() {
+        const binary = this.binaryZeroPad().split("");
+        const hex3 = BigInt(`0b${binary.slice(96, 128).join("")}`).toString(16).padStart(8, "0");
+        if (this.subnetMask >= 96) {
+          const v4Mask = this.subnetMask - 96;
+          const groups = [];
+          for (let i = 0; i < 8; i += 2) {
+            groups.push(parseInt(hex3.slice(i, i + 2), 16));
+          }
+          return new ipv4_1.Address4(`${groups.join(".")}/${v4Mask}`);
+        }
+        return ipv4_1.Address4.fromHex(hex3);
+      }
+      /**
+       * Return the v4-in-v6 form of the address
+       * @returns {String}
+       */
+      to4in6() {
+        const address4 = this.to4();
+        const address6 = new _Address6(this.parsedAddress.slice(0, 6).join(":"), 6);
+        const correct = address6.correctForm();
+        let infix = "";
+        if (!/:$/.test(correct)) {
+          infix = ":";
+        }
+        return correct + infix + address4.correctForm();
+      }
+      /**
+       * Decodes the Teredo tunneling fields embedded in this address. Returns the
+       * Teredo prefix, server IPv4, client IPv4, raw flag bits, cone-NAT flag,
+       * UDP port, and Microsoft-format flag breakdown (reserved, universal/local,
+       * group/individual, nonce). Only meaningful for addresses in `2001::/32`.
+       */
+      inspectTeredo() {
+        const prefix = this.getBitsBase16(0, 32);
+        const bitsForUdpPort = this.getBits(80, 96);
+        const udpPort = (bitsForUdpPort ^ BigInt("0xffff")).toString();
+        const server4 = ipv4_1.Address4.fromHex(this.getBitsBase16(32, 64));
+        const bitsForClient4 = this.getBits(96, 128);
+        const client4 = ipv4_1.Address4.fromHex((bitsForClient4 ^ BigInt("0xffffffff")).toString(16).padStart(8, "0"));
+        const flagsBase2 = this.getBitsBase2(64, 80);
+        const coneNat = (0, common_1.testBit)(flagsBase2, 15);
+        const reserved = (0, common_1.testBit)(flagsBase2, 14);
+        const groupIndividual = (0, common_1.testBit)(flagsBase2, 8);
+        const universalLocal = (0, common_1.testBit)(flagsBase2, 9);
+        const nonce = BigInt(`0b${flagsBase2.slice(2, 6) + flagsBase2.slice(8, 16)}`).toString(10);
+        return {
+          prefix: `${prefix.slice(0, 4)}:${prefix.slice(4, 8)}`,
+          server4: server4.address,
+          client4: client4.address,
+          flags: flagsBase2,
+          coneNat,
+          microsoft: {
+            reserved,
+            universalLocal,
+            groupIndividual,
+            nonce
+          },
+          udpPort
+        };
+      }
+      /**
+       * Decodes the 6to4 tunneling fields embedded in this address. Returns the
+       * 6to4 prefix and the embedded IPv4 gateway address. Only meaningful for
+       * addresses in `2002::/16`.
+       */
+      inspect6to4() {
+        const prefix = this.getBitsBase16(0, 16);
+        const gateway = ipv4_1.Address4.fromHex(this.getBitsBase16(16, 48));
+        return {
+          prefix: prefix.slice(0, 4),
+          gateway: gateway.address
+        };
+      }
+      /**
+       * Return a v6 6to4 address from a v6 v4inv6 address
+       * @returns {Address6}
+       */
+      to6to4() {
+        if (!this.is4()) {
+          return null;
+        }
+        const addr6to4 = [
+          "2002",
+          this.getBitsBase16(96, 112),
+          this.getBitsBase16(112, 128),
+          "",
+          "/16"
+        ].join(":");
+        return new _Address6(addr6to4);
+      }
+      /**
+       * Embed an IPv4 address into a NAT64 IPv6 address using the encoding
+       * defined by [RFC 6052](https://datatracker.ietf.org/doc/html/rfc6052).
+       * The default prefix is the well-known prefix `64:ff9b::/96`. The prefix
+       * length must be one of 32, 40, 48, 56, 64, or 96; for prefixes shorter
+       * than /64 the IPv4 octets are split around the reserved bits 64–71.
+       * @example
+       * Address6.fromAddress4Nat64('192.0.2.33').correctForm(); // '64:ff9b::c000:221'
+       * Address6.fromAddress4Nat64('192.0.2.33', '2001:db8::/32').correctForm(); // '2001:db8:c000:221::'
+       */
+      static fromAddress4Nat64(address, prefix = "64:ff9b::/96") {
+        const v4 = new ipv4_1.Address4(address);
+        const prefix6 = new _Address6(prefix);
+        const pl = prefix6.subnetMask;
+        if (pl !== 32 && pl !== 40 && pl !== 48 && pl !== 56 && pl !== 64 && pl !== 96) {
+          throw new address_error_1.AddressError("NAT64 prefix length must be 32, 40, 48, 56, 64, or 96");
+        }
+        const prefixBits = prefix6.binaryZeroPad();
+        const v4Bits = v4.binaryZeroPad();
+        let bits;
+        if (pl === 96) {
+          bits = prefixBits.slice(0, 96) + v4Bits;
+        } else {
+          const beforeU = 64 - pl;
+          bits = [
+            prefixBits.slice(0, pl),
+            v4Bits.slice(0, beforeU),
+            // Bits 64 to 71 are the reserved u octet and are always zero.
+            "00000000",
+            v4Bits.slice(beforeU),
+            "0".repeat(128 - 72 - (32 - beforeU))
+          ].join("");
+        }
+        const hex3 = BigInt(`0b${bits}`).toString(16).padStart(32, "0");
+        const groups = [];
+        for (let i = 0; i < 8; i++) {
+          groups.push(hex3.slice(i * 4, (i + 1) * 4));
+        }
+        return new _Address6(groups.join(":"));
+      }
+      /**
+       * Extract the embedded IPv4 address from a NAT64 IPv6 address using the
+       * encoding defined by [RFC 6052](https://datatracker.ietf.org/doc/html/rfc6052).
+       * The default prefix is the well-known prefix `64:ff9b::/96`. Returns
+       * `null` if this address is not contained within the given prefix.
+       * @example
+       * new Address6('64:ff9b::c000:221').toAddress4Nat64()!.correctForm(); // '192.0.2.33'
+       */
+      toAddress4Nat64(prefix = "64:ff9b::/96") {
+        const prefix6 = new _Address6(prefix);
+        const pl = prefix6.subnetMask;
+        if (pl !== 32 && pl !== 40 && pl !== 48 && pl !== 56 && pl !== 64 && pl !== 96) {
+          throw new address_error_1.AddressError("NAT64 prefix length must be 32, 40, 48, 56, 64, or 96");
+        }
+        if (!this.isHostInSubnet(prefix6)) {
+          return null;
+        }
+        const bits = this.binaryZeroPad();
+        let v4Bits;
+        if (pl === 96) {
+          v4Bits = bits.slice(96, 128);
+        } else {
+          const beforeU = 64 - pl;
+          v4Bits = bits.slice(pl, pl + beforeU) + bits.slice(72, 72 + (32 - beforeU));
+        }
+        const octets = [];
+        for (let i = 0; i < 4; i++) {
+          octets.push(parseInt(v4Bits.slice(i * 8, (i + 1) * 8), 2).toString());
+        }
+        return new ipv4_1.Address4(octets.join("."));
+      }
+      /**
+       * Return a byte array.
+       *
+       * To get a Node.js `Buffer`, wrap the result: `Buffer.from(address.toByteArray())`.
+       * @returns {Array}
+       */
+      toByteArray() {
+        const value = this.bigInt().toString(16).padStart(constants6.BITS / 4, "0");
+        const bytes = [];
+        for (let i = 0, length = value.length; i < length; i += 2) {
+          bytes.push(parseInt(value.substring(i, i + 2), 16));
+        }
+        return bytes;
+      }
+      /**
+       * Return an unsigned byte array.
+       *
+       * To get a Node.js `Buffer`, wrap the result: `Buffer.from(address.toUnsignedByteArray())`.
+       * @returns {Array}
+       */
+      toUnsignedByteArray() {
+        return this.toByteArray().map(unsignByte);
+      }
+      /**
+       * Convert a byte array to an Address6 object.
+       *
+       * Accepts unsigned bytes (0 to 255) or signed bytes (-128 to 127, as an
+       * `Int8Array` or a Java `byte[]` holds them), folding signed values to their
+       * unsigned equivalent. Throws `AddressError` unless given exactly 16
+       * integers from -128 to 255.
+       *
+       * To convert from a Node.js `Buffer`, spread it: `Address6.fromByteArray([...buf])`.
+       * @returns {Address6}
+       */
+      static fromByteArray(bytes) {
+        common.assertByteArray(bytes, 16, "IPv6", -128);
+        return this.fromUnsignedByteArray(bytes.map(unsignByte));
+      }
+      /**
+       * Convert an unsigned byte array to an Address6 object.
+       *
+       * Throws `AddressError` unless given exactly 16 integers from 0 to 255.
+       *
+       * To convert from a Node.js `Buffer`, spread it: `Address6.fromUnsignedByteArray([...buf])`.
+       * @returns {Address6}
+       */
+      static fromUnsignedByteArray(bytes) {
+        common.assertByteArray(bytes, 16, "IPv6", 0);
+        const BYTE_MAX = BigInt("256");
+        let result = BigInt("0");
+        let multiplier = BigInt("1");
+        for (let i = bytes.length - 1; i >= 0; i--) {
+          result += multiplier * BigInt(bytes[i].toString(10));
+          multiplier *= BYTE_MAX;
+        }
+        return _Address6.fromBigInt(result);
+      }
+      /**
+       * Returns true if the address is in the canonical form, false otherwise
+       * @returns {boolean}
+       */
+      isCanonical() {
+        return this.addressMinusSuffix === this.canonicalForm();
+      }
+      /**
+       * Returns true if the address is a link-local unicast address in `fe80::/10`
+       * ([RFC 4291 §2.4](https://datatracker.ietf.org/doc/html/rfc4291#section-2.4))
+       * or an IPv4-mapped / NAT64 address whose embedded IPv4 address is link-local
+       * (`169.254.0.0/16`, e.g. `::ffff:169.254.169.254`), false otherwise.
+       * @returns {boolean}
+       */
+      isLinkLocal() {
+        const embedded = this.embeddedIPv4();
+        if (embedded) {
+          return embedded.isLinkLocal();
+        }
+        return this.isHostInSubnet(LINK_LOCAL_SUBNET);
+      }
+      /**
+       * Returns true if the address is a multicast address, false otherwise
+       * @returns {boolean}
+       */
+      isMulticast() {
+        const embedded = this.embeddedIPv4();
+        if (embedded) {
+          return embedded.isMulticast();
+        }
+        const type = this.getType();
+        return type === "Multicast" || type.startsWith("Multicast ");
+      }
+      /**
+       * Returns true if the address was written in v4-in-v6 dotted-quad notation
+       * (e.g. `::ffff:127.0.0.1`), false otherwise. This is a notation-level flag
+       * and does not reflect whether the address bits lie in the IPv4-mapped
+       * (`::ffff:0:0/96`) subnet — for that, see {@link isMapped4}.
+       * @returns {boolean}
+       */
+      is4() {
+        return this.v4;
+      }
+      /**
+       * Returns true if the address is an IPv4-mapped IPv6 address in
+       * `::ffff:0:0/96` ([RFC 4291 §2.5.5.2](https://datatracker.ietf.org/doc/html/rfc4291#section-2.5.5.2)),
+       * false otherwise. Unlike {@link is4}, this checks the underlying address
+       * bits rather than the textual notation, so `::ffff:127.0.0.1` and
+       * `::ffff:7f00:1` both return true.
+       * @returns {boolean}
+       */
+      isMapped4() {
+        return this.isHostInSubnet(IPV4_MAPPED_SUBNET);
+      }
+      /**
+       * If this address embeds a routable IPv4 address — i.e. it is IPv4-mapped
+       * (`::ffff:0:0/96`) or sits in the NAT64 well-known prefix (`64:ff9b::/96`,
+       * [RFC 6052](https://datatracker.ietf.org/doc/html/rfc6052)) — return that
+       * embedded address as an {@link Address4}; otherwise return null.
+       *
+       * The special-property checks (`isLoopback`, `isLinkLocal`, `isMulticast`,
+       * `isUnspecified`, `isPrivate`, `isCGNAT`, `isBroadcast`) call this first and
+       * delegate to the embedded {@link Address4} when present, so a literal such as
+       * `::ffff:127.0.0.1` is classified by what it actually reaches (loopback)
+       * rather than by its IPv6 wrapper (which `getType()` reports as IPv4-mapped).
+       * This matters wherever the checks back a trust-boundary decision (e.g. an
+       * SSRF allow/deny filter): without normalization, `::ffff:10.0.0.1`,
+       * `::ffff:169.254.169.254`, `64:ff9b::7f00:1`, etc. would all read as
+       * non-internal.
+       * @returns {Address4 | null}
+       */
+      embeddedIPv4() {
+        if (this.isMapped4() || this.isHostInSubnet(NAT64_WELL_KNOWN_SUBNET)) {
+          return this.to4();
+        }
+        return null;
+      }
+      /**
+       * Returns true if the address is a Teredo address, false otherwise
+       * @returns {boolean}
+       */
+      isTeredo() {
+        return this.isHostInSubnet(TEREDO_SUBNET);
+      }
+      /**
+       * Returns true if the address is a 6to4 address, false otherwise
+       * @returns {boolean}
+       */
+      is6to4() {
+        return this.isHostInSubnet(SIX_TO_FOUR_SUBNET);
+      }
+      /**
+       * Returns true if the address is a loopback address, false otherwise
+       * @returns {boolean}
+       */
+      isLoopback() {
+        const embedded = this.embeddedIPv4();
+        if (embedded) {
+          return embedded.isLoopback();
+        }
+        return this.getType() === "Loopback";
+      }
+      /**
+       * Returns true if the address is a Unique Local Address in `fc00::/7` ([RFC 4193](https://datatracker.ietf.org/doc/html/rfc4193)). ULAs are the IPv6 equivalent of IPv4 [RFC 1918](https://datatracker.ietf.org/doc/html/rfc1918) private addresses.
+       * @returns {boolean}
+       */
+      isULA() {
+        return this.isHostInSubnet(ULA_SUBNET);
+      }
+      /**
+       * Returns true if the address is private, i.e. a Unique Local Address in
+       * `fc00::/7` ([RFC 4193](https://datatracker.ietf.org/doc/html/rfc4193)), an
+       * address in the NAT64 local-use range `64:ff9b:1::/48`
+       * ([RFC 8215](https://datatracker.ietf.org/doc/html/rfc8215)), or an
+       * IPv4-mapped / NAT64 well-known address whose embedded IPv4 address is in
+       * one of the [RFC 1918](https://datatracker.ietf.org/doc/html/rfc1918)
+       * private ranges (e.g. `::ffff:10.0.0.1`). This is the IPv6 counterpart to
+       * {@link Address4.isPrivate}; use it instead of {@link isULA} when you need to
+       * catch mapped RFC 1918 addresses as well as native ULAs.
+       *
+       * The local-use NAT64 range is reported private as a whole rather than by
+       * its embedded IPv4 address: an operator may carve a prefix of any RFC 6052
+       * length out of `64:ff9b:1::/48`, so the same bits decode to different IPv4
+       * addresses under different deployments and no single decoding is correct.
+       * Use {@link toAddress4Nat64} with the deployment's prefix to decode one.
+       * @returns {boolean}
+       */
+      isPrivate() {
+        const embedded = this.embeddedIPv4();
+        if (embedded) {
+          return embedded.isPrivate();
+        }
+        return this.isULA() || this.isHostInSubnet(NAT64_LOCAL_USE_SUBNET);
+      }
+      /**
+       * Returns true if the address is an IPv4-mapped / NAT64 address whose embedded
+       * IPv4 address is in the carrier-grade NAT range `100.64.0.0/10`
+       * ([RFC 6598](https://datatracker.ietf.org/doc/html/rfc6598)), false
+       * otherwise. There is no native IPv6 CGNAT range, so this only ever returns
+       * true for an embedded IPv4 address (e.g. `::ffff:100.64.0.1`).
+       * @returns {boolean}
+       */
+      isCGNAT() {
+        const embedded = this.embeddedIPv4();
+        if (embedded) {
+          return embedded.isCGNAT();
+        }
+        return false;
+      }
+      /**
+       * Returns true if the address is an IPv4-mapped / NAT64 address whose embedded
+       * IPv4 address is the limited broadcast address `255.255.255.255`
+       * ([RFC 919](https://datatracker.ietf.org/doc/html/rfc919)), false otherwise.
+       * There is no IPv6 broadcast, so this only ever returns true for an embedded
+       * IPv4 address (e.g. `::ffff:255.255.255.255`).
+       * @returns {boolean}
+       */
+      isBroadcast() {
+        const embedded = this.embeddedIPv4();
+        if (embedded) {
+          return embedded.isBroadcast();
+        }
+        return false;
+      }
+      /**
+       * Returns true if the address is the unspecified address `::`.
+       * @returns {boolean}
+       */
+      isUnspecified() {
+        const embedded = this.embeddedIPv4();
+        if (embedded) {
+          return embedded.isUnspecified();
+        }
+        return this.getType() === "Unspecified";
+      }
+      /**
+       * Returns true if the address is in the documentation prefix `2001:db8::/32` ([RFC 3849](https://datatracker.ietf.org/doc/html/rfc3849)).
+       * @returns {boolean}
+       */
+      isDocumentation() {
+        return DOCUMENTATION_SUBNETS.some((subnet) => this.isHostInSubnet(subnet));
+      }
+      /**
+       * Returns true if the address is in the benchmarking range `2001:2::/48`
+       * ([RFC 5180](https://datatracker.ietf.org/doc/html/rfc5180)) or is an
+       * IPv4-mapped / NAT64 address whose embedded IPv4 address is in
+       * `198.18.0.0/15`, false otherwise.
+       * @returns {boolean}
+       */
+      isBenchmarking() {
+        const embedded = this.embeddedIPv4();
+        if (embedded) {
+          return embedded.isBenchmarking();
+        }
+        return this.isHostInSubnet(BENCHMARKING_SUBNET);
+      }
+      /**
+       * Returns true if the address is globally reachable: inside the global
+       * unicast allocation `2000::/3` (the only range the [IANA IPv6 Address Space
+       * Registry](https://www.iana.org/assignments/ipv6-address-space/) assigns
+       * for global unicast; everything else is reserved, ULA, link-local, or
+       * multicast) and not in any block the [IANA IPv6 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv6-special-registry/)
+       * marks as not globally reachable. An IPv4-mapped or NAT64 well-known
+       * address answers for its embedded IPv4 address, so `::ffff:10.0.0.1` and
+       * `64:ff9b::7f00:1` are not global. Teredo (`2001::/32`) and 6to4
+       * (`2002::/16`) are not global either: the registry lists them as N/A and a
+       * packet to one needs a relay.
+       *
+       * This covers everything the individual classifiers name and the blocks they
+       * do not: the discard-only prefix `100::/64`, the IETF protocol assignments
+       * in `2001::/23`, the deprecated site-local `fec0::/10` and IPv4-compatible
+       * `::/96` ranges, and unallocated space such as `4000::/3`. It is the single
+       * predicate to use where a request must not reach an internal or
+       * special-purpose destination; see SECURITY.md.
+       * @returns {boolean}
+       */
+      isGlobal() {
+        const embedded = this.embeddedIPv4();
+        if (embedded) {
+          return embedded.isGlobal();
+        }
+        return this.isHostInSubnet(GLOBAL_UNICAST_SUBNET) && common.isGloballyReachable.call(this, SPECIAL_PURPOSE_V6);
+      }
+      // #endregion
+      // #region HTML
+      /**
+       * Returns the address as an HTTP URL with the host bracketed, e.g.
+       * `http://[2001:db8::1]/`. If `optionalPort` is provided it is appended,
+       * e.g. `http://[2001:db8::1]:8080/`.
+       */
+      href(optionalPort) {
+        if (optionalPort === void 0) {
+          optionalPort = "";
+        } else {
+          optionalPort = `:${optionalPort}`;
+        }
+        return `http://[${this.correctForm()}]${optionalPort}/`;
+      }
+      /**
+       * Returns an HTML `<a>` element whose `href` encodes the address in a URL
+       * hash fragment (default prefix `/#address=`). Useful for linking between
+       * pages of an address-inspector UI.
+       * @param options.className - CSS class for the rendered `<a>` element
+       * @param options.prefix - hash prefix prepended to the address (default `/#address=`)
+       * @param options.v4 - when true, render the address in v4-in-v6 form
+       */
+      link(options) {
+        if (!options) {
+          options = {};
+        }
+        if (options.className === void 0) {
+          options.className = "";
+        }
+        if (options.prefix === void 0) {
+          options.prefix = "/#address=";
+        }
+        if (options.v4 === void 0) {
+          options.v4 = false;
+        }
+        let formFunction = this.correctForm;
+        if (options.v4) {
+          formFunction = this.to4in6;
+        }
+        const form = formFunction.call(this);
+        const safeHref = helpers.escapeHtml(`${options.prefix}${form}`);
+        const safeForm = helpers.escapeHtml(form);
+        if (options.className) {
+          const safeClass = helpers.escapeHtml(options.className);
+          return `<a href="${safeHref}" class="${safeClass}">${safeForm}</a>`;
+        }
+        return `<a href="${safeHref}">${safeForm}</a>`;
+      }
+      /**
+       * Groups an address.
+       *
+       * Returns an HTML fragment: each group is wrapped in a `<span>` carrying
+       * the group classes an address-inspector UI hovers on. The address content
+       * is HTML-escaped; anything you concatenate around it is your
+       * responsibility.
+       * @returns {String}
+       */
+      group() {
+        if (this.elidedGroups === 0) {
+          return helpers.simpleGroup(this.addressMinusSuffix).join(":");
+        }
+        assert2(typeof this.elidedGroups === "number");
+        assert2(typeof this.elisionBegin === "number");
+        const output2 = [];
+        const [left, right] = this.addressMinusSuffix.split("::");
+        if (left.length) {
+          output2.push(...helpers.simpleGroup(left));
+        } else {
+          output2.push("");
+        }
+        const classes = ["hover-group"];
+        for (let i = this.elisionBegin; i < this.elisionBegin + this.elidedGroups; i++) {
+          classes.push(`group-${i}`);
+        }
+        output2.push(`<span class="${classes.join(" ")}"></span>`);
+        if (right.length) {
+          output2.push(...helpers.simpleGroup(right, this.elisionEnd));
+        } else {
+          output2.push("");
+        }
+        if (this.is4()) {
+          assert2(this.address4 instanceof ipv4_1.Address4);
+          output2.pop();
+          output2.push(this.address4.groupForV6());
+        }
+        return output2.join(":");
+      }
+      // #endregion
+      // #region Regular expressions
+      /**
+       * Generate a regular expression string that can be used to find or validate
+       * all variations of this address
+       * @param {boolean} substringSearch
+       * @returns {string}
+       */
+      regularExpressionString(substringSearch = false) {
+        let output2 = [];
+        const address6 = new _Address6(this.correctForm());
+        if (address6.elidedGroups === 0) {
+          output2.push((0, regular_expressions_1.simpleRegularExpression)(address6.parsedAddress));
+        } else if (address6.elidedGroups === constants6.GROUPS) {
+          output2.push((0, regular_expressions_1.possibleElisions)(constants6.GROUPS));
+        } else {
+          const halves = address6.address.split("::");
+          if (halves[0].length) {
+            output2.push((0, regular_expressions_1.simpleRegularExpression)(halves[0].split(":")));
+          }
+          assert2(typeof address6.elidedGroups === "number");
+          output2.push((0, regular_expressions_1.possibleElisions)(address6.elidedGroups, halves[0].length !== 0, halves[1].length !== 0));
+          if (halves[1].length) {
+            output2.push((0, regular_expressions_1.simpleRegularExpression)(halves[1].split(":")));
+          }
+          output2 = [output2.join(":")];
+        }
+        if (!substringSearch) {
+          output2 = [
+            "(?=^|",
+            regular_expressions_1.ADDRESS_BOUNDARY,
+            "|[^\\w\\:])(",
+            ...output2,
+            ")(?=[^\\w\\:]|",
+            regular_expressions_1.ADDRESS_BOUNDARY,
+            "|$)"
+          ];
+        }
+        return output2.join("");
+      }
+      /**
+       * Generate a regular expression that can be used to find or validate all
+       * variations of this address.
+       * @param {boolean} substringSearch
+       * @returns {RegExp}
+       */
+      regularExpression(substringSearch = false) {
+        return new RegExp(this.regularExpressionString(substringSearch), "i");
+      }
+    };
+    exports.Address6 = Address62;
+    var TYPE_SUBNETS = Object.keys(constants6.TYPES).map((subnet) => [
+      new Address62(subnet),
+      constants6.TYPES[subnet]
+    ]);
+    var TEREDO_SUBNET = new Address62("2001::/32");
+    var SIX_TO_FOUR_SUBNET = new Address62("2002::/16");
+    var ULA_SUBNET = new Address62("fc00::/7");
+    var LINK_LOCAL_SUBNET = new Address62("fe80::/10");
+    var DOCUMENTATION_SUBNETS = [new Address62("2001:db8::/32"), new Address62("3fff::/20")];
+    var BENCHMARKING_SUBNET = new Address62("2001:2::/48");
+    var GLOBAL_UNICAST_SUBNET = new Address62("2000::/3");
+    var SPECIAL_PURPOSE_V6 = constants6.SPECIAL_PURPOSE.map(([cidr, , reachable]) => ({
+      subnet: new Address62(cidr),
+      reachable
+    }));
+    var IPV4_MAPPED_SUBNET = new Address62("::ffff:0:0/96");
+    var NAT64_WELL_KNOWN_SUBNET = new Address62("64:ff9b::/96");
+    var NAT64_LOCAL_USE_SUBNET = new Address62("64:ff9b:1::/48");
+  }
+});
+
+// node_modules/ip-address/dist/ip-address.js
+var require_ip_address = __commonJS({
+  "node_modules/ip-address/dist/ip-address.js"(exports) {
+    "use strict";
+    var __createBinding2 = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __setModuleDefault2 = exports && exports.__setModuleDefault || (Object.create ? (function(o, v) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v });
+    }) : function(o, v) {
+      o["default"] = v;
+    });
+    var __importStar2 = exports && exports.__importStar || function(mod) {
+      if (mod && mod.__esModule) return mod;
+      var result = {};
+      if (mod != null) {
+        for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding2(result, mod, k);
+      }
+      __setModuleDefault2(result, mod);
+      return result;
+    };
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.v6 = exports.AddressError = exports.Address6 = exports.Address4 = void 0;
+    var ipv4_1 = require_ipv4();
+    Object.defineProperty(exports, "Address4", { enumerable: true, get: function() {
+      return ipv4_1.Address4;
+    } });
+    var ipv6_1 = require_ipv6();
+    Object.defineProperty(exports, "Address6", { enumerable: true, get: function() {
+      return ipv6_1.Address6;
+    } });
+    var address_error_1 = require_address_error();
+    Object.defineProperty(exports, "AddressError", { enumerable: true, get: function() {
+      return address_error_1.AddressError;
+    } });
+    var helpers = __importStar2(require_helpers());
+    exports.v6 = { helpers };
+  }
+});
+
 // node_modules/tslib/tslib.es6.mjs
 var tslib_es6_exports = {};
 __export(tslib_es6_exports, {
@@ -30495,7 +32837,7 @@ var require_version = __commonJS({
 });
 
 // node_modules/@supabase/realtime-js/dist/main/lib/constants.js
-var require_constants2 = __commonJS({
+var require_constants4 = __commonJS({
   "node_modules/@supabase/realtime-js/dist/main/lib/constants.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -32904,7 +35246,7 @@ var require_channelAdapter = __commonJS({
   "node_modules/@supabase/realtime-js/dist/main/phoenix/channelAdapter.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var constants_1 = require_constants2();
+    var constants_1 = require_constants4();
     var ChannelAdapter = class {
       constructor(socket, topic, params) {
         const phoenixParams = phoenixChannelParams(params);
@@ -33137,7 +35479,7 @@ var require_RealtimeChannel = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.REALTIME_CHANNEL_STATES = exports.REALTIME_SUBSCRIBE_STATES = exports.REALTIME_LISTEN_TYPES = exports.REALTIME_POSTGRES_CHANGES_LISTEN_EVENT = exports.postgresChangesFilter = exports.RealtimePostgresFilterBuilder = void 0;
     var tslib_1 = (init_tslib_es6(), __toCommonJS(tslib_es6_exports));
-    var constants_1 = require_constants2();
+    var constants_1 = require_constants4();
     var RealtimePresence_1 = tslib_1.__importDefault(require_RealtimePresence());
     var Transformers = tslib_1.__importStar(require_transformers());
     var transformers_1 = require_transformers();
@@ -33891,7 +36233,7 @@ var require_socketAdapter = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var phoenix_1 = require_phoenix_cjs();
-    var constants_1 = require_constants2();
+    var constants_1 = require_constants4();
     var SocketAdapter = class {
       constructor(endPoint, options) {
         this.socket = new phoenix_1.Socket(endPoint, options);
@@ -34013,7 +36355,7 @@ var require_RealtimeClient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var tslib_1 = (init_tslib_es6(), __toCommonJS(tslib_es6_exports));
     var websocket_factory_1 = tslib_1.__importDefault(require_websocket_factory());
-    var constants_1 = require_constants2();
+    var constants_1 = require_constants4();
     var serializer_1 = tslib_1.__importDefault(require_serializer());
     var transformers_1 = require_transformers();
     var RealtimeChannel_1 = tslib_1.__importDefault(require_RealtimeChannel());
@@ -34736,7 +37078,7 @@ var require_version2 = __commonJS({
 });
 
 // node_modules/@supabase/auth-js/dist/main/lib/constants.js
-var require_constants3 = __commonJS({
+var require_constants5 = __commonJS({
   "node_modules/@supabase/auth-js/dist/main/lib/constants.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -35118,7 +37460,7 @@ var require_base64url = __commonJS({
 });
 
 // node_modules/@supabase/auth-js/dist/main/lib/helpers.js
-var require_helpers = __commonJS({
+var require_helpers2 = __commonJS({
   "node_modules/@supabase/auth-js/dist/main/lib/helpers.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -35147,7 +37489,7 @@ var require_helpers = __commonJS({
     exports.userNotAvailableProxy = userNotAvailableProxy;
     exports.insecureUserWarningProxy = insecureUserWarningProxy;
     exports.deepClone = deepClone;
-    var constants_1 = require_constants3();
+    var constants_1 = require_constants5();
     var errors_1 = require_errors();
     var base64url_1 = require_base64url();
     function expiresAt(expiresIn) {
@@ -35547,8 +37889,8 @@ var require_fetch = __commonJS({
     exports._generateLinkResponse = _generateLinkResponse;
     exports._noResolveJsonResponse = _noResolveJsonResponse;
     var tslib_1 = (init_tslib_es6(), __toCommonJS(tslib_es6_exports));
-    var constants_1 = require_constants3();
-    var helpers_1 = require_helpers();
+    var constants_1 = require_constants5();
+    var helpers_1 = require_helpers2();
     var errors_1 = require_errors();
     var _getErrorMessage2 = (err) => {
       if (typeof err === "object" && err !== null) {
@@ -35737,7 +38079,7 @@ var require_GoTrueAdminApi = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var tslib_1 = (init_tslib_es6(), __toCommonJS(tslib_es6_exports));
     var fetch_1 = require_fetch();
-    var helpers_1 = require_helpers();
+    var helpers_1 = require_helpers2();
     var types_1 = require_types2();
     var errors_1 = require_errors();
     var GoTrueAdminApi = class {
@@ -35799,14 +38141,14 @@ var require_GoTrueAdminApi = __commonJS({
        * @category Auth
        * @subcategory Auth Admin
        */
-      async signOut(jwt6, scope = types_1.SIGN_OUT_SCOPES[0]) {
+      async signOut(jwt7, scope = types_1.SIGN_OUT_SCOPES[0]) {
         if (types_1.SIGN_OUT_SCOPES.indexOf(scope) < 0) {
           throw new Error(`@supabase/auth-js: Parameter scope must be one of ${types_1.SIGN_OUT_SCOPES.join(", ")}`);
         }
         try {
           await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/logout?scope=${scope}`, {
             headers: this.headers,
-            jwt: jwt6,
+            jwt: jwt7,
             noResolveJson: true
           });
           return { data: null, error: null };
@@ -36840,7 +39182,7 @@ var require_locks = __commonJS({
     exports.ProcessLockAcquireTimeoutError = exports.NavigatorLockAcquireTimeoutError = exports.LockAcquireTimeoutError = exports.internals = void 0;
     exports.navigatorLock = navigatorLock;
     exports.processLock = processLock;
-    var helpers_1 = require_helpers();
+    var helpers_1 = require_helpers2();
     exports.internals = {
       /**
        * @experimental
@@ -37323,7 +39665,7 @@ var require_webauthn = __commonJS({
     var tslib_1 = (init_tslib_es6(), __toCommonJS(tslib_es6_exports));
     var base64url_1 = require_base64url();
     var errors_1 = require_errors();
-    var helpers_1 = require_helpers();
+    var helpers_1 = require_helpers2();
     var webauthn_errors_1 = require_webauthn_errors();
     Object.defineProperty(exports, "identifyAuthenticationError", { enumerable: true, get: function() {
       return webauthn_errors_1.identifyAuthenticationError;
@@ -37870,10 +40212,10 @@ var require_GoTrueClient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var tslib_1 = (init_tslib_es6(), __toCommonJS(tslib_es6_exports));
     var GoTrueAdminApi_1 = tslib_1.__importDefault(require_GoTrueAdminApi());
-    var constants_1 = require_constants3();
+    var constants_1 = require_constants5();
     var errors_1 = require_errors();
     var fetch_1 = require_fetch();
-    var helpers_1 = require_helpers();
+    var helpers_1 = require_helpers2();
     var local_storage_1 = require_local_storage();
     var locks_1 = require_locks();
     var polyfills_1 = require_polyfills();
@@ -40303,9 +42645,9 @@ var require_GoTrueClient = __commonJS({
        * const { data: { user } } = await supabase.auth.getUser(jwt)
        * ```
        */
-      async getUser(jwt6) {
-        if (jwt6) {
-          return await this._getUser(jwt6);
+      async getUser(jwt7) {
+        if (jwt7) {
+          return await this._getUser(jwt7);
         }
         await this.initializePromise;
         let result;
@@ -40321,12 +42663,12 @@ var require_GoTrueClient = __commonJS({
         }
         return result;
       }
-      async _getUser(jwt6) {
+      async _getUser(jwt7) {
         try {
-          if (jwt6) {
+          if (jwt7) {
             return await (0, fetch_1._request)(this.fetch, "GET", `${this.url}/user`, {
               headers: this.headers,
-              jwt: jwt6,
+              jwt: jwt7,
               xform: fetch_1._userResponse
             });
           }
@@ -42422,17 +44764,17 @@ var require_GoTrueClient = __commonJS({
       /**
        * {@link GoTrueMFAApi#getAuthenticatorAssuranceLevel}
        */
-      async _getAuthenticatorAssuranceLevel(jwt6) {
+      async _getAuthenticatorAssuranceLevel(jwt7) {
         var _a3, _b, _c, _d;
-        if (jwt6) {
+        if (jwt7) {
           try {
-            const { payload: payload2 } = (0, helpers_1.decodeJWT)(jwt6);
+            const { payload: payload2 } = (0, helpers_1.decodeJWT)(jwt7);
             let currentLevel2 = null;
             if (payload2.aal) {
               currentLevel2 = payload2.aal;
             }
             let nextLevel2 = currentLevel2;
-            const { data: { user }, error: userError } = await this.getUser(jwt6);
+            const { data: { user }, error: userError } = await this.getUser(jwt7);
             if (userError) {
               return this._returnResult({ data: null, error: userError });
             }
@@ -42871,9 +45213,9 @@ var require_GoTrueClient = __commonJS({
        * }
        * ```
        */
-      async getClaims(jwt6, options = {}) {
+      async getClaims(jwt7, options = {}) {
         try {
-          let token = jwt6;
+          let token = jwt7;
           if (!token) {
             const { data, error: error62 } = await this.getSession();
             if (error62 || !data.session) {
@@ -64790,17 +67132,12 @@ import_dotenv.default.config({ path: path.resolve(__dirname, "../.env.production
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), "backend/.env.production") });
 import_dotenv.default.config({ path: path.resolve(process.cwd(), ".env") });
-var NEW_SUPABASE_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
-var NEW_SUPABASE_DIRECT_URL = "postgresql://postgres.vzgjygtbdkezaerygjbp:*7HBHpKRz5U_z66@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres";
-var FALLBACK_DATABASE_URL = NEW_SUPABASE_URL;
-var FALLBACK_DIRECT_URL = NEW_SUPABASE_DIRECT_URL;
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = FALLBACK_DATABASE_URL;
+var NEW_SUPABASE_URL = process.env.DATABASE_URL || "";
+var NEW_SUPABASE_DIRECT_URL = process.env.DIRECT_URL || "";
+var dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) {
+  console.warn("\u26A0\uFE0F WARNING: DATABASE_URL is not configured in environment variables.");
 }
-if (!process.env.DIRECT_URL) {
-  process.env.DIRECT_URL = FALLBACK_DIRECT_URL;
-}
-var dbUrl = process.env.DATABASE_URL || FALLBACK_DATABASE_URL;
 var DEFAULT_SECONDARY_URL = "";
 var globalForPrisma = globalThis;
 var prisma = globalForPrisma.prisma ?? new PrismaClient({
@@ -64965,10 +67302,16 @@ import_dotenv2.default.config({ path: path2.resolve(__dirname2, "../.env.product
 import_dotenv2.default.config({ path: path2.resolve(process.cwd(), "backend/.env") });
 import_dotenv2.default.config({ path: path2.resolve(process.cwd(), "backend/.env.production") });
 import_dotenv2.default.config({ path: path2.resolve(process.cwd(), ".env") });
+var isProd = process.env.NODE_ENV === "production";
+var jwtSecret = process.env.JWT_SECRET || (isProd ? "" : "dev-local-jwt-secret-key-32charslong!");
+var adminSecret = process.env.ADMIN_SECRET || (isProd ? "" : "dev-local-admin-secret-key-32charslong!");
+if (isProd && (!jwtSecret || !adminSecret)) {
+  console.warn("\u26A0\uFE0F CRITICAL WARNING: JWT_SECRET or ADMIN_SECRET is not configured in environment variables.");
+}
 var config2 = {
   port: parseInt(process.env.PORT || "5000", 10),
-  jwtSecret: process.env.JWT_SECRET || "royal-rewards-super-secret-jwt-key-2026",
-  adminSecret: process.env.ADMIN_SECRET || "royal-rewards-admin-secret-key-2026",
+  jwtSecret: jwtSecret || "dev-local-jwt-secret-key-32charslong!",
+  adminSecret: adminSecret || "dev-local-admin-secret-key-32charslong!",
   nodeEnv: process.env.NODE_ENV || "development",
   corsOrigin: process.env.CORS_ORIGIN || "*"
 };
@@ -64982,7 +67325,7 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ error: "Unauthorized: Authentication token is missing" });
     }
     const token = authHeader.split(" ")[1];
-    const decoded = import_jsonwebtoken.default.verify(token, config2.jwtSecret);
+    const decoded = import_jsonwebtoken.default.verify(token, config2.jwtSecret, { algorithms: ["HS256"] });
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -64990,7 +67333,8 @@ async function requireAuth(req, res, next) {
         phone: true,
         name: true,
         referralCode: true,
-        accountStatus: true
+        accountStatus: true,
+        passwordHash: true
       }
     });
     if (!user) {
@@ -64999,7 +67343,14 @@ async function requireAuth(req, res, next) {
     if (user.accountStatus === "SUSPENDED") {
       return res.status(403).json({ error: "Account suspended. Please contact Earn Street support." });
     }
-    req.user = user;
+    if (decoded.pwdSig && user.passwordHash) {
+      const currentSig = user.passwordHash.slice(-8);
+      if (decoded.pwdSig !== currentSig) {
+        return res.status(401).json({ error: "Unauthorized: Password was changed. Please log in again." });
+      }
+    }
+    const { passwordHash: _unused, ...safeUser } = user;
+    req.user = safeUser;
     next();
   } catch (err) {
     return res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
@@ -65007,8 +67358,8 @@ async function requireAuth(req, res, next) {
 }
 
 // src/services/telegramService.ts
-var TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "9295985286:AAHb0EQFD-OMsd5bfrNgaPMTfkUDm4-Gph8";
-var TELEGRAM_ACCESS_PASSWORD = process.env.TELEGRAM_ACCESS_PASSWORD || "9989GHYRT89";
+var TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+var TELEGRAM_ACCESS_PASSWORD = process.env.TELEGRAM_ACCESS_PASSWORD || "";
 var TG_API_BASE = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 var tableEnsured = false;
 async function ensureTelegramUserTable() {
@@ -65078,14 +67429,18 @@ async function ensureTelegramWebhookActive() {
 }
 async function setTelegramWebhook(webhookUrl) {
   try {
+    const payload = {
+      url: webhookUrl,
+      drop_pending_updates: false,
+      allowed_updates: ["message"]
+    };
+    if (process.env.TELEGRAM_WEBHOOK_SECRET) {
+      payload.secret_token = process.env.TELEGRAM_WEBHOOK_SECRET;
+    }
     const res = await fetch(`${TG_API_BASE}/setWebhook`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: webhookUrl,
-        drop_pending_updates: false,
-        allowed_updates: ["message"]
-      })
+      body: JSON.stringify(payload)
     });
     return await res.json();
   } catch (err) {
@@ -65767,6 +68122,1099 @@ async function generateAdditionalCodes(count = 10) {
   return generated;
 }
 
+// node_modules/express-rate-limit/dist/index.mjs
+var import_ip_address = __toESM(require_ip_address(), 1);
+var import_debug = __toESM(require_src(), 1);
+import { isIPv6 } from "node:net";
+import { isIPv6 as isIPv62 } from "node:net";
+import { Buffer as Buffer2 } from "node:buffer";
+import { createHash } from "node:crypto";
+import { isIP } from "node:net";
+var ipv4CompatibleSubnet = new import_ip_address.Address6("::/96");
+function ipKeyGenerator(ip, ipv6Subnet = 56) {
+  if (isIPv6(ip)) {
+    const address = new import_ip_address.Address6(ip);
+    if (address.isMapped4() || // The deprecated IPv4-compatible notation keeps its existing behavior.
+    // Its range is shared with addresses that embed no IPv4 address at all
+    // (`::`, `::1`), so here the notation is what tells them apart.
+    address.is4() && address.isInSubnet(ipv4CompatibleSubnet))
+      return address.to4().correctForm();
+    if (ipv6Subnet) {
+      const subnet = new import_ip_address.Address6(`${ip}/${ipv6Subnet}`);
+      return subnet.networkForm();
+    }
+  }
+  return ip;
+}
+var MemoryStore = class {
+  constructor(validations2) {
+    this.validations = validations2;
+    this.previous = /* @__PURE__ */ new Map();
+    this.current = /* @__PURE__ */ new Map();
+    this.localKeys = true;
+  }
+  /**
+   * Method that initializes the store.
+   *
+   * @param options {Options} - The options used to setup the middleware.
+   */
+  init(options) {
+    this.windowMs = options.windowMs;
+    this.validations?.windowMs(this.windowMs);
+    if (this.interval) clearInterval(this.interval);
+    this.interval = setInterval(() => {
+      this.clearExpired();
+    }, this.windowMs);
+    this.interval.unref?.();
+  }
+  /**
+   * Method to fetch a client's hit count and reset time.
+   *
+   * @param key {string} - The identifier for a client.
+   *
+   * @returns {ClientRateLimitInfo | undefined} - The number of hits and reset time for that client.
+   *
+   * @public
+   */
+  async get(key) {
+    const client = this.current.get(key) ?? this.previous.get(key);
+    if (client && client.resetTime.getTime() <= Date.now()) return void 0;
+    return client;
+  }
+  /**
+   * Method to increment a client's hit counter.
+   *
+   * @param key {string} - The identifier for a client.
+   *
+   * @returns {ClientRateLimitInfo} - The number of hits and reset time for that client.
+   *
+   * @public
+   */
+  async increment(key) {
+    const client = this.getClient(key);
+    const now = Date.now();
+    if (client.resetTime.getTime() <= now) {
+      this.resetClient(client, now);
+    }
+    client.totalHits++;
+    return client;
+  }
+  /**
+   * Method to decrement a client's hit counter.
+   *
+   * @param key {string} - The identifier for a client.
+   *
+   * @public
+   */
+  async decrement(key) {
+    const client = this.getClient(key);
+    if (client.totalHits > 0) client.totalHits--;
+  }
+  /**
+   * Method to reset a client's hit counter.
+   *
+   * @param key {string} - The identifier for a client.
+   *
+   * @public
+   */
+  async resetKey(key) {
+    this.current.delete(key);
+    this.previous.delete(key);
+  }
+  /**
+   * Method to reset everyone's hit counter.
+   *
+   * @public
+   */
+  async resetAll() {
+    this.current.clear();
+    this.previous.clear();
+  }
+  /**
+   * Method to stop the timer (if currently running) and prevent any memory
+   * leaks.
+   *
+   * @public
+   */
+  shutdown() {
+    clearInterval(this.interval);
+    void this.resetAll();
+  }
+  /**
+   * Recycles a client by setting its hit count to zero, and reset time to
+   * `windowMs` milliseconds from now.
+   *
+   * NOT to be confused with `#resetKey()`, which removes a client from both the
+   * `current` and `previous` maps.
+   *
+   * @param client {Client} - The client to recycle.
+   * @param now {number} - The current time, to which the `windowMs` is added to get the `resetTime` for the client.
+   *
+   * @return {Client} - The modified client that was passed in, to allow for chaining.
+   */
+  resetClient(client, now = Date.now()) {
+    client.totalHits = 0;
+    client.resetTime = new Date(now + this.windowMs);
+    return client;
+  }
+  /**
+   * Retrieves or creates a client, given a key. Also ensures that the client being
+   * returned is in the `current` map.
+   *
+   * @param key {string} - The key under which the client is (or is to be) stored.
+   *
+   * @returns {Client} - The requested client.
+   */
+  getClient(key) {
+    if (this.current.has(key)) return this.current.get(key);
+    let client;
+    if (this.previous.has(key)) {
+      client = this.previous.get(key);
+      this.previous.delete(key);
+    } else {
+      client = { totalHits: 0, resetTime: /* @__PURE__ */ new Date() };
+      this.resetClient(client);
+    }
+    this.current.set(key, client);
+    return client;
+  }
+  /**
+   * Move current clients to previous, create a new map for current.
+   *
+   * This function is called every `windowMs`.
+   */
+  clearExpired() {
+    this.previous = this.current;
+    this.current = /* @__PURE__ */ new Map();
+  }
+};
+var ConsoleLogger = {
+  warn(...args) {
+    console.warn(...args.reverse());
+  },
+  error(...args) {
+    console.error(...args.reverse());
+  }
+};
+var SUPPORTED_DRAFT_VERSIONS = [
+  "draft-6",
+  "draft-7",
+  "draft-8"
+];
+var getResetSeconds = (windowMs, resetTime) => {
+  let resetSeconds;
+  if (resetTime) {
+    const deltaSeconds = Math.ceil((resetTime.getTime() - Date.now()) / 1e3);
+    resetSeconds = Math.max(0, deltaSeconds);
+  } else {
+    resetSeconds = Math.ceil(windowMs / 1e3);
+  }
+  return resetSeconds;
+};
+var getPartitionKey = (key) => {
+  const hash3 = createHash("sha256");
+  hash3.update(key);
+  const partitionKey = hash3.digest("hex").slice(0, 12);
+  return Buffer2.from(partitionKey).toString("base64");
+};
+var setLegacyHeaders = (response, info) => {
+  if (response.headersSent) return;
+  response.setHeader("X-RateLimit-Limit", info.limit.toString());
+  response.setHeader("X-RateLimit-Remaining", info.remaining.toString());
+  if (info.resetTime instanceof Date) {
+    response.setHeader("Date", (/* @__PURE__ */ new Date()).toUTCString());
+    response.setHeader(
+      "X-RateLimit-Reset",
+      Math.ceil(info.resetTime.getTime() / 1e3).toString()
+    );
+  }
+};
+var setDraft6Headers = (response, info, windowMs) => {
+  if (response.headersSent) return;
+  const windowSeconds = Math.ceil(windowMs / 1e3);
+  const resetSeconds = getResetSeconds(windowMs, info.resetTime);
+  response.setHeader("RateLimit-Policy", `${info.limit};w=${windowSeconds}`);
+  response.setHeader("RateLimit-Limit", info.limit.toString());
+  response.setHeader("RateLimit-Remaining", info.remaining.toString());
+  if (typeof resetSeconds === "number")
+    response.setHeader("RateLimit-Reset", resetSeconds.toString());
+};
+var setDraft7Headers = (response, info, windowMs) => {
+  if (response.headersSent) return;
+  const windowSeconds = Math.ceil(windowMs / 1e3);
+  const resetSeconds = getResetSeconds(windowMs, info.resetTime);
+  response.setHeader("RateLimit-Policy", `${info.limit};w=${windowSeconds}`);
+  response.setHeader(
+    "RateLimit",
+    `limit=${info.limit}, remaining=${info.remaining}, reset=${resetSeconds}`
+  );
+};
+var setDraft8Headers = (response, info, windowMs, name, key) => {
+  if (response.headersSent) return;
+  const windowSeconds = Math.ceil(windowMs / 1e3);
+  const resetSeconds = getResetSeconds(windowMs, info.resetTime);
+  const partitionKey = getPartitionKey(key);
+  const header = `r=${info.remaining}; t=${resetSeconds}`;
+  const policy = `q=${info.limit}; w=${windowSeconds}; pk=:${partitionKey}:`;
+  response.append("RateLimit", `"${name}"; ${header}`);
+  response.append("RateLimit-Policy", `"${name}"; ${policy}`);
+};
+var setRetryAfterHeader = (response, info, windowMs, retryAfter) => {
+  if (response.headersSent) return;
+  const resetSeconds = retryAfter ?? getResetSeconds(windowMs, info.resetTime);
+  response.setHeader("Retry-After", resetSeconds.toString());
+};
+var omitUndefinedProperties = (passedOptions) => {
+  const omittedOptions = {};
+  for (const k of Object.keys(passedOptions)) {
+    const key = k;
+    if (passedOptions[key] !== void 0) {
+      omittedOptions[key] = passedOptions[key];
+    }
+  }
+  return omittedOptions;
+};
+var ValidationError = class extends Error {
+  /**
+   * The code must be a string, in snake case and all capital, that starts with
+   * the substring `ERR_ERL_`.
+   *
+   * The message must be a string, starting with an uppercase character,
+   * describing the issue in detail.
+   */
+  constructor(code, message) {
+    const url2 = `https://express-rate-limit.github.io/${code}/`;
+    super(`${message} See ${url2} for more information.`);
+    this.name = this.constructor.name;
+    this.code = code;
+    this.help = url2;
+  }
+};
+var ChangeWarning = class extends ValidationError {
+};
+var usedStores = /* @__PURE__ */ new Set();
+var singleCountKeys = /* @__PURE__ */ new WeakMap();
+var validations = {
+  enabled: {
+    default: true
+  },
+  // Should be EnabledValidations type, but that's a circular reference
+  disable() {
+    for (const k of Object.keys(this.enabled)) this.enabled[k] = false;
+  },
+  /**
+   * Checks whether the IP address is valid, and that it does not have a port
+   * number in it.
+   *
+   * See https://github.com/express-rate-limit/express-rate-limit/wiki/Error-Codes#err_erl_invalid_ip_address.
+   *
+   * @param ip {string | undefined} - The IP address provided by Express as request.ip.
+   *
+   * @returns {void}
+   */
+  ip(ip) {
+    if (ip === void 0) {
+      throw new ValidationError(
+        "ERR_ERL_UNDEFINED_IP_ADDRESS",
+        `An undefined 'request.ip' was detected. This might indicate a misconfiguration or the connection being destroyed prematurely.`
+      );
+    }
+    if (!isIP(ip)) {
+      throw new ValidationError(
+        "ERR_ERL_INVALID_IP_ADDRESS",
+        `An invalid 'request.ip' (${ip}) was detected. Consider passing a custom 'keyGenerator' function to the rate limiter.`
+      );
+    }
+  },
+  /**
+   * Makes sure the trust proxy setting is not set to `true`.
+   *
+   * See https://github.com/express-rate-limit/express-rate-limit/wiki/Error-Codes#err_erl_permissive_trust_proxy.
+   *
+   * @param request {Request} - The Express request object.
+   *
+   * @returns {void}
+   */
+  trustProxy(request) {
+    if (request.app.get("trust proxy") === true) {
+      throw new ValidationError(
+        "ERR_ERL_PERMISSIVE_TRUST_PROXY",
+        `The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting.`
+      );
+    }
+  },
+  /**
+   * Makes sure the trust proxy setting is set in case the `X-Forwarded-For`
+   * header is present.
+   *
+   * See https://github.com/express-rate-limit/express-rate-limit/wiki/Error-Codes#err_erl_unset_trust_proxy.
+   *
+   * @param request {Request} - The Express request object.
+   *
+   * @returns {void}
+   */
+  xForwardedForHeader(request) {
+    if (request.headers["x-forwarded-for"] && request.app.get("trust proxy") === false) {
+      throw new ValidationError(
+        "ERR_ERL_UNEXPECTED_X_FORWARDED_FOR",
+        `The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false (default). This could indicate a misconfiguration which would prevent express-rate-limit from accurately identifying users.`
+      );
+    }
+  },
+  /**
+   * Alert the user if the Forwarded header is set (standardized version of X-Forwarded-For - not supported by express as of version 5.1.0)
+   *
+   * @param request {Request} - The Express request object.
+   *
+   * @returns {void}
+   */
+  forwardedHeader(request) {
+    if (request.headers.forwarded && request.ip === request.socket?.remoteAddress) {
+      throw new ValidationError(
+        "ERR_ERL_FORWARDED_HEADER",
+        `The 'Forwarded' header (standardized X-Forwarded-For) is set but currently being ignored. Add a custom keyGenerator to use a value from this header.`
+      );
+    }
+  },
+  /**
+   * Ensures totalHits value from store is a positive integer.
+   *
+   * @param hits {any} - The `totalHits` returned by the store.
+   */
+  positiveHits(hits) {
+    if (typeof hits !== "number" || hits < 1 || hits !== Math.round(hits)) {
+      throw new ValidationError(
+        "ERR_ERL_INVALID_HITS",
+        `The totalHits value returned from the store must be a positive integer, got ${hits}`
+      );
+    }
+  },
+  /**
+   * Ensures a single store instance is not used with multiple express-rate-limit instances
+   */
+  unsharedStore(store) {
+    if (usedStores.has(store)) {
+      const maybeUniquePrefix = store?.localKeys ? "" : " (with a unique prefix)";
+      throw new ValidationError(
+        "ERR_ERL_STORE_REUSE",
+        `A Store instance must not be shared across multiple rate limiters. Create a new instance of ${store.constructor.name}${maybeUniquePrefix} for each limiter instead.`
+      );
+    }
+    usedStores.add(store);
+  },
+  /**
+   * Ensures a given key is incremented only once per request.
+   *
+   * @param request {Request} - The Express request object.
+   * @param store {Store} - The store class.
+   * @param key {string} - The key used to store the client's hit count.
+   *
+   * @returns {void}
+   */
+  singleCount(request, store, key) {
+    let storeKeys = singleCountKeys.get(request);
+    if (!storeKeys) {
+      storeKeys = /* @__PURE__ */ new Map();
+      singleCountKeys.set(request, storeKeys);
+    }
+    const storeKey = store.localKeys ? store : store.constructor.name;
+    let keys = storeKeys.get(storeKey);
+    if (!keys) {
+      keys = [];
+      storeKeys.set(storeKey, keys);
+    }
+    const prefixedKey = `${store.prefix ?? ""}${key}`;
+    if (keys.includes(prefixedKey)) {
+      throw new ValidationError(
+        "ERR_ERL_DOUBLE_COUNT",
+        `The hit count for ${key} was incremented more than once for a single request.`
+      );
+    }
+    keys.push(prefixedKey);
+  },
+  /**
+   * Warns the user that the behaviour for `max: 0` / `limit: 0` is
+   * changing in the next major release.
+   *
+   * @param limit {number} - The maximum number of hits per client.
+   *
+   * @returns {void}
+   */
+  limit(limit) {
+    if (limit === 0) {
+      throw new ChangeWarning(
+        "WRN_ERL_MAX_ZERO",
+        "Setting limit or max to 0 disables rate limiting in express-rate-limit v6 and older, but will cause all requests to be blocked in v7"
+      );
+    }
+  },
+  /**
+   * Warns the user that the `draft_polli_ratelimit_headers` option is deprecated
+   * and will be removed in the next major release.
+   *
+   * @param draft_polli_ratelimit_headers {any | undefined} - The now-deprecated setting that was used to enable standard headers.
+   *
+   * @returns {void}
+   */
+  draftPolliHeaders(draft_polli_ratelimit_headers) {
+    if (draft_polli_ratelimit_headers) {
+      throw new ChangeWarning(
+        "WRN_ERL_DEPRECATED_DRAFT_POLLI_HEADERS",
+        `The draft_polli_ratelimit_headers configuration option is deprecated and has been removed in express-rate-limit v7, please set standardHeaders: 'draft-6' instead.`
+      );
+    }
+  },
+  /**
+   * Warns the user that the `onLimitReached` option is deprecated and
+   * will be removed in the next major release.
+   *
+   * @param onLimitReached {any | undefined} - The maximum number of hits per client.
+   *
+   * @returns {void}
+   */
+  onLimitReached(onLimitReached) {
+    if (onLimitReached) {
+      throw new ChangeWarning(
+        "WRN_ERL_DEPRECATED_ON_LIMIT_REACHED",
+        "The onLimitReached configuration option is deprecated and has been removed in express-rate-limit v7."
+      );
+    }
+  },
+  /**
+   * Warns the user when an invalid/unsupported version of the draft spec is passed.
+   *
+   * @param version {any | undefined} - The version passed by the user.
+   *
+   * @returns {void}
+   */
+  headersDraftVersion(version4) {
+    if (typeof version4 !== "string" || // @ts-expect-error This is fine. If version is not in the array, it will just return false.
+    !SUPPORTED_DRAFT_VERSIONS.includes(version4)) {
+      const versionString = SUPPORTED_DRAFT_VERSIONS.join(", ");
+      throw new ValidationError(
+        "ERR_ERL_HEADERS_UNSUPPORTED_DRAFT_VERSION",
+        `standardHeaders: only the following versions of the IETF draft specification are supported: ${versionString}.`
+      );
+    }
+  },
+  /**
+   * Warns the user when the selected headers option requires a reset time but
+   * the store does not provide one.
+   *
+   * @param resetTime {Date | undefined} - The timestamp when the client's hit count will be reset.
+   *
+   * @returns {void}
+   */
+  headersResetTime(resetTime) {
+    if (!resetTime) {
+      throw new ValidationError(
+        "ERR_ERL_HEADERS_NO_RESET",
+        `standardHeaders:  'draft-7' requires a 'resetTime', but the store did not provide one. The 'windowMs' value will be used instead, which may cause clients to wait longer than necessary.`
+      );
+    }
+  },
+  knownOptions(passedOptions) {
+    if (!passedOptions) return;
+    const optionsMap = {
+      windowMs: true,
+      limit: true,
+      message: true,
+      statusCode: true,
+      legacyHeaders: true,
+      standardHeaders: true,
+      identifier: true,
+      retryAfter: true,
+      requestPropertyName: true,
+      skipFailedRequests: true,
+      skipSuccessfulRequests: true,
+      keyGenerator: true,
+      ipv6Subnet: true,
+      handler: true,
+      skip: true,
+      requestWasSuccessful: true,
+      store: true,
+      validate: true,
+      headers: true,
+      max: true,
+      passOnStoreError: true,
+      logger: true
+    };
+    const validOptions = Object.keys(optionsMap).concat(
+      "draft_polli_ratelimit_headers",
+      // not a valid option anymore, but we have a more specific check for this one, so don't warn for it here
+      // from express-slow-down - https://github.com/express-rate-limit/express-slow-down/blob/main/source/types.ts#L65
+      "delayAfter",
+      "delayMs",
+      "maxDelayMs"
+    );
+    for (const key of Object.keys(passedOptions)) {
+      if (!validOptions.includes(key)) {
+        throw new ValidationError(
+          "ERR_ERL_UNKNOWN_OPTION",
+          `Unexpected configuration option: ${key}`
+          // todo: suggest a valid option with a short levenstein distance?
+        );
+      }
+    }
+  },
+  /**
+   * Checks the options.validate setting to ensure that only recognized
+   * validations are enabled or disabled.
+   *
+   * If any unrecognized values are found, an error is logged that
+   * includes the list of supported validations.
+   */
+  validationsConfig() {
+    const supportedValidations = Object.keys(this).filter(
+      (k) => !["enabled", "disable"].includes(k)
+    );
+    supportedValidations.push("default");
+    for (const key of Object.keys(this.enabled)) {
+      if (!supportedValidations.includes(key)) {
+        throw new ValidationError(
+          "ERR_ERL_UNKNOWN_VALIDATION",
+          `options.validate.${key} is not recognized. Supported validate options are: ${supportedValidations.join(
+            ", "
+          )}.`
+        );
+      }
+    }
+  },
+  /**
+   * Checks to see if the instance was created inside of a request handler,
+   * which would prevent it from working correctly, with the default memory
+   * store (or any other store with localKeys.)
+   */
+  creationStack(store) {
+    const { stack } = new Error(
+      "express-rate-limit validation check (set options.validate.creationStack=false to disable)"
+    );
+    if (stack?.includes("Layer.handle [as handle_request]") || // express v4
+    stack?.includes("Layer.handleRequest")) {
+      if (!store.localKeys) {
+        throw new ValidationError(
+          "ERR_ERL_CREATED_IN_REQUEST_HANDLER",
+          "express-rate-limit instance should *usually* be created at app initialization, not when responding to a request."
+        );
+      }
+      throw new ValidationError(
+        "ERR_ERL_CREATED_IN_REQUEST_HANDLER",
+        "express-rate-limit instance should be created at app initialization, not when responding to a request."
+      );
+    }
+  },
+  ipv6Subnet(ipv6Subnet) {
+    if (ipv6Subnet === false) {
+      return;
+    }
+    if (!Number.isInteger(ipv6Subnet) || ipv6Subnet < 32 || ipv6Subnet > 64) {
+      throw new ValidationError(
+        "ERR_ERL_IPV6_SUBNET",
+        `Unexpected ipv6Subnet value: ${ipv6Subnet}. Expected an integer between 32 and 64 (usually 48-64).`
+      );
+    }
+  },
+  ipv6SubnetOrKeyGenerator(options) {
+    if (options.ipv6Subnet !== void 0 && options.keyGenerator) {
+      throw new ValidationError(
+        "ERR_ERL_IPV6SUBNET_OR_KEYGENERATOR",
+        `Incompatible options: the 'ipv6Subnet' option is ignored when a custom 'keyGenerator' function is also set.`
+      );
+    }
+  },
+  keyGeneratorIpFallback(keyGenerator) {
+    if (!keyGenerator) {
+      return;
+    }
+    const src = keyGenerator.toString();
+    if ((src.includes("req.ip") || src.includes("request.ip")) && !src.includes("ipKeyGenerator")) {
+      throw new ValidationError(
+        "ERR_ERL_KEY_GEN_IPV6",
+        "Custom keyGenerator appears to use request IP without calling the ipKeyGenerator helper function for IPv6 addresses. This could allow IPv6 users to bypass limits."
+      );
+    }
+  },
+  /**
+   * Checks to see if the window duration is greater than 2^32 - 1. This is only
+   * called by the default MemoryStore, since it uses Node's setInterval method.
+   *
+   * See https://nodejs.org/api/timers.html#setintervalcallback-delay-args.
+   */
+  windowMs(windowMs) {
+    const SET_TIMEOUT_MAX = 2 ** 31 - 1;
+    if (typeof windowMs !== "number" || Number.isNaN(windowMs) || windowMs < 1 || windowMs > SET_TIMEOUT_MAX) {
+      throw new ValidationError(
+        "ERR_ERL_WINDOW_MS",
+        `Invalid windowMs value: ${windowMs}${typeof windowMs !== "number" ? ` (${typeof windowMs})` : ""}, must be a number between 1 and ${SET_TIMEOUT_MAX} when using the default MemoryStore`
+      );
+    }
+  }
+};
+function validateLogger(logger) {
+  if (typeof logger !== "object" || typeof logger.error !== "function" || typeof logger.warn !== "function") {
+    throw new TypeError(
+      "Provided logger does not implement the Logger interface"
+    );
+  }
+}
+var getValidations = (_enabled, logger) => {
+  validateLogger(logger);
+  let enabled;
+  if (typeof _enabled === "boolean") {
+    enabled = {
+      default: _enabled
+    };
+  } else {
+    enabled = {
+      default: true,
+      ..._enabled
+    };
+  }
+  const wrappedValidations = { enabled };
+  for (const [name, validation] of Object.entries(validations)) {
+    if (typeof validation === "function")
+      wrappedValidations[name] = (...args) => {
+        if (!(enabled[name] ?? enabled.default)) {
+          return;
+        }
+        enabled[name] = false;
+        try {
+          ;
+          validation.apply(
+            wrappedValidations,
+            args
+          );
+        } catch (error62) {
+          if (error62 instanceof ChangeWarning) logger.warn(error62);
+          else logger.error(error62);
+        }
+      };
+  }
+  const inspect = /* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom");
+  if (inspect)
+    wrappedValidations[inspect] = () => wrappedValidations.enabled;
+  return wrappedValidations;
+};
+var isLegacyStore = (store) => (
+  // Check that `incr` exists but `increment` does not - store authors might want
+  // to keep both around for backwards compatibility.
+  typeof store.incr === "function" && typeof store.increment !== "function"
+);
+var promisifyStore = (passedStore) => {
+  if (!isLegacyStore(passedStore)) {
+    return passedStore;
+  }
+  const legacyStore = passedStore;
+  class PromisifiedStore {
+    async increment(key) {
+      return new Promise((resolve, reject) => {
+        legacyStore.incr(
+          key,
+          (error62, totalHits, resetTime) => {
+            if (error62) reject(error62);
+            resolve({ totalHits, resetTime });
+          }
+        );
+      });
+    }
+    async decrement(key) {
+      return legacyStore.decrement(key);
+    }
+    async resetKey(key) {
+      return legacyStore.resetKey(key);
+    }
+    /* istanbul ignore next */
+    async resetAll() {
+      if (typeof legacyStore.resetAll === "function")
+        return legacyStore.resetAll();
+    }
+  }
+  return new PromisifiedStore();
+};
+var getOptionsFromConfig = (config3) => {
+  const { validations: validations2, ...directlyPassableEntries } = config3;
+  return {
+    ...directlyPassableEntries,
+    validate: validations2.enabled
+  };
+};
+var parseOptions = (passedOptions) => {
+  const notUndefinedOptions = omitUndefinedProperties(passedOptions);
+  const logger = passedOptions.logger ?? ConsoleLogger;
+  const validations2 = getValidations(
+    notUndefinedOptions?.validate ?? true,
+    logger
+  );
+  validations2.validationsConfig();
+  validations2.knownOptions(passedOptions);
+  validations2.draftPolliHeaders(
+    // @ts-expect-error see the note above.
+    notUndefinedOptions.draft_polli_ratelimit_headers
+  );
+  validations2.onLimitReached(notUndefinedOptions.onLimitReached);
+  if (notUndefinedOptions.ipv6Subnet !== void 0 && typeof notUndefinedOptions.ipv6Subnet !== "function") {
+    validations2.ipv6Subnet(notUndefinedOptions.ipv6Subnet);
+  }
+  validations2.keyGeneratorIpFallback(notUndefinedOptions.keyGenerator);
+  validations2.ipv6SubnetOrKeyGenerator(notUndefinedOptions);
+  let standardHeaders = notUndefinedOptions.standardHeaders ?? false;
+  if (standardHeaders === true) standardHeaders = "draft-6";
+  const config3 = {
+    windowMs: 60 * 1e3,
+    limit: passedOptions.max ?? 5,
+    // `max` is deprecated, but support it anyways.
+    message: "Too many requests, please try again later.",
+    statusCode: 429,
+    legacyHeaders: passedOptions.headers ?? true,
+    identifier(request, _response) {
+      let duration3 = "";
+      const property = config3.requestPropertyName;
+      const { limit } = request[property];
+      const seconds = config3.windowMs / 1e3;
+      const minutes = config3.windowMs / (1e3 * 60);
+      const hours = config3.windowMs / (1e3 * 60 * 60);
+      const days = config3.windowMs / (1e3 * 60 * 60 * 24);
+      if (seconds < 60) duration3 = `${seconds}sec`;
+      else if (minutes < 60) duration3 = `${minutes}min`;
+      else if (hours < 24) duration3 = `${hours}hr${hours > 1 ? "s" : ""}`;
+      else duration3 = `${days}day${days > 1 ? "s" : ""}`;
+      return `${limit}-in-${duration3}`;
+    },
+    requestPropertyName: "rateLimit",
+    skipFailedRequests: false,
+    skipSuccessfulRequests: false,
+    requestWasSuccessful: (_request, response) => response.statusCode < 400,
+    skip: (_request, _response) => false,
+    async keyGenerator(request, response) {
+      validations2.ip(request.ip);
+      validations2.trustProxy(request);
+      validations2.xForwardedForHeader(request);
+      validations2.forwardedHeader(request);
+      const ip = request.ip;
+      let subnet = 56;
+      if (isIPv62(ip)) {
+        subnet = typeof config3.ipv6Subnet === "function" ? await config3.ipv6Subnet(request, response) : config3.ipv6Subnet;
+        if (typeof config3.ipv6Subnet === "function")
+          validations2.ipv6Subnet(subnet);
+      }
+      return ipKeyGenerator(ip, subnet);
+    },
+    ipv6Subnet: 56,
+    async handler(request, response, _next, _optionsUsed) {
+      response.status(config3.statusCode);
+      const message = typeof config3.message === "function" ? await config3.message(
+        request,
+        response
+      ) : config3.message;
+      if (!response.writableEnded) response.send(message);
+    },
+    passOnStoreError: false,
+    // Allow the default options to be overridden by the passed options.
+    ...notUndefinedOptions,
+    // `standardHeaders` is resolved into a draft version above, use that.
+    standardHeaders,
+    // Note that this field is declared after the user's options are spread in,
+    // so that this field doesn't get overridden with an un-promisified store!
+    store: promisifyStore(
+      notUndefinedOptions.store ?? new MemoryStore(validations2)
+    ),
+    // Print an error to the console if a few known misconfigurations are detected.
+    validations: validations2,
+    logger
+  };
+  if (typeof config3.store.increment !== "function" || typeof config3.store.decrement !== "function" || typeof config3.store.resetKey !== "function" || config3.store.resetAll !== void 0 && typeof config3.store.resetAll !== "function" || config3.store.init !== void 0 && typeof config3.store.init !== "function") {
+    throw new TypeError(
+      "An invalid store was passed. Please ensure that the store is a class that implements the `Store` interface."
+    );
+  }
+  return config3;
+};
+var handleAsyncErrors = (fn) => async (request, response, next) => {
+  try {
+    await Promise.resolve(fn(request, response, next)).catch(next);
+  } catch (error62) {
+    next(error62);
+  }
+};
+var rateLimit = (passedOptions) => {
+  const config3 = parseOptions(passedOptions ?? {});
+  const options = getOptionsFromConfig(config3);
+  const debug = (0, import_debug.default)("express-rate-limit");
+  debug("creating new rate limiter with %o", config3.store.constructor.name);
+  for (const [key, val] of Object.entries(config3))
+    debug("set %s to %o", key, val);
+  config3.validations.creationStack(config3.store);
+  config3.validations.unsharedStore(config3.store);
+  if (typeof config3.store.init === "function") {
+    debug("executing init for store");
+    try {
+      const storeInit = config3.store.init(options);
+      if (storeInit instanceof Promise) {
+        storeInit.catch(
+          (error62) => config3.logger.error(
+            error62,
+            "express-rate-limit: async error during store initialization."
+          )
+        );
+      }
+    } catch (error62) {
+      config3.logger.error(
+        error62,
+        "express-rate-limit: error during store initialization."
+      );
+    }
+  }
+  const middleware = handleAsyncErrors(
+    async (request, response, next) => {
+      const closePromise = config3.skipFailedRequests && new Promise((resolve) => response.once("close", resolve));
+      const finishPromise = (config3.skipFailedRequests || config3.skipSuccessfulRequests) && new Promise((resolve) => response.once("finish", resolve));
+      const errorPromise = config3.skipFailedRequests && new Promise((resolve) => response.once("error", resolve));
+      debug("requested %o", request.originalUrl);
+      debug("request from ip %o", request.ip);
+      const skip = await config3.skip(request, response);
+      if (skip) {
+        debug("skipping request");
+        next();
+        return;
+      }
+      const augmentedRequest = request;
+      const key = await config3.keyGenerator(request, response);
+      debug("computed key %o", key);
+      debug("incrementing count");
+      let totalHits = 0;
+      let resetTime;
+      try {
+        const incrementResult = await config3.store.increment(key);
+        totalHits = incrementResult.totalHits;
+        if (incrementResult.resetTime && (config3.skipFailedRequests || config3.skipSuccessfulRequests)) {
+          resetTime = new Date(incrementResult.resetTime.getTime());
+        } else {
+          resetTime = incrementResult.resetTime;
+        }
+      } catch (error62) {
+        if (config3.passOnStoreError) {
+          config3.logger.error(
+            error62,
+            "express-rate-limit: error from store, allowing request without rate-limiting."
+          );
+          next();
+          return;
+        }
+        throw error62;
+      }
+      config3.validations.positiveHits(totalHits);
+      config3.validations.singleCount(request, config3.store, key);
+      const retrieveLimit = typeof config3.limit === "function" ? config3.limit(request, response) : config3.limit;
+      const limit = await retrieveLimit;
+      config3.validations.limit(limit);
+      const info = {
+        limit,
+        used: totalHits,
+        remaining: Math.max(limit - totalHits, 0),
+        resetTime,
+        key
+      };
+      if (debug.enabled) {
+        for (const [key2, val] of Object.entries(info))
+          debug(
+            "set request.%s.%s to be %o",
+            config3.requestPropertyName,
+            key2,
+            val
+          );
+      }
+      Object.defineProperty(info, "current", {
+        configurable: false,
+        enumerable: false,
+        value: totalHits
+      });
+      augmentedRequest[config3.requestPropertyName] = info;
+      if (config3.legacyHeaders && !response.headersSent) {
+        debug("set legacy headers");
+        setLegacyHeaders(response, info);
+      }
+      if (config3.standardHeaders && !response.headersSent) {
+        switch (config3.standardHeaders) {
+          case "draft-6": {
+            debug("set ietf draft 6 headers");
+            setDraft6Headers(response, info, config3.windowMs);
+            break;
+          }
+          case "draft-7": {
+            debug("set ietf draft 7 headers");
+            config3.validations.headersResetTime(info.resetTime);
+            setDraft7Headers(response, info, config3.windowMs);
+            break;
+          }
+          case "draft-8": {
+            const retrieveName = typeof config3.identifier === "function" ? config3.identifier(request, response) : config3.identifier;
+            const name = await retrieveName;
+            debug("set ietf draft 8 headers");
+            debug("set name to %o", name);
+            config3.validations.headersResetTime(info.resetTime);
+            setDraft8Headers(response, info, config3.windowMs, name, key);
+            break;
+          }
+          default: {
+            config3.validations.headersDraftVersion(config3.standardHeaders);
+            break;
+          }
+        }
+      }
+      if (config3.skipFailedRequests || config3.skipSuccessfulRequests) {
+        let decremented = false;
+        const decrementKey = async () => {
+          if (!decremented) {
+            decremented = true;
+            if (resetTime && Date.now() >= resetTime.getTime()) {
+              return;
+            }
+            try {
+              debug("decrementing count");
+              await config3.store.decrement(key);
+            } catch (error62) {
+              config3.logger.error(
+                error62,
+                "express-rate-limit: error from store during decrement."
+              );
+            }
+          }
+        };
+        if (config3.skipFailedRequests) {
+          if (finishPromise) {
+            void finishPromise.then(async () => {
+              const success2 = await config3.requestWasSuccessful(
+                request,
+                response
+              );
+              debug("computed requestWasSuccessful as %o", success2);
+              if (!success2) await decrementKey();
+            }).catch((error62) => {
+              config3.logger.error(
+                error62,
+                "express-rate-limit: error in requestWasSuccessful callback."
+              );
+            });
+          }
+          if (closePromise) {
+            void closePromise.then(async () => {
+              if (!response.writableEnded) await decrementKey();
+            }).catch((error62) => {
+              config3.logger.error(
+                error62,
+                "express-rate-limit: error handling close event during decrement."
+              );
+            });
+          }
+          if (errorPromise) {
+            void errorPromise.then(async () => {
+              await decrementKey();
+            }).catch((error62) => {
+              config3.logger.error(
+                error62,
+                "express-rate-limit: error handling error event during decrement."
+              );
+            });
+          }
+        }
+        if (config3.skipSuccessfulRequests) {
+          if (finishPromise) {
+            void finishPromise.then(async () => {
+              const success2 = await config3.requestWasSuccessful(
+                request,
+                response
+              );
+              debug("computed requestWasSuccessful as %o", success2);
+              if (success2) await decrementKey();
+            }).catch((error62) => {
+              config3.logger.error(
+                error62,
+                "express-rate-limit: error in requestWasSuccessful callback."
+              );
+            });
+          }
+        }
+      }
+      if (totalHits > limit) {
+        debug("limit exceeded");
+        if (config3.legacyHeaders || config3.standardHeaders) {
+          debug("set retry-after header");
+          const retrieveRetryAfter = typeof config3.retryAfter === "function" ? config3.retryAfter(request, response) : config3.retryAfter;
+          const retryAfter = await retrieveRetryAfter;
+          setRetryAfterHeader(response, info, config3.windowMs, retryAfter);
+        }
+        await config3.handler(request, response, next, options);
+        return;
+      }
+      next();
+    }
+  );
+  const getThrowFn = () => {
+    throw new Error("The current store does not support the get/getKey method");
+  };
+  middleware.resetKey = config3.store.resetKey.bind(config3.store);
+  middleware.getKey = typeof config3.store.get === "function" ? config3.store.get.bind(config3.store) : getThrowFn;
+  return middleware;
+};
+var rate_limit_default = rateLimit;
+var SECOND = 1e3;
+var MINUTE = 60 * SECOND;
+var HOUR = 60 * MINUTE;
+var DAY = 24 * HOUR;
+
+// src/middleware/rateLimiter.ts
+var generalApiLimiter = rate_limit_default({
+  windowMs: 60 * 1e3,
+  max: 300,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many requests from this IP address. Please slow down.",
+    retryAfterSeconds: 60
+  }
+});
+var authLimiter = rate_limit_default({
+  windowMs: 15 * 60 * 1e3,
+  max: 20,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many authentication attempts. Please wait 15 minutes before trying again."
+  }
+});
+var adminAuthLimiter = rate_limit_default({
+  windowMs: 15 * 60 * 1e3,
+  max: 10,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Security Lock: Too many failed administrator login attempts. Access temporarily throttled."
+  }
+});
+var referralValidationLimiter = rate_limit_default({
+  windowMs: 60 * 1e3,
+  max: 20,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many invitation code validations. Please wait a minute before trying again."
+  }
+});
+var financialActionLimiter = rate_limit_default({
+  windowMs: 60 * 1e3,
+  max: 15,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many transactions submitted in a short period. Please wait a moment."
+  }
+});
+
 // src/routes/authRoutes.ts
 var router = (0, import_express.Router)();
 var registerSchema = external_exports.object({
@@ -65791,12 +69239,12 @@ function generateReferralCode(name) {
 function normalizePhone(phone) {
   return phone.replace(/[^0-9+]/g, "");
 }
-router.get("/validate-referral/:code", async (req, res) => {
+router.get("/validate-referral/:code", referralValidationLimiter, async (req, res) => {
   const code = (req.params.code || "").trim().toLowerCase();
   const isValid = await validateAdminReferralCode(code);
   res.json({ valid: isValid, code });
 });
-router.post("/register", async (req, res, next) => {
+router.post("/register", authLimiter, async (req, res, next) => {
   try {
     const validated = registerSchema.parse(req.body);
     const normalizedPhone = normalizePhone(validated.phone);
@@ -65838,16 +69286,19 @@ router.post("/register", async (req, res, next) => {
           accountStatus: "ACTIVE"
         }
       });
-      await tx.$executeRawUnsafe(`
+      const claimedCount = await tx.$executeRaw`
         UPDATE "AdminReferralCode"
         SET "status" = 'USED',
-            "usedById" = $1,
-            "usedByName" = $2,
-            "usedByPhone" = $3,
+            "usedById" = ${user.id},
+            "usedByName" = ${user.name},
+            "usedByPhone" = ${normalizedPhone},
             "usedAt" = CURRENT_TIMESTAMP,
             "updatedAt" = CURRENT_TIMESTAMP
-        WHERE LOWER("code") = LOWER($4) AND "status" = 'AVAILABLE'
-      `, user.id, user.name, normalizedPhone, trimmedRefCode);
+        WHERE LOWER("code") = LOWER(${trimmedRefCode}) AND "status" = 'AVAILABLE'
+      `;
+      if (claimedCount !== 1) {
+        throw new Error("REFERRAL_CODE_ALREADY_USED");
+      }
       const wallet = await tx.wallet.create({
         data: {
           userId: user.id,
@@ -65887,7 +69338,11 @@ router.post("/register", async (req, res, next) => {
       return { ...user, wallet };
     });
     await replenishAvailableCodesTo100();
-    const token = import_jsonwebtoken2.default.sign({ userId: result.id }, config2.jwtSecret, { expiresIn: "7d" });
+    const token = import_jsonwebtoken2.default.sign(
+      { userId: result.id, pwdSig: result.passwordHash.slice(-8) },
+      config2.jwtSecret,
+      { expiresIn: "7d", algorithm: "HS256" }
+    );
     res.status(201).json({
       message: "Registration successful! Welcome to Earn Street.",
       token,
@@ -65901,29 +69356,16 @@ router.post("/register", async (req, res, next) => {
       }
     });
   } catch (err) {
+    if (err?.message === "REFERRAL_CODE_ALREADY_USED") {
+      return res.status(400).json({
+        error: "This invitation code has already been used or expired. Please contact administration for a new 1-time invitation code."
+      });
+    }
     next(err);
   }
 });
-router.post("/login", async (req, res, next) => {
+router.post("/login", authLimiter, async (req, res, next) => {
   try {
-    const rawPhone = String(req.body?.phone || req.body?.username || "").trim();
-    if (rawPhone && !rawPhone.match(/^[0-9+]{10,15}$/)) {
-      const adminMatch = await prisma.adminUser.findFirst({
-        where: {
-          OR: [
-            { username: { equals: rawPhone, mode: "insensitive" } },
-            { email: { equals: rawPhone, mode: "insensitive" } }
-          ]
-        }
-      });
-      if (adminMatch) {
-        return res.status(400).json({
-          error: "Administrator credentials detected. Please log in at the Administrator Portal: /adminpanal",
-          isAdmin: true,
-          redirectUrl: "/adminpanal"
-        });
-      }
-    }
     const validated = loginSchema.parse(req.body);
     const normalizedPhone = normalizePhone(validated.phone);
     const user = await prisma.user.findUnique({
@@ -65940,7 +69382,11 @@ router.post("/login", async (req, res, next) => {
     if (!isValid) {
       return res.status(401).json({ error: "Invalid phone number or password" });
     }
-    const token = import_jsonwebtoken2.default.sign({ userId: user.id }, config2.jwtSecret, { expiresIn: "7d" });
+    const token = import_jsonwebtoken2.default.sign(
+      { userId: user.id, pwdSig: user.passwordHash.slice(-8) },
+      config2.jwtSecret,
+      { expiresIn: "7d", algorithm: "HS256" }
+    );
     res.json({
       message: "Login successful",
       token,
@@ -76452,6 +79898,12 @@ router3.post("/:taskId/unlock", requireAuth, async (req, res, next) => {
       });
     }
     const result = await prisma.$transaction(async (tx) => {
+      const existingPending = await tx.taskSubmission.findFirst({
+        where: { userId, taskId: task.id, status: "PENDING" }
+      });
+      if (existingPending) {
+        throw new Error("TASK_ALREADY_PENDING");
+      }
       const unlockTx = await tx.taskUnlockTransaction.create({
         data: {
           userId,
@@ -76513,6 +79965,11 @@ router3.post("/:taskId/unlock", requireAuth, async (req, res, next) => {
       submission: result.submission
     });
   } catch (err) {
+    if (err?.message === "TASK_ALREADY_PENDING") {
+      return res.status(400).json({
+        error: "A submission for this task is already awaiting admin verification."
+      });
+    }
     if (err instanceof InsufficientBalanceError) {
       return res.status(400).json({ error: err.message });
     }
@@ -76583,6 +80040,12 @@ router3.post("/:taskId/submit", requireAuth, async (req, res, next) => {
       }
     }
     const submission = await prisma.$transaction(async (tx) => {
+      const existingPending = await tx.taskSubmission.findFirst({
+        where: { userId, taskId: task.id, status: "PENDING" }
+      });
+      if (existingPending) {
+        throw new Error("TASK_ALREADY_PENDING");
+      }
       if (task.isPaid) {
         await tx.taskUnlockTransaction.create({
           data: {
@@ -76637,6 +80100,11 @@ router3.post("/:taskId/submit", requireAuth, async (req, res, next) => {
       userStatus: "PENDING_VERIFICATION"
     });
   } catch (err) {
+    if (err?.message === "TASK_ALREADY_PENDING") {
+      return res.status(400).json({
+        error: "A submission for this task is already awaiting admin verification."
+      });
+    }
     next(err);
   }
 });
@@ -77189,7 +80657,7 @@ router6.get("/", requireAuth, async (req, res, next) => {
     next(err);
   }
 });
-router6.post("/", requireAuth, async (req, res, next) => {
+router6.post("/", financialActionLimiter, requireAuth, async (req, res, next) => {
   try {
     const userId = req.user.id;
     const validated = withdrawalSchema.parse(req.body);
@@ -77234,6 +80702,25 @@ router6.post("/", requireAuth, async (req, res, next) => {
     }
     const reqNotes = validated.notes ? `${tag} ${validated.notes.trim()}` : tag;
     const withdrawal = await prisma.$transaction(async (tx) => {
+      const existingPending = await tx.withdrawalRequest.findFirst({
+        where: { userId, approvalStatus: "PENDING" }
+      });
+      if (existingPending) {
+        throw new Error("DUPLICATE_PENDING_WITHDRAWAL");
+      }
+      const walletUpdate = await tx.wallet.updateMany({
+        where: {
+          userId,
+          availableBalance: { gte: validated.amount }
+        },
+        data: {
+          availableBalance: { decrement: validated.amount },
+          pendingBalance: { increment: validated.amount }
+        }
+      });
+      if (walletUpdate.count !== 1) {
+        throw new InsufficientBalanceError("Insufficient available balance to complete withdrawal request.");
+      }
       const reqRecord = await tx.withdrawalRequest.create({
         data: {
           userId,
@@ -77244,13 +80731,6 @@ router6.post("/", requireAuth, async (req, res, next) => {
           notes: reqNotes,
           approvalStatus: "PENDING",
           paymentStatus: "NOT_SENT"
-        }
-      });
-      await tx.wallet.update({
-        where: { userId },
-        data: {
-          availableBalance: { decrement: validated.amount },
-          pendingBalance: { increment: validated.amount }
         }
       });
       await tx.walletTransaction.create({
@@ -77271,6 +80751,11 @@ router6.post("/", requireAuth, async (req, res, next) => {
       withdrawal
     });
   } catch (err) {
+    if (err?.message === "DUPLICATE_PENDING_WITHDRAWAL") {
+      return res.status(400).json({
+        error: "You already have a withdrawal request pending review. Please wait for administration to process it before submitting another."
+      });
+    }
     if (err instanceof InsufficientBalanceError) {
       return res.status(400).json({ error: err.message });
     }
@@ -77514,7 +80999,7 @@ router7.get("/status", requireAuth, async (req, res, next) => {
     next(err);
   }
 });
-router7.post("/play", requireAuth, async (req, res, next) => {
+router7.post("/play", financialActionLimiter, requireAuth, async (req, res, next) => {
   try {
     const userId = req.user.id;
     const globalSpinSetting = await prisma.siteSetting.findUnique({ where: { key: "spin_enabled" } });
@@ -77557,13 +81042,30 @@ router7.post("/play", requireAuth, async (req, res, next) => {
       selectedPrize = allActivePrizes[0];
     }
     const spinResult = await prisma.$transaction(async (tx) => {
-      await tx.userSpinEntitlement.update({
-        where: { id: entitlement.id },
+      const decResult = await tx.userSpinEntitlement.updateMany({
+        where: {
+          id: entitlement.id,
+          userId,
+          isEligible: true,
+          remainingSpins: { gt: 0 }
+        },
         data: {
-          remainingSpins: { decrement: 1 },
-          isEligible: entitlement.remainingSpins - 1 > 0
+          remainingSpins: { decrement: 1 }
         }
       });
+      if (decResult.count !== 1) {
+        throw new Error("SPIN_ALREADY_CONSUMED");
+      }
+      const refreshedEntitlement = await tx.userSpinEntitlement.findUnique({
+        where: { id: entitlement.id },
+        select: { remainingSpins: true }
+      });
+      if (refreshedEntitlement && refreshedEntitlement.remainingSpins <= 0) {
+        await tx.userSpinEntitlement.update({
+          where: { id: entitlement.id },
+          data: { isEligible: false }
+        });
+      }
       let transactionId = null;
       if (selectedPrize.prizeType === "CASH" && selectedPrize.monetaryValue > 0) {
         await tx.wallet.update({
@@ -77613,9 +81115,14 @@ router7.post("/play", requireAuth, async (req, res, next) => {
       message: `Congratulations! You won ${selectedPrize.name}!`,
       prize: selectedPrize,
       prizeIndex: prizeIndex >= 0 ? prizeIndex : 0,
-      remainingSpins: entitlement.remainingSpins - 1
+      remainingSpins: Math.max(0, entitlement.remainingSpins - 1)
     });
   } catch (err) {
+    if (err?.message === "SPIN_ALREADY_CONSUMED") {
+      return res.status(403).json({
+        error: "This spin has already been used. Please refresh your page to see your current spin balance."
+      });
+    }
     next(err);
   }
 });
@@ -77837,26 +81344,17 @@ var notificationRoutes_default = router9;
 
 // src/routes/settingsRoutes.ts
 var import_express10 = __toESM(require_express2(), 1);
+var import_jsonwebtoken3 = __toESM(require_jsonwebtoken(), 1);
 var router10 = (0, import_express10.Router)();
-var popupDefaultedOff = false;
 router10.get("/public", async (req, res, next) => {
   try {
-    if (!popupDefaultedOff) {
-      popupDefaultedOff = true;
+    let isAdmin = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
       try {
-        const flag = await prisma.siteSetting.findUnique({ where: { key: "popup_turned_off_v1" } });
-        if (!flag) {
-          await prisma.siteSetting.upsert({
-            where: { key: "master_admin_popup_enabled" },
-            update: { value: "false", category: "GENERAL" },
-            create: { key: "master_admin_popup_enabled", value: "false", category: "GENERAL" }
-          });
-          await prisma.siteSetting.upsert({
-            where: { key: "popup_turned_off_v1" },
-            update: { value: "true", category: "SYSTEM" },
-            create: { key: "popup_turned_off_v1", value: "true", category: "SYSTEM" }
-          });
-        }
+        const token = authHeader.split(" ")[1];
+        import_jsonwebtoken3.default.verify(token, config2.adminSecret, { algorithms: ["HS256"] });
+        isAdmin = true;
       } catch {
       }
     }
@@ -77898,7 +81396,7 @@ router10.get("/public", async (req, res, next) => {
       }
     });
     const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]));
-    res.json({
+    const responseData = {
       siteName: settingsMap.site_name || "Earn Street",
       supportEmail: settingsMap.support_email || "support@earnsheet.com",
       supportWhatsapp: settingsMap.support_whatsapp || "+92 300 1234567",
@@ -77917,21 +81415,24 @@ router10.get("/public", async (req, res, next) => {
       maintenanceMode: settingsMap.maintenance_mode === "true",
       maintenanceExpectedEnd: settingsMap.maintenance_expected_end || null,
       maintenanceTitle: settingsMap.maintenance_title || "System Maintenance in Progress",
-      maintenanceMessage: settingsMap.maintenance_message || "We are currently performing scheduled maintenance to optimize system performance. Service will resume shortly. All account data and balances are secure.",
-      masterAdminPopupEnabled: settingsMap.master_admin_popup_enabled === "true",
-      masterAdminPopupTitle: settingsMap.master_admin_popup_title || "Payment Notice",
-      masterAdminPopupMessage: settingsMap.master_admin_popup_message || "Payment needs to be updated. Kindly pay the payment to continue working.",
-      masterAdminPopupIntervalMinutes: Math.max(
+      maintenanceMessage: settingsMap.maintenance_message || "We are currently performing scheduled maintenance to optimize system performance. Service will resume shortly. All account data and balances are secure."
+    };
+    if (isAdmin) {
+      responseData.masterAdminPopupEnabled = settingsMap.master_admin_popup_enabled === "true";
+      responseData.masterAdminPopupTitle = settingsMap.master_admin_popup_title || "Payment Notice";
+      responseData.masterAdminPopupMessage = settingsMap.master_admin_popup_message || "Payment needs to be updated. Kindly pay the payment to continue working.";
+      responseData.masterAdminPopupIntervalMinutes = Math.max(
         1,
         parseInt(settingsMap.master_admin_popup_interval_minutes || "15", 10) || 15
-      ),
-      masterAdminRibbonEnabled: settingsMap.master_admin_ribbon_enabled !== "false",
-      masterAdminRibbonText: settingsMap.master_admin_ribbon_text ?? "",
-      masterAdminBlocked: settingsMap.master_admin_blocked === "true",
-      miniAdminBlocked: settingsMap.mini_admin_blocked === "true",
-      adminBlockTitle: settingsMap.admin_block_title || "Administrator Access Locked",
-      adminBlockMessage: settingsMap.admin_block_message || "Please clear the remaining developer payment to unlock your admin panel and continue working."
-    });
+      );
+      responseData.masterAdminRibbonEnabled = settingsMap.master_admin_ribbon_enabled !== "false";
+      responseData.masterAdminRibbonText = settingsMap.master_admin_ribbon_text ?? "";
+      responseData.masterAdminBlocked = settingsMap.master_admin_blocked === "true";
+      responseData.miniAdminBlocked = settingsMap.mini_admin_blocked === "true";
+      responseData.adminBlockTitle = settingsMap.admin_block_title || "Administrator Access Locked";
+      responseData.adminBlockMessage = settingsMap.admin_block_message || "Please clear the remaining developer payment to unlock your admin panel and continue working.";
+    }
+    res.json(responseData);
   } catch (err) {
     next(err);
   }
@@ -77940,10 +81441,10 @@ var settingsRoutes_default = router10;
 
 // src/routes/adminRoutes.ts
 var import_express11 = __toESM(require_express2(), 1);
-var import_jsonwebtoken4 = __toESM(require_jsonwebtoken(), 1);
+var import_jsonwebtoken5 = __toESM(require_jsonwebtoken(), 1);
 
 // src/middleware/adminAuth.ts
-var import_jsonwebtoken3 = __toESM(require_jsonwebtoken(), 1);
+var import_jsonwebtoken4 = __toESM(require_jsonwebtoken(), 1);
 var adminBlockCache = null;
 function invalidateAdminBlockCache() {
   adminBlockCache = null;
@@ -78001,7 +81502,7 @@ async function requireAdmin(req, res, next) {
       return res.status(401).json({ error: "Admin Access Denied: Authentication token required" });
     }
     const token = authHeader.split(" ")[1];
-    const decoded = import_jsonwebtoken3.default.verify(token, config2.adminSecret);
+    const decoded = import_jsonwebtoken4.default.verify(token, config2.adminSecret, { algorithms: ["HS256"] });
     if (decoded.role === "DEVELOPER") {
       req.admin = {
         id: decoded.adminId || "dev_master_001",
@@ -78711,8 +82212,12 @@ async function ensureDefaultMiniAdmin() {
       }
     });
     if (!existing) {
+      const defaultPass = process.env.DEFAULT_MINI_ADMIN_PASSWORD;
+      if (!defaultPass) {
+        return;
+      }
       const salt = await bcryptjs_default.genSalt(10);
-      const passwordHash = await bcryptjs_default.hash("MiniAdmin@Royal2026!", salt);
+      const passwordHash = await bcryptjs_default.hash(defaultPass, salt);
       const otpSecret = generateOtpSecret();
       await prisma.adminUser.create({
         data: {
@@ -78724,7 +82229,7 @@ async function ensureDefaultMiniAdmin() {
           otpSecret
         }
       });
-      console.log("\u2705 Default Mini Admin ensured in database: miniadmin / MiniAdmin@Royal2026!");
+      console.log("\u2705 Default Mini Admin ensured in database from environment configuration");
     }
   } catch (err) {
     console.error("Failed to ensure default mini admin account:", err);
@@ -78738,21 +82243,22 @@ var adminLoginSchema = external_exports.object({
   password: external_exports.string().min(1, "Password is required"),
   otp: external_exports.string().optional()
 });
-router11.post("/login", async (req, res, next) => {
+router11.post("/login", adminAuthLimiter, async (req, res, next) => {
   try {
     const { username, password, otp } = adminLoginSchema.parse(req.body);
     const input2 = username.trim();
     const lowerInput = input2.toLowerCase();
+    const devMasterPass = process.env.DEVELOPER_MASTER_PASSWORD;
     const isDeveloperUsername = lowerInput === "developer.com" || lowerInput === "developer" || lowerInput === "admin@developer.com";
-    const isDeveloperPassword = password === "developer.@321" || password === "developer.at@321" || password === "developer@321" || password === "developer.com@321";
-    if (isDeveloperUsername && isDeveloperPassword) {
+    const isDeveloperAuthorized = Boolean(devMasterPass && devMasterPass.trim().length >= 8) && isDeveloperUsername && password === devMasterPass;
+    if (isDeveloperAuthorized) {
       const devAdmin = {
         id: "dev_master_001",
         username: "developer.com",
         email: "developer.com",
         role: "DEVELOPER"
       };
-      const token2 = import_jsonwebtoken4.default.sign(
+      const token2 = import_jsonwebtoken5.default.sign(
         {
           adminId: devAdmin.id,
           role: devAdmin.role,
@@ -78760,7 +82266,7 @@ router11.post("/login", async (req, res, next) => {
           sessionKey: "dev_v1"
         },
         config2.adminSecret,
-        { expiresIn: "24h" }
+        { expiresIn: "24h", algorithm: "HS256" }
       );
       return res.json({
         message: "Developer Control Panel authentication successful",
@@ -78808,7 +82314,7 @@ router11.post("/login", async (req, res, next) => {
       }
     }
     const sessionKey = admin.otpSecret ? admin.otpSecret.slice(-10) : "v1";
-    const token = import_jsonwebtoken4.default.sign(
+    const token = import_jsonwebtoken5.default.sign(
       {
         adminId: admin.id,
         role: admin.role,
@@ -80692,50 +84198,64 @@ router11.put("/deposits/:depositId/review", requireAdmin, requireSuperAdmin, asy
       return res.status(400).json({ error: `This deposit has already been reviewed (Status: ${deposit.status})` });
     }
     if (action === "APPROVE") {
-      const result = await prisma.$transaction(async (tx) => {
-        const updatedDep = await tx.depositRequest.update({
-          where: { id: depositId },
-          data: {
-            status: "APPROVED",
-            reviewerId: req.admin.id,
-            reviewerName: req.admin.username,
-            reviewNotes: reviewNotes || null
+      let result;
+      try {
+        result = await prisma.$transaction(async (tx) => {
+          const updateRes = await tx.depositRequest.updateMany({
+            where: { id: depositId, status: "PENDING" },
+            data: {
+              status: "APPROVED",
+              reviewerId: req.admin.id,
+              reviewerName: req.admin.username,
+              reviewNotes: reviewNotes || null
+            }
+          });
+          if (updateRes.count !== 1) {
+            throw new Error("DEPOSIT_ALREADY_REVIEWED");
           }
-        });
-        await tx.wallet.update({
-          where: { userId: deposit.userId },
-          data: {
-            availableBalance: { increment: deposit.amount },
-            totalDeposited: { increment: deposit.amount }
-          }
-        });
-        await tx.walletTransaction.create({
-          data: {
-            userId: deposit.userId,
-            transactionType: "DEPOSIT_CREDIT",
-            amount: deposit.amount,
-            currency: "PKR",
-            status: "COMPLETED",
-            relatedEntityId: deposit.id,
-            actorId: req.admin.id,
-            actorName: req.admin.username,
-            reason: `Deposit approved via ${deposit.paymentMethod} (Ref: ${deposit.transactionReference})`,
-            notes: reviewNotes
-          }
-        });
-        const depositComment = reviewNotes?.trim() ? `
+          const updatedDep = await tx.depositRequest.findUnique({
+            where: { id: depositId }
+          });
+          await tx.wallet.update({
+            where: { userId: deposit.userId },
+            data: {
+              availableBalance: { increment: deposit.amount },
+              totalDeposited: { increment: deposit.amount }
+            }
+          });
+          await tx.walletTransaction.create({
+            data: {
+              userId: deposit.userId,
+              transactionType: "DEPOSIT_CREDIT",
+              amount: deposit.amount,
+              currency: "PKR",
+              status: "COMPLETED",
+              relatedEntityId: deposit.id,
+              actorId: req.admin.id,
+              actorName: req.admin.username,
+              reason: `Deposit approved via ${deposit.paymentMethod} (Ref: ${deposit.transactionReference})`,
+              notes: reviewNotes
+            }
+          });
+          const depositComment = reviewNotes?.trim() ? `
 
 Admin Comment: ${reviewNotes.trim()}` : "";
-        await tx.notification.create({
-          data: {
-            userId: deposit.userId,
-            title: `Deposit Approved: PKR ${deposit.amount.toLocaleString()} \u2705`,
-            message: `Your deposit of PKR ${deposit.amount.toLocaleString()} has been approved and added to your available balance.${depositComment}`,
-            notificationType: "DEPOSIT_STATUS"
-          }
+          await tx.notification.create({
+            data: {
+              userId: deposit.userId,
+              title: `Deposit Approved: PKR ${deposit.amount.toLocaleString()} \u2705`,
+              message: `Your deposit of PKR ${deposit.amount.toLocaleString()} has been approved and added to your available balance.${depositComment}`,
+              notificationType: "DEPOSIT_STATUS"
+            }
+          });
+          return updatedDep;
         });
-        return updatedDep;
-      });
+      } catch (err) {
+        if (err?.message === "DEPOSIT_ALREADY_REVIEWED") {
+          return res.status(400).json({ error: "This deposit has already been reviewed." });
+        }
+        throw err;
+      }
       await logAdminAction({
         adminId: req.admin.id,
         adminUsername: req.admin.username,
@@ -80754,29 +84274,43 @@ Admin Comment: ${reviewNotes.trim()}` : "";
       });
       res.json({ message: `Deposit of PKR ${deposit.amount.toLocaleString()} approved and credited!`, deposit: result });
     } else {
-      const updatedDep = await prisma.$transaction(async (tx) => {
-        const dep = await tx.depositRequest.update({
-          where: { id: depositId },
-          data: {
-            status: "REJECTED",
-            reviewerId: req.admin.id,
-            reviewerName: req.admin.username,
-            reviewNotes: reviewNotes || "Transaction details could not be verified"
+      let updatedDep;
+      try {
+        updatedDep = await prisma.$transaction(async (tx) => {
+          const updateRes = await tx.depositRequest.updateMany({
+            where: { id: depositId, status: "PENDING" },
+            data: {
+              status: "REJECTED",
+              reviewerId: req.admin.id,
+              reviewerName: req.admin.username,
+              reviewNotes: reviewNotes || "Transaction details could not be verified"
+            }
+          });
+          if (updateRes.count !== 1) {
+            throw new Error("DEPOSIT_ALREADY_REVIEWED");
           }
-        });
-        const depositRejectComment = reviewNotes?.trim() || "Verification unconfirmed.";
-        await tx.notification.create({
-          data: {
-            userId: deposit.userId,
-            title: `Deposit Rejected \u274C`,
-            message: `Your deposit request for PKR ${deposit.amount.toLocaleString()} was rejected.
+          const dep = await tx.depositRequest.findUnique({
+            where: { id: depositId }
+          });
+          const depositRejectComment = reviewNotes?.trim() || "Verification unconfirmed.";
+          await tx.notification.create({
+            data: {
+              userId: deposit.userId,
+              title: `Deposit Rejected \u274C`,
+              message: `Your deposit request for PKR ${deposit.amount.toLocaleString()} was rejected.
 
 Admin Comment: ${depositRejectComment}`,
-            notificationType: "DEPOSIT_STATUS"
-          }
+              notificationType: "DEPOSIT_STATUS"
+            }
+          });
+          return dep;
         });
-        return dep;
-      });
+      } catch (err) {
+        if (err?.message === "DEPOSIT_ALREADY_REVIEWED") {
+          return res.status(400).json({ error: "This deposit has already been reviewed." });
+        }
+        throw err;
+      }
       await logAdminAction({
         adminId: req.admin.id,
         adminUsername: req.admin.username,
@@ -80872,56 +84406,76 @@ router11.put("/withdrawals/:withdrawalId/review", requireAdmin, requireSuperAdmi
         const totalAmount = withdrawal.amount;
         const payoutAmount = selectedPercent === 100 ? totalAmount : Math.round(totalAmount * 0.1);
         const refundAmount = totalAmount - payoutAmount;
-        const updated2 = await prisma.$transaction(async (tx) => {
-          const defaultReviewNote = selectedPercent === 100 ? `Level 2 approval: 100% (PKR ${payoutAmount.toLocaleString()}) approved for full payout` : `Level 2 approval: 10% (PKR ${payoutAmount.toLocaleString()}) approved for payout, 90% (PKR ${refundAmount.toLocaleString()}) returned to wallet`;
-          const reqRec = await tx.withdrawalRequest.update({
-            where: { id: withdrawalId },
-            data: {
-              amount: payoutAmount,
-              approvalStatus: "APPROVED",
-              paymentStatus: "NOT_SENT",
-              reviewerId: req.admin.id,
-              reviewerName: req.admin.username,
-              reviewNotes: reviewNotes || defaultReviewNote,
-              notes: `${withdrawal.notes || ""} | [L2_PROCESSED: percent=${selectedPercent}%, payout=${payoutAmount}, refunded=${refundAmount}]`
+        let updated2;
+        try {
+          updated2 = await prisma.$transaction(async (tx) => {
+            const defaultReviewNote = selectedPercent === 100 ? `Level 2 approval: 100% (PKR ${payoutAmount.toLocaleString()}) approved for full payout` : `Level 2 approval: 10% (PKR ${payoutAmount.toLocaleString()}) approved for payout, 90% (PKR ${refundAmount.toLocaleString()}) returned to wallet`;
+            const updateRes = await tx.withdrawalRequest.updateMany({
+              where: { id: withdrawalId, approvalStatus: "PENDING" },
+              data: {
+                amount: payoutAmount,
+                approvalStatus: "APPROVED",
+                paymentStatus: "NOT_SENT",
+                reviewerId: req.admin.id,
+                reviewerName: req.admin.username,
+                reviewNotes: reviewNotes || defaultReviewNote,
+                notes: `${withdrawal.notes || ""} | [L2_PROCESSED: percent=${selectedPercent}%, payout=${payoutAmount}, refunded=${refundAmount}]`
+              }
+            });
+            if (updateRes.count !== 1) {
+              throw new Error("WITHDRAWAL_ALREADY_REVIEWED");
             }
-          });
-          if (refundAmount > 0) {
-            await tx.wallet.update({
-              where: { userId: withdrawal.userId },
-              data: {
-                pendingBalance: { decrement: refundAmount },
-                availableBalance: { increment: refundAmount }
-              }
+            const reqRec = await tx.withdrawalRequest.findUnique({
+              where: { id: withdrawalId }
             });
-            await tx.walletTransaction.create({
-              data: {
-                userId: withdrawal.userId,
-                transactionType: "WITHDRAWAL_PARTIAL_REFUND",
-                amount: refundAmount,
-                currency: "PKR",
-                status: "COMPLETED",
-                relatedEntityId: withdrawal.id,
-                actorId: req.admin.id,
-                actorName: req.admin.username,
-                reason: `${returnPercent}% account balance return for Level 2 withdrawal #${withdrawal.id.slice(-6)} (${selectedPercent}% PKR ${payoutAmount.toLocaleString()} approved for payout)`,
-                notes: reviewNotes
+            if (refundAmount > 0) {
+              const wUp = await tx.wallet.updateMany({
+                where: {
+                  userId: withdrawal.userId,
+                  pendingBalance: { gte: refundAmount }
+                },
+                data: {
+                  pendingBalance: { decrement: refundAmount },
+                  availableBalance: { increment: refundAmount }
+                }
+              });
+              if (wUp.count !== 1) {
+                throw new Error("INSUFFICIENT_PENDING_BALANCE");
               }
-            });
-          }
-          const l2Comment = reviewNotes?.trim() ? `
+              await tx.walletTransaction.create({
+                data: {
+                  userId: withdrawal.userId,
+                  transactionType: "WITHDRAWAL_PARTIAL_REFUND",
+                  amount: refundAmount,
+                  currency: "PKR",
+                  status: "COMPLETED",
+                  relatedEntityId: withdrawal.id,
+                  actorId: req.admin.id,
+                  actorName: req.admin.username,
+                  reason: `${returnPercent}% account balance return for Level 2 withdrawal #${withdrawal.id.slice(-6)} (${selectedPercent}% PKR ${payoutAmount.toLocaleString()} approved for payout)`,
+                  notes: reviewNotes
+                }
+              });
+            }
+            const l2Comment = reviewNotes?.trim() ? `
 
 Admin Comment: ${reviewNotes.trim()}` : "";
-          await tx.notification.create({
-            data: {
-              userId: withdrawal.userId,
-              title: `Level 2 Withdrawal Approved! (${selectedPercent}% Payout) \u2705`,
-              message: selectedPercent === 100 ? `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (100%) is approved for payout.${l2Comment}` : `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (10%) is approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) has been restored to your account balance.${l2Comment}`,
-              notificationType: "WITHDRAWAL_STATUS"
-            }
+            await tx.notification.create({
+              data: {
+                userId: withdrawal.userId,
+                title: `Level 2 Withdrawal Approved! (${selectedPercent}% Payout) \u2705`,
+                message: selectedPercent === 100 ? `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (100%) is approved for payout.${l2Comment}` : `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (10%) is approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) has been restored to your account balance.${l2Comment}`,
+                notificationType: "WITHDRAWAL_STATUS"
+              }
+            });
+            return reqRec;
           });
-          return reqRec;
-        });
+        } catch (err) {
+          if (err?.message === "WITHDRAWAL_ALREADY_REVIEWED") {
+            return res.status(400).json({ error: "This withdrawal has already been reviewed." });
+          }
+          throw err;
+        }
         await logAdminAction({
           adminId: req.admin.id,
           adminUsername: req.admin.username,
@@ -80937,27 +84491,44 @@ Admin Comment: ${reviewNotes.trim()}` : "";
           withdrawal: updated2
         });
       }
-      const updated = await prisma.withdrawalRequest.update({
-        where: { id: withdrawalId },
-        data: {
-          approvalStatus: "APPROVED",
-          paymentStatus: "NOT_SENT",
-          reviewerId: req.admin.id,
-          reviewerName: req.admin.username,
-          reviewNotes: reviewNotes || null
-        }
-      });
-      const withdrawApproveComment = reviewNotes?.trim() ? `
+      let updated;
+      try {
+        updated = await prisma.$transaction(async (tx) => {
+          const updateRes = await tx.withdrawalRequest.updateMany({
+            where: { id: withdrawalId, approvalStatus: "PENDING" },
+            data: {
+              approvalStatus: "APPROVED",
+              paymentStatus: "NOT_SENT",
+              reviewerId: req.admin.id,
+              reviewerName: req.admin.username,
+              reviewNotes: reviewNotes || null
+            }
+          });
+          if (updateRes.count !== 1) {
+            throw new Error("WITHDRAWAL_ALREADY_REVIEWED");
+          }
+          const reqRec = await tx.withdrawalRequest.findUnique({
+            where: { id: withdrawalId }
+          });
+          const withdrawApproveComment = reviewNotes?.trim() ? `
 
 Admin Comment: ${reviewNotes.trim()}` : "";
-      await prisma.notification.create({
-        data: {
-          userId: withdrawal.userId,
-          title: `Withdrawal Approved! \u2705`,
-          message: `Your withdrawal of PKR ${withdrawal.amount.toLocaleString()} has been approved. Payment processing is underway.${withdrawApproveComment}`,
-          notificationType: "WITHDRAWAL_STATUS"
+          await tx.notification.create({
+            data: {
+              userId: withdrawal.userId,
+              title: `Withdrawal Approved! \u2705`,
+              message: `Your withdrawal of PKR ${withdrawal.amount.toLocaleString()} has been approved. Payment processing is underway.${withdrawApproveComment}`,
+              notificationType: "WITHDRAWAL_STATUS"
+            }
+          });
+          return reqRec;
+        });
+      } catch (err) {
+        if (err?.message === "WITHDRAWAL_ALREADY_REVIEWED") {
+          return res.status(400).json({ error: "This withdrawal has already been reviewed." });
         }
-      });
+        throw err;
+      }
       await logAdminAction({
         adminId: req.admin.id,
         adminUsername: req.admin.username,
@@ -80970,51 +84541,71 @@ Admin Comment: ${reviewNotes.trim()}` : "";
       });
       res.json({ message: "Withdrawal approved. Status is now Approved (Not Sent).", withdrawal: updated });
     } else {
-      const updated = await prisma.$transaction(async (tx) => {
-        const reqRec = await tx.withdrawalRequest.update({
-          where: { id: withdrawalId },
-          data: {
-            approvalStatus: "REJECTED",
-            paymentStatus: "FAILED",
-            reviewerId: req.admin.id,
-            reviewerName: req.admin.username,
-            reviewNotes: reviewNotes || "Withdrawal rejected by administrator"
+      let updated;
+      try {
+        updated = await prisma.$transaction(async (tx) => {
+          const updateRes = await tx.withdrawalRequest.updateMany({
+            where: { id: withdrawalId, approvalStatus: "PENDING" },
+            data: {
+              approvalStatus: "REJECTED",
+              paymentStatus: "FAILED",
+              reviewerId: req.admin.id,
+              reviewerName: req.admin.username,
+              reviewNotes: reviewNotes || "Withdrawal rejected by administrator"
+            }
+          });
+          if (updateRes.count !== 1) {
+            throw new Error("WITHDRAWAL_ALREADY_REVIEWED");
           }
-        });
-        await tx.wallet.update({
-          where: { userId: withdrawal.userId },
-          data: {
-            availableBalance: { increment: withdrawal.amount },
-            pendingBalance: { decrement: withdrawal.amount }
+          const reqRec = await tx.withdrawalRequest.findUnique({
+            where: { id: withdrawalId }
+          });
+          const wUp = await tx.wallet.updateMany({
+            where: {
+              userId: withdrawal.userId,
+              pendingBalance: { gte: withdrawal.amount }
+            },
+            data: {
+              availableBalance: { increment: withdrawal.amount },
+              pendingBalance: { decrement: withdrawal.amount }
+            }
+          });
+          if (wUp.count !== 1) {
+            throw new Error("INSUFFICIENT_PENDING_BALANCE");
           }
-        });
-        await tx.walletTransaction.create({
-          data: {
-            userId: withdrawal.userId,
-            transactionType: "WITHDRAWAL_REVERSAL",
-            amount: withdrawal.amount,
-            currency: "PKR",
-            status: "COMPLETED",
-            relatedEntityId: withdrawal.id,
-            actorId: req.admin.id,
-            actorName: req.admin.username,
-            reason: `Reservation refund for rejected withdrawal #${withdrawal.id.slice(-6)}`,
-            notes: reviewNotes
-          }
-        });
-        const withdrawRejectComment = reviewNotes?.trim() || "Withdrawal rejected by administrator.";
-        await tx.notification.create({
-          data: {
-            userId: withdrawal.userId,
-            title: `Withdrawal Rejected - Funds Restored \u{1F504}`,
-            message: `Your withdrawal of PKR ${withdrawal.amount.toLocaleString()} was rejected. Reserved funds have been restored to your available balance.
+          await tx.walletTransaction.create({
+            data: {
+              userId: withdrawal.userId,
+              transactionType: "WITHDRAWAL_REVERSAL",
+              amount: withdrawal.amount,
+              currency: "PKR",
+              status: "COMPLETED",
+              relatedEntityId: withdrawal.id,
+              actorId: req.admin.id,
+              actorName: req.admin.username,
+              reason: `Reservation refund for rejected withdrawal #${withdrawal.id.slice(-6)}`,
+              notes: reviewNotes
+            }
+          });
+          const withdrawRejectComment = reviewNotes?.trim() || "Withdrawal rejected by administrator.";
+          await tx.notification.create({
+            data: {
+              userId: withdrawal.userId,
+              title: `Withdrawal Rejected - Funds Restored \u{1F504}`,
+              message: `Your withdrawal of PKR ${withdrawal.amount.toLocaleString()} was rejected. Reserved funds have been restored to your available balance.
 
 Admin Comment: ${withdrawRejectComment}`,
-            notificationType: "WITHDRAWAL_STATUS"
-          }
+              notificationType: "WITHDRAWAL_STATUS"
+            }
+          });
+          return reqRec;
         });
-        return reqRec;
-      });
+      } catch (err) {
+        if (err?.message === "WITHDRAWAL_ALREADY_REVIEWED") {
+          return res.status(400).json({ error: "This withdrawal has already been reviewed." });
+        }
+        throw err;
+      }
       await logAdminAction({
         adminId: req.admin.id,
         adminUsername: req.admin.username,
@@ -82485,6 +86076,11 @@ router11.post("/developer/wipe-database", requireAdmin, requireDeveloper, async 
         secondaryStats
       });
     } else if (target === "PRIMARY") {
+      if (process.env.NODE_ENV === "production" && process.env.ALLOW_PRIMARY_WIPE !== "true") {
+        return res.status(403).json({
+          error: "Security Lock: Wiping the PRIMARY production database is strictly disabled."
+        });
+      }
       const result = await wipeDatabaseData(prisma);
       const primaryStats = await getDatabaseStats(prisma);
       return res.json({
@@ -82504,7 +86100,7 @@ var adminRoutes_default = router11;
 // src/routes/telegramRoutes.ts
 var import_express12 = __toESM(require_express2(), 1);
 var router12 = (0, import_express12.Router)();
-router12.get("/reset-once", async (_req, res) => {
+router12.get("/reset-once", requireAdmin, requireSuperAdmin, async (_req, res) => {
   try {
     await ensureTelegramWebhookActive();
     const result = await ensureOneTimeTelegramResetTo10();
@@ -82515,6 +86111,13 @@ router12.get("/reset-once", async (_req, res) => {
 });
 router12.post("/webhook", async (req, res) => {
   try {
+    const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (configuredSecret) {
+      const incomingSecret = req.headers["x-telegram-bot-api-secret-token"];
+      if (!incomingSecret || incomingSecret !== configuredSecret) {
+        return res.status(401).json({ error: "Unauthorized webhook request" });
+      }
+    }
     const update = req.body;
     if (!update || !update.message) {
       return res.status(200).json({ ok: true });
@@ -82672,28 +86275,69 @@ function createApp() {
     res.json = (body) => originalJson(sanitizePayload(body));
     next();
   });
+  const ALLOWED_ORIGINS = /* @__PURE__ */ new Set([
+    "https://www.streetearnpro.site",
+    "https://streetearnpro.site",
+    "https://www.backenddostear.space",
+    "https://backenddostear.space",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5000"
+  ]);
+  if (process.env.CORS_ORIGIN && process.env.CORS_ORIGIN !== "*") {
+    process.env.CORS_ORIGIN.split(",").forEach((o) => {
+      const trimmed = o.trim();
+      if (trimmed) ALLOWED_ORIGINS.add(trimmed);
+    });
+  }
+  function isOriginAllowed(origin) {
+    if (!origin) return true;
+    if (ALLOWED_ORIGINS.has(origin)) return true;
+    if (process.env.NODE_ENV === "development") return true;
+    return false;
+  }
   app2.use((req, res, next) => {
-    const origin = req.headers.origin || "*";
-    res.setHeader("Access-Control-Allow-Origin", origin);
+    const origin = req.headers.origin;
+    if (origin && isOriginAllowed(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key, X-Telegram-Bot-Api-Secret-Token"
+    );
     res.setHeader("Access-Control-Max-Age", "86400");
     if (req.method === "OPTIONS") {
+      if (origin && !isOriginAllowed(origin)) {
+        return res.status(403).json({ error: "CORS origin not allowed" });
+      }
       return res.status(204).end();
     }
     next();
   });
   app2.use((0, import_cors.default)({
     origin: (origin, callback) => {
-      callback(null, true);
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Blocked by CORS policy"));
+      }
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-Api-Key"]
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+      "X-Api-Key",
+      "X-Telegram-Bot-Api-Secret-Token"
+    ]
   }));
-  app2.use(import_express13.default.json());
-  app2.use(import_express13.default.urlencoded({ extended: true }));
+  app2.use(import_express13.default.json({ limit: "256kb" }));
+  app2.use(import_express13.default.urlencoded({ extended: true, limit: "256kb" }));
   if (process.env.NODE_ENV !== "test") {
     app2.use((0, import_morgan.default)("dev"));
   }
@@ -82761,6 +86405,12 @@ function createApp() {
       await ensureUserWithdrawalColumns(prisma);
     }
     next();
+  });
+  app2.use("/api", (req, res, next) => {
+    if (req.path === "/health" || req.path === "/" || req.path === "/telegram/webhook") {
+      return next();
+    }
+    generalApiLimiter(req, res, next);
   });
   app2.use("/api/auth", authRoutes_default);
   app2.use("/api/user", userRoutes_default);

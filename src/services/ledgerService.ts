@@ -104,11 +104,6 @@ export const ledgerService = {
     }
 
     return await db.$transaction(async (tx: any) => {
-      const wallet = await tx.wallet.findUnique({ where: { userId } });
-      if (!wallet || wallet.availableBalance < amount) {
-        throw new InsufficientBalanceError(`Insufficient balance. Required: PKR ${amount.toLocaleString()}, Available: PKR ${wallet?.availableBalance?.toLocaleString() || 0}`);
-      }
-
       const updateData: any = {
         availableBalance: { decrement: amount },
       };
@@ -116,10 +111,16 @@ export const ledgerService = {
         updateData.totalUnlockFees = { increment: amount };
       }
 
-      const updatedWallet = await tx.wallet.update({
-        where: { userId },
+      const updateRes = await tx.wallet.updateMany({
+        where: { userId, availableBalance: { gte: amount } },
         data: updateData,
       });
+
+      if (updateRes.count !== 1) {
+        throw new InsufficientBalanceError(`Insufficient balance. Required: PKR ${amount.toLocaleString()}`);
+      }
+
+      const updatedWallet = await tx.wallet.findUnique({ where: { userId } });
 
       const transaction = await tx.walletTransaction.create({
         data: {
@@ -146,18 +147,19 @@ export const ledgerService = {
    */
   async reserveWithdrawal(userId: string, amount: number, withdrawalRequestId: string) {
     return await prisma.$transaction(async (tx) => {
-      const wallet = await tx.wallet.findUnique({ where: { userId } });
-      if (!wallet || wallet.availableBalance < amount) {
-        throw new InsufficientBalanceError(`Insufficient available balance for withdrawal request of PKR ${amount}`);
-      }
-
-      const updatedWallet = await tx.wallet.update({
-        where: { userId },
+      const updateRes = await tx.wallet.updateMany({
+        where: { userId, availableBalance: { gte: amount } },
         data: {
           availableBalance: { decrement: amount },
           pendingBalance: { increment: amount },
         },
       });
+
+      if (updateRes.count !== 1) {
+        throw new InsufficientBalanceError(`Insufficient available balance for withdrawal request of PKR ${amount}`);
+      }
+
+      const updatedWallet = await tx.wallet.findUnique({ where: { userId } });
 
       const transaction = await tx.walletTransaction.create({
         data: {
@@ -180,13 +182,19 @@ export const ledgerService = {
    */
   async releaseWithdrawalReservation(userId: string, amount: number, withdrawalRequestId: string, adminUsername: string) {
     return await prisma.$transaction(async (tx) => {
-      const updatedWallet = await tx.wallet.update({
-        where: { userId },
+      const updateRes = await tx.wallet.updateMany({
+        where: { userId, pendingBalance: { gte: amount } },
         data: {
           availableBalance: { increment: amount },
           pendingBalance: { decrement: amount },
         },
       });
+
+      if (updateRes.count !== 1) {
+        throw new Error(`Cannot release reservation: insufficient pending balance for user ${userId}`);
+      }
+
+      const updatedWallet = await tx.wallet.findUnique({ where: { userId } });
 
       const transaction = await tx.walletTransaction.create({
         data: {
@@ -210,13 +218,19 @@ export const ledgerService = {
    */
   async finalizeWithdrawalPaid(userId: string, amount: number, withdrawalRequestId: string, adminUsername: string) {
     return await prisma.$transaction(async (tx) => {
-      const updatedWallet = await tx.wallet.update({
-        where: { userId },
+      const updateRes = await tx.wallet.updateMany({
+        where: { userId, pendingBalance: { gte: amount } },
         data: {
           pendingBalance: { decrement: amount },
           totalWithdrawn: { increment: amount },
         },
       });
+
+      if (updateRes.count !== 1) {
+        throw new Error(`Cannot finalize payout: insufficient pending balance for user ${userId}`);
+      }
+
+      const updatedWallet = await tx.wallet.findUnique({ where: { userId } });
 
       const transaction = await tx.walletTransaction.create({
         data: {

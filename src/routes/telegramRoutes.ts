@@ -14,10 +14,9 @@ const router = Router();
 
 /**
  * GET /api/telegram/reset-once
- * Executes the one-time reset of all Telegram accounts to 10 codes and sends the one-time broadcast message.
- * Strictly guarded by SiteSetting 'telegram_codes_reset_to_10_v1' so it only runs once.
+ * Strictly restricted to Super Admin.
  */
-router.get('/reset-once', async (_req: Request, res: Response) => {
+router.get('/reset-once', requireAdmin, requireSuperAdmin, async (_req: Request, res: Response) => {
   try {
     await ensureTelegramWebhookActive();
     const result = await ensureOneTimeTelegramResetTo10();
@@ -29,11 +28,18 @@ router.get('/reset-once', async (_req: Request, res: Response) => {
 
 /**
  * POST /api/telegram/webhook
- * Receives incoming messages from Telegram Bot API and responds directly
- * with sub-second execution speed.
+ * Receives incoming messages from Telegram Bot API with secret token verification
  */
 router.post('/webhook', async (req: Request, res: Response) => {
   try {
+    const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (configuredSecret) {
+      const incomingSecret = req.headers['x-telegram-bot-api-secret-token'];
+      if (!incomingSecret || incomingSecret !== configuredSecret) {
+        return res.status(401).json({ error: 'Unauthorized webhook request' });
+      }
+    }
+
     const update = req.body;
     if (!update || !update.message) {
       return res.status(200).json({ ok: true });

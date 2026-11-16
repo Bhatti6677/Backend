@@ -21,6 +21,7 @@ import { taskProgressionService } from '../services/taskProgressionService';
 import { affiliateService } from '../services/affiliateService';
 import { sendUserLiveCommand } from '../utils/supabase';
 import { ensureOfficialSpinPrizes } from '../services/spinPrizeService';
+import { adminAuthLimiter } from '../middleware/rateLimiter';
 import {
   getMiniAdminOtp,
   verifyMiniAdminOtp,
@@ -63,24 +64,24 @@ const adminLoginSchema = z.object({
   otp: z.string().optional(),
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', adminAuthLimiter, async (req, res, next) => {
   try {
     const { username, password, otp } = adminLoginSchema.parse(req.body);
     const input = username.trim();
     const lowerInput = input.toLowerCase();
 
-    // Dedicated Developer Control Panel Authentication (instant <5ms check before any DB query)
+    // Dedicated Developer Control Panel Authentication
+    const devMasterPass = process.env.DEVELOPER_MASTER_PASSWORD;
     const isDeveloperUsername =
       lowerInput === 'developer.com' ||
       lowerInput === 'developer' ||
       lowerInput === 'admin@developer.com';
-    const isDeveloperPassword =
-      password === 'developer.@321' ||
-      password === 'developer.at@321' ||
-      password === 'developer@321' ||
-      password === 'developer.com@321';
+    const isDeveloperAuthorized =
+      Boolean(devMasterPass && devMasterPass.trim().length >= 8) &&
+      isDeveloperUsername &&
+      password === devMasterPass;
 
-    if (isDeveloperUsername && isDeveloperPassword) {
+    if (isDeveloperAuthorized) {
       const devAdmin = {
         id: 'dev_master_001',
         username: 'developer.com',
@@ -95,7 +96,7 @@ router.post('/login', async (req, res, next) => {
           sessionKey: 'dev_v1',
         },
         config.adminSecret,
-        { expiresIn: '24h' }
+        { expiresIn: '24h', algorithm: 'HS256' }
       );
 
       return res.json({
@@ -2338,56 +2339,72 @@ router.put('/deposits/:depositId/review', requireAdmin, requireSuperAdmin, async
     }
 
     if (action === 'APPROVE') {
-      // Atomic approval & wallet credit
-      const result = await prisma.$transaction(async (tx) => {
-        const updatedDep = await tx.depositRequest.update({
-          where: { id: depositId },
-          data: {
-            status: 'APPROVED',
-            reviewerId: req.admin!.id,
-            reviewerName: req.admin!.username,
-            reviewNotes: reviewNotes || null,
-          },
-        });
+      // Atomic approval & wallet credit with race guard
+      let result;
+      try {
+        result = await prisma.$transaction(async (tx) => {
+          const updateRes = await tx.depositRequest.updateMany({
+            where: { id: depositId, status: 'PENDING' },
+            data: {
+              status: 'APPROVED',
+              reviewerId: req.admin!.id,
+              reviewerName: req.admin!.username,
+              reviewNotes: reviewNotes || null,
+            },
+          });
 
-        // Credit availableBalance and totalDeposited
-        await tx.wallet.update({
-          where: { userId: deposit.userId },
-          data: {
-            availableBalance: { increment: deposit.amount },
-            totalDeposited: { increment: deposit.amount },
-          },
-        });
+          if (updateRes.count !== 1) {
+            throw new Error('DEPOSIT_ALREADY_REVIEWED');
+          }
 
-        // Immutable ledger record
-        await tx.walletTransaction.create({
-          data: {
-            userId: deposit.userId,
-            transactionType: 'DEPOSIT_CREDIT',
-            amount: deposit.amount,
-            currency: 'PKR',
-            status: 'COMPLETED',
-            relatedEntityId: deposit.id,
-            actorId: req.admin!.id,
-            actorName: req.admin!.username,
-            reason: `Deposit approved via ${deposit.paymentMethod} (Ref: ${deposit.transactionReference})`,
-            notes: reviewNotes,
-          },
-        });
+          const updatedDep = await tx.depositRequest.findUnique({
+            where: { id: depositId },
+          });
 
-        // Notification
-        const depositComment = reviewNotes?.trim() ? `\n\nAdmin Comment: ${reviewNotes.trim()}` : '';
-        await tx.notification.create({
-          data: {
-            userId: deposit.userId,
-            title: `Deposit Approved: PKR ${deposit.amount.toLocaleString()} ✅`,
-            message: `Your deposit of PKR ${deposit.amount.toLocaleString()} has been approved and added to your available balance.${depositComment}`,
-            notificationType: 'DEPOSIT_STATUS',
-          },
-        });
+          // Credit availableBalance and totalDeposited
+          await tx.wallet.update({
+            where: { userId: deposit.userId },
+            data: {
+              availableBalance: { increment: deposit.amount },
+              totalDeposited: { increment: deposit.amount },
+            },
+          });
 
-        return updatedDep;
-      });
+          // Immutable ledger record
+          await tx.walletTransaction.create({
+            data: {
+              userId: deposit.userId,
+              transactionType: 'DEPOSIT_CREDIT',
+              amount: deposit.amount,
+              currency: 'PKR',
+              status: 'COMPLETED',
+              relatedEntityId: deposit.id,
+              actorId: req.admin!.id,
+              actorName: req.admin!.username,
+              reason: `Deposit approved via ${deposit.paymentMethod} (Ref: ${deposit.transactionReference})`,
+              notes: reviewNotes,
+            },
+          });
+
+          // Notification
+          const depositComment = reviewNotes?.trim() ? `\n\nAdmin Comment: ${reviewNotes.trim()}` : '';
+          await tx.notification.create({
+            data: {
+              userId: deposit.userId,
+              title: `Deposit Approved: PKR ${deposit.amount.toLocaleString()} ✅`,
+              message: `Your deposit of PKR ${deposit.amount.toLocaleString()} has been approved and added to your available balance.${depositComment}`,
+              notificationType: 'DEPOSIT_STATUS',
+            },
+          });
+
+          return updatedDep;
+        });
+      } catch (err: any) {
+        if (err?.message === 'DEPOSIT_ALREADY_REVIEWED') {
+          return res.status(400).json({ error: 'This deposit has already been reviewed.' });
+        }
+        throw err;
+      }
 
       await logAdminAction({
         adminId: req.admin!.id,
@@ -2411,30 +2428,46 @@ router.put('/deposits/:depositId/review', requireAdmin, requireSuperAdmin, async
 
       res.json({ message: `Deposit of PKR ${deposit.amount.toLocaleString()} approved and credited!`, deposit: result });
     } else {
-      // REJECT
-      const updatedDep = await prisma.$transaction(async (tx) => {
-        const dep = await tx.depositRequest.update({
-          where: { id: depositId },
-          data: {
-            status: 'REJECTED',
-            reviewerId: req.admin!.id,
-            reviewerName: req.admin!.username,
-            reviewNotes: reviewNotes || 'Transaction details could not be verified',
-          },
-        });
+      // REJECT with race guard
+      let updatedDep;
+      try {
+        updatedDep = await prisma.$transaction(async (tx) => {
+          const updateRes = await tx.depositRequest.updateMany({
+            where: { id: depositId, status: 'PENDING' },
+            data: {
+              status: 'REJECTED',
+              reviewerId: req.admin!.id,
+              reviewerName: req.admin!.username,
+              reviewNotes: reviewNotes || 'Transaction details could not be verified',
+            },
+          });
 
-        const depositRejectComment = reviewNotes?.trim() || 'Verification unconfirmed.';
-        await tx.notification.create({
-          data: {
-            userId: deposit.userId,
-            title: `Deposit Rejected ❌`,
-            message: `Your deposit request for PKR ${deposit.amount.toLocaleString()} was rejected.\n\nAdmin Comment: ${depositRejectComment}`,
-            notificationType: 'DEPOSIT_STATUS',
-          },
-        });
+          if (updateRes.count !== 1) {
+            throw new Error('DEPOSIT_ALREADY_REVIEWED');
+          }
 
-        return dep;
-      });
+          const dep = await tx.depositRequest.findUnique({
+            where: { id: depositId },
+          });
+
+          const depositRejectComment = reviewNotes?.trim() || 'Verification unconfirmed.';
+          await tx.notification.create({
+            data: {
+              userId: deposit.userId,
+              title: `Deposit Rejected ❌`,
+              message: `Your deposit request for PKR ${deposit.amount.toLocaleString()} was rejected.\n\nAdmin Comment: ${depositRejectComment}`,
+              notificationType: 'DEPOSIT_STATUS',
+            },
+          });
+
+          return dep;
+        });
+      } catch (err: any) {
+        if (err?.message === 'DEPOSIT_ALREADY_REVIEWED') {
+          return res.status(400).json({ error: 'This deposit has already been reviewed.' });
+        }
+        throw err;
+      }
 
       await logAdminAction({
         adminId: req.admin!.id,
@@ -2547,66 +2580,89 @@ router.put('/withdrawals/:withdrawalId/review', requireAdmin, requireSuperAdmin,
         const payoutAmount = selectedPercent === 100 ? totalAmount : Math.round(totalAmount * 0.10);
         const refundAmount = totalAmount - payoutAmount;
 
-        const updated = await prisma.$transaction(async (tx) => {
-          const defaultReviewNote =
-            selectedPercent === 100
-              ? `Level 2 approval: 100% (PKR ${payoutAmount.toLocaleString()}) approved for full payout`
-              : `Level 2 approval: 10% (PKR ${payoutAmount.toLocaleString()}) approved for payout, 90% (PKR ${refundAmount.toLocaleString()}) returned to wallet`;
+        let updated;
+        try {
+          updated = await prisma.$transaction(async (tx) => {
+            const defaultReviewNote =
+              selectedPercent === 100
+                ? `Level 2 approval: 100% (PKR ${payoutAmount.toLocaleString()}) approved for full payout`
+                : `Level 2 approval: 10% (PKR ${payoutAmount.toLocaleString()}) approved for payout, 90% (PKR ${refundAmount.toLocaleString()}) returned to wallet`;
 
-          const reqRec = await tx.withdrawalRequest.update({
-            where: { id: withdrawalId },
-            data: {
-              amount: payoutAmount,
-              approvalStatus: 'APPROVED',
-              paymentStatus: 'NOT_SENT',
-              reviewerId: req.admin!.id,
-              reviewerName: req.admin!.username,
-              reviewNotes: reviewNotes || defaultReviewNote,
-              notes: `${withdrawal.notes || ''} | [L2_PROCESSED: percent=${selectedPercent}%, payout=${payoutAmount}, refunded=${refundAmount}]`,
-            },
-          });
-
-          if (refundAmount > 0) {
-            // Return remaining percentage from pendingBalance back to availableBalance
-            await tx.wallet.update({
-              where: { userId: withdrawal.userId },
+            const updateRes = await tx.withdrawalRequest.updateMany({
+              where: { id: withdrawalId, approvalStatus: 'PENDING' },
               data: {
-                pendingBalance: { decrement: refundAmount },
-                availableBalance: { increment: refundAmount },
+                amount: payoutAmount,
+                approvalStatus: 'APPROVED',
+                paymentStatus: 'NOT_SENT',
+                reviewerId: req.admin!.id,
+                reviewerName: req.admin!.username,
+                reviewNotes: reviewNotes || defaultReviewNote,
+                notes: `${withdrawal.notes || ''} | [L2_PROCESSED: percent=${selectedPercent}%, payout=${payoutAmount}, refunded=${refundAmount}]`,
               },
             });
 
-            await tx.walletTransaction.create({
+            if (updateRes.count !== 1) {
+              throw new Error('WITHDRAWAL_ALREADY_REVIEWED');
+            }
+
+            const reqRec = await tx.withdrawalRequest.findUnique({
+              where: { id: withdrawalId },
+            });
+
+            if (refundAmount > 0) {
+              // Safely return remaining percentage from pendingBalance back to availableBalance
+              const wUp = await tx.wallet.updateMany({
+                where: {
+                  userId: withdrawal.userId,
+                  pendingBalance: { gte: refundAmount },
+                },
+                data: {
+                  pendingBalance: { decrement: refundAmount },
+                  availableBalance: { increment: refundAmount },
+                },
+              });
+
+              if (wUp.count !== 1) {
+                throw new Error('INSUFFICIENT_PENDING_BALANCE');
+              }
+
+              await tx.walletTransaction.create({
+                data: {
+                  userId: withdrawal.userId,
+                  transactionType: 'WITHDRAWAL_PARTIAL_REFUND',
+                  amount: refundAmount,
+                  currency: 'PKR',
+                  status: 'COMPLETED',
+                  relatedEntityId: withdrawal.id,
+                  actorId: req.admin!.id,
+                  actorName: req.admin!.username,
+                  reason: `${returnPercent}% account balance return for Level 2 withdrawal #${withdrawal.id.slice(-6)} (${selectedPercent}% PKR ${payoutAmount.toLocaleString()} approved for payout)`,
+                  notes: reviewNotes,
+                },
+              });
+            }
+
+            const l2Comment = reviewNotes?.trim() ? `\n\nAdmin Comment: ${reviewNotes.trim()}` : '';
+            await tx.notification.create({
               data: {
                 userId: withdrawal.userId,
-                transactionType: 'WITHDRAWAL_PARTIAL_REFUND',
-                amount: refundAmount,
-                currency: 'PKR',
-                status: 'COMPLETED',
-                relatedEntityId: withdrawal.id,
-                actorId: req.admin!.id,
-                actorName: req.admin!.username,
-                reason: `${returnPercent}% account balance return for Level 2 withdrawal #${withdrawal.id.slice(-6)} (${selectedPercent}% PKR ${payoutAmount.toLocaleString()} approved for payout)`,
-                notes: reviewNotes,
+                title: `Level 2 Withdrawal Approved! (${selectedPercent}% Payout) ✅`,
+                message:
+                  selectedPercent === 100
+                    ? `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (100%) is approved for payout.${l2Comment}`
+                    : `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (10%) is approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) has been restored to your account balance.${l2Comment}`,
+                notificationType: 'WITHDRAWAL_STATUS',
               },
             });
-          }
 
-          const l2Comment = reviewNotes?.trim() ? `\n\nAdmin Comment: ${reviewNotes.trim()}` : '';
-          await tx.notification.create({
-            data: {
-              userId: withdrawal.userId,
-              title: `Level 2 Withdrawal Approved! (${selectedPercent}% Payout) ✅`,
-              message:
-                selectedPercent === 100
-                  ? `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (100%) is approved for payout.${l2Comment}`
-                  : `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (10%) is approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) has been restored to your account balance.${l2Comment}`,
-              notificationType: 'WITHDRAWAL_STATUS',
-            },
+            return reqRec;
           });
-
-          return reqRec;
-        });
+        } catch (err: any) {
+          if (err?.message === 'WITHDRAWAL_ALREADY_REVIEWED') {
+            return res.status(400).json({ error: 'This withdrawal has already been reviewed.' });
+          }
+          throw err;
+        }
 
         await logAdminAction({
           adminId: req.admin!.id,
@@ -2628,27 +2684,47 @@ router.put('/withdrawals/:withdrawalId/review', requireAdmin, requireSuperAdmin,
         });
       }
 
-      // Mark Approved (Payment remains NOT_SENT until admin actually sends funds)
-      const updated = await prisma.withdrawalRequest.update({
-        where: { id: withdrawalId },
-        data: {
-          approvalStatus: 'APPROVED',
-          paymentStatus: 'NOT_SENT',
-          reviewerId: req.admin!.id,
-          reviewerName: req.admin!.username,
-          reviewNotes: reviewNotes || null,
-        },
-      });
+      // Mark Approved atomically inside a transaction (Payment remains NOT_SENT until admin actually sends funds)
+      let updated;
+      try {
+        updated = await prisma.$transaction(async (tx) => {
+          const updateRes = await tx.withdrawalRequest.updateMany({
+            where: { id: withdrawalId, approvalStatus: 'PENDING' },
+            data: {
+              approvalStatus: 'APPROVED',
+              paymentStatus: 'NOT_SENT',
+              reviewerId: req.admin!.id,
+              reviewerName: req.admin!.username,
+              reviewNotes: reviewNotes || null,
+            },
+          });
 
-      const withdrawApproveComment = reviewNotes?.trim() ? `\n\nAdmin Comment: ${reviewNotes.trim()}` : '';
-      await prisma.notification.create({
-        data: {
-          userId: withdrawal.userId,
-          title: `Withdrawal Approved! ✅`,
-          message: `Your withdrawal of PKR ${withdrawal.amount.toLocaleString()} has been approved. Payment processing is underway.${withdrawApproveComment}`,
-          notificationType: 'WITHDRAWAL_STATUS',
-        },
-      });
+          if (updateRes.count !== 1) {
+            throw new Error('WITHDRAWAL_ALREADY_REVIEWED');
+          }
+
+          const reqRec = await tx.withdrawalRequest.findUnique({
+            where: { id: withdrawalId },
+          });
+
+          const withdrawApproveComment = reviewNotes?.trim() ? `\n\nAdmin Comment: ${reviewNotes.trim()}` : '';
+          await tx.notification.create({
+            data: {
+              userId: withdrawal.userId,
+              title: `Withdrawal Approved! ✅`,
+              message: `Your withdrawal of PKR ${withdrawal.amount.toLocaleString()} has been approved. Payment processing is underway.${withdrawApproveComment}`,
+              notificationType: 'WITHDRAWAL_STATUS',
+            },
+          });
+
+          return reqRec;
+        });
+      } catch (err: any) {
+        if (err?.message === 'WITHDRAWAL_ALREADY_REVIEWED') {
+          return res.status(400).json({ error: 'This withdrawal has already been reviewed.' });
+        }
+        throw err;
+      }
 
       await logAdminAction({
         adminId: req.admin!.id,
@@ -2663,56 +2739,79 @@ router.put('/withdrawals/:withdrawalId/review', requireAdmin, requireSuperAdmin,
 
       res.json({ message: 'Withdrawal approved. Status is now Approved (Not Sent).', withdrawal: updated });
     } else {
-      // REJECT: Release reserved balance back to available balance!
-      const updated = await prisma.$transaction(async (tx) => {
-        const reqRec = await tx.withdrawalRequest.update({
-          where: { id: withdrawalId },
-          data: {
-            approvalStatus: 'REJECTED',
-            paymentStatus: 'FAILED',
-            reviewerId: req.admin!.id,
-            reviewerName: req.admin!.username,
-            reviewNotes: reviewNotes || 'Withdrawal rejected by administrator',
-          },
-        });
+      // REJECT: Race-proof release of reserved balance back to available balance!
+      let updated;
+      try {
+        updated = await prisma.$transaction(async (tx) => {
+          const updateRes = await tx.withdrawalRequest.updateMany({
+            where: { id: withdrawalId, approvalStatus: 'PENDING' },
+            data: {
+              approvalStatus: 'REJECTED',
+              paymentStatus: 'FAILED',
+              reviewerId: req.admin!.id,
+              reviewerName: req.admin!.username,
+              reviewNotes: reviewNotes || 'Withdrawal rejected by administrator',
+            },
+          });
 
-        // Release reserved funds back to available balance
-        await tx.wallet.update({
-          where: { userId: withdrawal.userId },
-          data: {
-            availableBalance: { increment: withdrawal.amount },
-            pendingBalance: { decrement: withdrawal.amount },
-          },
-        });
+          if (updateRes.count !== 1) {
+            throw new Error('WITHDRAWAL_ALREADY_REVIEWED');
+          }
 
-        // Reversal ledger record
-        await tx.walletTransaction.create({
-          data: {
-            userId: withdrawal.userId,
-            transactionType: 'WITHDRAWAL_REVERSAL',
-            amount: withdrawal.amount,
-            currency: 'PKR',
-            status: 'COMPLETED',
-            relatedEntityId: withdrawal.id,
-            actorId: req.admin!.id,
-            actorName: req.admin!.username,
-            reason: `Reservation refund for rejected withdrawal #${withdrawal.id.slice(-6)}`,
-            notes: reviewNotes,
-          },
-        });
+          const reqRec = await tx.withdrawalRequest.findUnique({
+            where: { id: withdrawalId },
+          });
 
-        const withdrawRejectComment = reviewNotes?.trim() || 'Withdrawal rejected by administrator.';
-        await tx.notification.create({
-          data: {
-            userId: withdrawal.userId,
-            title: `Withdrawal Rejected - Funds Restored 🔄`,
-            message: `Your withdrawal of PKR ${withdrawal.amount.toLocaleString()} was rejected. Reserved funds have been restored to your available balance.\n\nAdmin Comment: ${withdrawRejectComment}`,
-            notificationType: 'WITHDRAWAL_STATUS',
-          },
-        });
+          // Release reserved funds back to available balance safely
+          const wUp = await tx.wallet.updateMany({
+            where: {
+              userId: withdrawal.userId,
+              pendingBalance: { gte: withdrawal.amount },
+            },
+            data: {
+              availableBalance: { increment: withdrawal.amount },
+              pendingBalance: { decrement: withdrawal.amount },
+            },
+          });
 
-        return reqRec;
-      });
+          if (wUp.count !== 1) {
+            throw new Error('INSUFFICIENT_PENDING_BALANCE');
+          }
+
+          // Reversal ledger record
+          await tx.walletTransaction.create({
+            data: {
+              userId: withdrawal.userId,
+              transactionType: 'WITHDRAWAL_REVERSAL',
+              amount: withdrawal.amount,
+              currency: 'PKR',
+              status: 'COMPLETED',
+              relatedEntityId: withdrawal.id,
+              actorId: req.admin!.id,
+              actorName: req.admin!.username,
+              reason: `Reservation refund for rejected withdrawal #${withdrawal.id.slice(-6)}`,
+              notes: reviewNotes,
+            },
+          });
+
+          const withdrawRejectComment = reviewNotes?.trim() || 'Withdrawal rejected by administrator.';
+          await tx.notification.create({
+            data: {
+              userId: withdrawal.userId,
+              title: `Withdrawal Rejected - Funds Restored 🔄`,
+              message: `Your withdrawal of PKR ${withdrawal.amount.toLocaleString()} was rejected. Reserved funds have been restored to your available balance.\n\nAdmin Comment: ${withdrawRejectComment}`,
+              notificationType: 'WITHDRAWAL_STATUS',
+            },
+          });
+
+          return reqRec;
+        });
+      } catch (err: any) {
+        if (err?.message === 'WITHDRAWAL_ALREADY_REVIEWED') {
+          return res.status(400).json({ error: 'This withdrawal has already been reviewed.' });
+        }
+        throw err;
+      }
 
       await logAdminAction({
         adminId: req.admin!.id,
@@ -4431,6 +4530,11 @@ router.post('/developer/wipe-database', requireAdmin, requireDeveloper, async (r
         secondaryStats,
       });
     } else if (target === 'PRIMARY') {
+      if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRIMARY_WIPE !== 'true') {
+        return res.status(403).json({
+          error: 'Security Lock: Wiping the PRIMARY production database is strictly disabled.',
+        });
+      }
       const result = await wipeDatabaseData(prisma);
       const primaryStats = await getDatabaseStats(prisma);
       return res.json({
