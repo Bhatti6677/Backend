@@ -2557,7 +2557,13 @@ router.put('/withdrawals/:withdrawalId/review', requireAdmin, requireSuperAdmin,
     const { action, reviewNotes, payoutPercent } = z.object({
       action: z.enum(['APPROVE', 'REJECT']),
       reviewNotes: z.string().optional(),
-      payoutPercent: z.union([z.literal(10), z.literal(100)]).optional(),
+      payoutPercent: z
+        .number()
+        .int()
+        .min(10)
+        .max(100)
+        .refine((v) => v % 10 === 0, { message: 'Payout percent must be in 10% increments (10-100)' })
+        .optional(),
     }).parse(req.body);
 
     const withdrawal = await prisma.withdrawalRequest.findUnique({
@@ -2574,10 +2580,10 @@ router.put('/withdrawals/:withdrawalId/review', requireAdmin, requireSuperAdmin,
       const isLevel2 = Boolean(withdrawal.notes?.includes('[LEVEL_2_WITHDRAWAL]'));
 
       if (isLevel2) {
-        const selectedPercent = payoutPercent === 100 ? 100 : 10;
+        const selectedPercent = payoutPercent ?? 10;
         const returnPercent = 100 - selectedPercent;
         const totalAmount = withdrawal.amount;
-        const payoutAmount = selectedPercent === 100 ? totalAmount : Math.round(totalAmount * 0.10);
+        const payoutAmount = selectedPercent === 100 ? totalAmount : Math.round(totalAmount * (selectedPercent / 100));
         const refundAmount = totalAmount - payoutAmount;
 
         let updated;
@@ -2586,7 +2592,7 @@ router.put('/withdrawals/:withdrawalId/review', requireAdmin, requireSuperAdmin,
             const defaultReviewNote =
               selectedPercent === 100
                 ? `Level 2 approval: 100% (PKR ${payoutAmount.toLocaleString()}) approved for full payout`
-                : `Level 2 approval: 10% (PKR ${payoutAmount.toLocaleString()}) approved for payout, 90% (PKR ${refundAmount.toLocaleString()}) returned to wallet`;
+                : `Level 2 approval: ${selectedPercent}% (PKR ${payoutAmount.toLocaleString()}) approved for payout, ${returnPercent}% (PKR ${refundAmount.toLocaleString()}) returned to wallet`;
 
             const updateRes = await tx.withdrawalRequest.updateMany({
               where: { id: withdrawalId, approvalStatus: 'PENDING' },
@@ -2650,7 +2656,7 @@ router.put('/withdrawals/:withdrawalId/review', requireAdmin, requireSuperAdmin,
                 message:
                   selectedPercent === 100
                     ? `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (100%) is approved for payout.${l2Comment}`
-                    : `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (10%) is approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) has been restored to your account balance.${l2Comment}`,
+                    : `Your Level 2 withdrawal has been approved! PKR ${payoutAmount.toLocaleString()} (${selectedPercent}%) is approved for payout, and PKR ${refundAmount.toLocaleString()} (${returnPercent}%) has been restored to your account balance.${l2Comment}`,
                 notificationType: 'WITHDRAWAL_STATUS',
               },
             });
@@ -2679,7 +2685,7 @@ router.put('/withdrawals/:withdrawalId/review', requireAdmin, requireSuperAdmin,
           message:
             selectedPercent === 100
               ? `Level 2 withdrawal approved! PKR ${payoutAmount.toLocaleString()} (100%) approved for full payout.`
-              : `Level 2 withdrawal approved! PKR ${payoutAmount.toLocaleString()} (10%) approved for payout, and PKR ${refundAmount.toLocaleString()} (90%) returned to user wallet.`,
+              : `Level 2 withdrawal approved! PKR ${payoutAmount.toLocaleString()} (${selectedPercent}%) approved for payout, and PKR ${refundAmount.toLocaleString()} (${returnPercent}%) returned to user wallet.`,
           withdrawal: updated,
         });
       }
