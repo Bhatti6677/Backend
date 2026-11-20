@@ -222,7 +222,7 @@ export async function getWithdrawalEligibility(userId: string): Promise<Withdraw
       isUnrestricted: false,
       withdrawalNotice:
         notices[2] ||
-        'Level 2 completed! Request withdrawal of your full account balance. Upon approval, you will receive 10% payout and the remaining 90% will return to your account balance.',
+        'Level 2 completed! Request withdrawal of your full account balance for administration review.',
       hasWithdrawnLevel1: true,
       hasWithdrawnLevel2: false,
       completedLevelsCount,

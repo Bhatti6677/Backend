@@ -106,7 +106,7 @@ router.post('/', financialActionLimiter, requireAuth, async (req: AuthRequest, r
       tag = '[LEVEL_2_WITHDRAWAL]';
       if (Math.abs(validated.amount - wallet.availableBalance) > 0.01) {
         return res.status(400).json({
-          error: `Level 2 completion requires requesting your total account balance of PKR ${wallet.availableBalance.toLocaleString()}. Upon approval, 10% is disbursed and 90% returns to your account.`,
+          error: `Level 2 completion requires requesting your total account balance of PKR ${wallet.availableBalance.toLocaleString()}.`,
           exactAvailable: wallet.availableBalance,
         });
       }
